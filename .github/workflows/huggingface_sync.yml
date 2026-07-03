@@ -1,0 +1,23 @@
+name: Sync to Hugging Face
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+      - name: Push to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          GIT_CURL_VERBOSE: 1
+        run: |
+          git config --global user.email "deploy@example.com"
+          git config --global user.name "Hugging Face Deploy"
+          git remote add hf https://d4r005:$HF_TOKEN@huggingface.co/spaces/d4r005/RHNAF-Industrial.git
+          git push --force hf main

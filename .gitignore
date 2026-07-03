@@ -1,0 +1,27 @@
+*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.pyc
+*.class
+out/
+
+# Android
+capture.png
+output.json
+
+# Web
+.kotlin
+node_modules/
+
+# Server
+*.log
+/server/build/
+/shared/build/
+/web/build/
+/app/build/
