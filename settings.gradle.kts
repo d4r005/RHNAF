@@ -22,7 +22,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RH NAF"
+rootProject.name = "rh-naf"
 include(":app")
 include(":server")
 include(":web")
