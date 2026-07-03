@@ -23,7 +23,9 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "rh-naf"
-include(":app")
+if (System.getenv("SKIP_ANDROID") != "true") {
+    include(":app")
+}
 include(":server")
 include(":web")
 include(":shared")

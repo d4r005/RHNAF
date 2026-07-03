@@ -13,14 +13,15 @@ COPY gradle.properties .
 COPY shared shared
 COPY server server
 COPY web web
-COPY app app
+# COPY app app (No necesario para el despliegue en HF)
 
 # Permisos para el ejecutable de Gradle
 RUN chmod +x gradlew
 
 # Construir la Web App y el Servidor
-# Usamos --no-daemon para ambientes de CI/Docker
-RUN ./gradlew :web:jsBrowserDistribution :server:installDist --no-daemon
+# SKIP_ANDROID=true evita que Gradle intente configurar el módulo Android
+# Limitamos los workers a 1 para evitar errores de memoria (OOM) en Hugging Face
+RUN SKIP_ANDROID=true ./gradlew :web:jsBrowserDistribution :server:installDist --no-daemon --max-workers=1
 
 # Etapa 2: Ejecución
 FROM eclipse-temurin:17-jre-jammy
