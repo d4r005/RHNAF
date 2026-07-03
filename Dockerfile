@@ -9,10 +9,11 @@ COPY build.gradle.kts .
 COPY settings.gradle.kts .
 COPY gradle.properties .
 
-# Copiar código fuente (incluyendo shared que es dependencia)
+# Copiar código fuente
 COPY shared shared
 COPY server server
 COPY web web
+COPY app app
 
 # Permisos para el ejecutable de Gradle
 RUN chmod +x gradlew
