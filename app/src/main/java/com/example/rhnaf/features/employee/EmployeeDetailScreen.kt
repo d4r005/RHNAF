@@ -1,26 +1,30 @@
 package com.example.rhnaf.features.employee
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.rhnaf.ui.ViewModelFactory
-import com.example.rhnaf.shared.model.Employee
 import com.example.rhnaf.shared.logic.VacationCalculator
+import com.example.rhnaf.shared.model.Employee
+import com.example.rhnaf.ui.ViewModelFactory
+import com.example.rhnaf.ui.theme.IndustrialBlue
+import com.example.rhnaf.ui.theme.IndustrialDark
+import com.example.rhnaf.ui.theme.IndustrialLight
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -40,9 +44,10 @@ fun EmployeeDetailScreen(
     }
 
     Scaffold(
+        containerColor = IndustrialLight,
         topBar = {
             TopAppBar(
-                title = { Text("Expediente: ${employee?.firstName ?: ""} ${employee?.lastName ?: ""}") },
+                title = { Text("Expediente Digital", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Regresar")
@@ -52,134 +57,120 @@ fun EmployeeDetailScreen(
                     IconButton(onClick = { /* TODO: Edit */ }) {
                         Icon(Icons.Default.Edit, contentDescription = "Editar")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White,
+                    titleContentColor = IndustrialDark
+                )
             )
         }
     ) { padding ->
         val emp = employee
         if (emp == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = IndustrialBlue)
             }
         } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .verticalScroll(rememberScrollState())
             ) {
-                // Profile Image Placeholder
-                Surface(
-                    modifier = Modifier.size(120.dp),
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.secondaryContainer
+                // Header Card
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.padding(24.dp),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(text = "${emp.firstName} ${emp.lastName}", style = MaterialTheme.typography.headlineMedium)
-                Text(text = emp.position, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.secondary)
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                DetailSection("Información Personal") {
-                    DetailItem("CURP", emp.curp ?: "N/A")
-                    DetailItem("RFC", emp.rfc ?: "N/A")
-                    DetailItem("NSS", emp.nss ?: "N/A")
-                    DetailItem("Estado Civil", emp.maritalStatus ?: "N/A")
-                }
-                
-                DetailSection("Laboral") {
-                    DetailItem("Fecha de Ingreso", emp.entryDate)
-                    DetailItem("Departamento", emp.department)
-                    DetailItem("Supervisor", emp.supervisor ?: "N/A")
-                    DetailItem("Tipo de Contrato", emp.contractType ?: "N/A")
-                }
-
-                DetailSection("Equipo y Uniformes") {
-                    if (equipment.isEmpty()) {
-                        Text("No hay equipo asignado", style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        equipment.forEach { item ->
-                            DetailItem(item.itemType, item.description)
-                        }
-                    }
-                    TextButton(onClick = { 
-                        equipmentViewModel.assignEquipment(emp.id, "Uniforme", "Playera Polo XL")
-                    }) {
-                        Text("Asignar Equipo")
-                    }
-                }
-
-                DetailSection("Evaluación de Desempeño") {
-                    if (evaluations.isEmpty()) {
-                        Text("Sin evaluaciones registradas", style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        evaluations.forEach { eval ->
-                            DetailItem("Puntuación: ${eval.score}", eval.date)
-                            Text(eval.feedback, style = MaterialTheme.typography.bodySmall)
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                        }
-                    }
-                    TextButton(onClick = { 
-                        performanceViewModel.addEvaluation(emp.id, 4.5f, "Excelente desempeño en producción.")
-                    }) {
-                        Text("Nueva Evaluación")
-                    }
-                }
-
-                DetailSection("Competencias y Certificaciones") {
-                    val comps = listOf("CTPAT", "ISO 9001", "Primeros Auxilios", "Montacargas", "Excel Avanzado")
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Column(
+                        modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        comps.forEach { comp ->
-                            SuggestionChip(
-                                onClick = { },
-                                label = { Text(comp) }
+                        Surface(
+                            modifier = Modifier.size(100.dp),
+                            shape = CircleShape,
+                            color = IndustrialLight
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                modifier = Modifier.padding(20.dp),
+                                tint = IndustrialBlue
                             )
                         }
-                    }
-                }
-                
-                DetailSection("Salud Ocupacional") {
-                    DetailItem("Último Examen", "2023-08-10")
-                    DetailItem("Restricciones", "Ninguna")
-                    TextButton(onClick = { /* TODO: View Medical Records */ }) {
-                        Text("Ver Historial Médico")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(text = "${emp.firstName} ${emp.lastName}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Text(text = emp.position, style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        StatusChip(emp.status)
                     }
                 }
 
-                DetailSection("Vacaciones") {
-                    // Simple logic for Mexican law (LEY FEDERAL DEL TRABAJO)
-                    // Assuming entryDate is yyyy-MM-dd
-                    val daysEarned = VacationCalculator.calculateVacationDays(emp.entryDate)
-                    DetailItem("Días Ganados (Anual)", "$daysEarned")
-                    DetailItem("Días Disponibles", "${daysEarned - 2}") // Mock used days
-                    
-                    LinearProgressIndicator(
-                        progress = { (daysEarned - 2) / daysEarned.toFloat() },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    )
-                }
-                
-                DetailSection("Documentación") {
-                    TextButton(onClick = { /* TODO: View PDF */ }) {
-                        Text("Ver Contrato Firmado (PDF)")
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    DetailSection("Datos Laborales") {
+                        DetailItem("Departamento", emp.department)
+                        DetailItem("Fecha de Ingreso", emp.entryDate)
+                        DetailItem("Supervisor", emp.supervisor ?: "N/A")
+                        DetailItem("ID Biométrico", emp.readerId ?: "No vinculado")
                     }
-                    TextButton(onClick = { /* TODO: View PDF */ }) {
-                        Text("Certificados de Capacitación")
+
+                    DetailSection("Identidad y Fiscal") {
+                        DetailItem("CURP", emp.curp ?: "N/A")
+                        DetailItem("RFC", emp.rfc ?: "N/A")
+                        DetailItem("NSS", emp.nss ?: "N/A")
                     }
+
+                    DetailSection("Equipo (EPP)") {
+                        if (equipment.isEmpty()) {
+                            Text("No hay equipo asignado", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        } else {
+                            equipment.forEach { item ->
+                                DetailItem(item.itemType, item.description)
+                            }
+                        }
+                        Button(
+                            onClick = { equipmentViewModel.assignEquipment(emp.id, "Uniforme", "Polo NAF L") },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = IndustrialLight, contentColor = IndustrialBlue),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("+ Registrar Entrega EPP", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    DetailSection("Control de Vacaciones") {
+                        val daysEarned = VacationCalculator.calculateVacationDays(emp.entryDate)
+                        DetailItem("Días Ganados", "$daysEarned")
+                        DetailItem("Días Disponibles", "${daysEarned - 2}")
+                        LinearProgressIndicator(
+                            progress = { (daysEarned - 2) / daysEarned.toFloat() },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clip(RoundedCornerShape(4.dp)),
+                            color = IndustrialBlue,
+                            trackColor = IndustrialLight
+                        )
+                    }
+
+                    DetailSection("Historial de Desempeño") {
+                        if (evaluations.isEmpty()) {
+                            Text("Sin evaluaciones registradas", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        } else {
+                            evaluations.forEach { eval ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Puntuación: ${eval.score}", fontWeight = FontWeight.Bold, color = IndustrialBlue)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(eval.date, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                }
+                                Text(eval.feedback, style = MaterialTheme.typography.bodySmall)
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = IndustrialLight)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }
@@ -191,15 +182,17 @@ fun DetailSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 8.dp)
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = IndustrialDark,
+            modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
         )
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 content()
             }
         }
@@ -209,11 +202,11 @@ fun DetailSection(title: String, content: @Composable ColumnScope.() -> Unit) {
 @Composable
 fun DetailItem(label: String, value: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, style = MaterialTheme.typography.labelMedium)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium)
+        Text(text = label, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = IndustrialDark)
     }
 }
-

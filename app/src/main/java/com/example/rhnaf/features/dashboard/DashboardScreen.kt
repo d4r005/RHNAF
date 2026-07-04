@@ -1,19 +1,26 @@
 package com.example.rhnaf.features.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.SupervisorAccount
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.rhnaf.ui.theme.IndustrialBlue
+import com.example.rhnaf.ui.theme.IndustrialDark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,7 +38,25 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("RH NAF Dashboard") },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "NAF",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = (-1).sp
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "CONNECT",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Light,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = onNavigateToNotifications) {
                         BadgedBox(
@@ -40,7 +65,11 @@ fun DashboardScreen(
                             Icon(Icons.Default.Notifications, contentDescription = "Notificaciones")
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White,
+                    titleContentColor = IndustrialDark
+                )
             )
         }
     ) { padding ->
@@ -48,65 +77,92 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            Text(
-                text = "Bienvenido, Administrador",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Panel de Control Industrial",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.Gray
+                )
+                Text(
+                    text = "Bienvenido, Dario Robles",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    color = IndustrialDark
+                )
 
-            // KPI Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                KPICard("Activos", "154", Modifier.weight(1f))
-                KPICard("Ausentismo", "2.5%", Modifier.weight(1f))
-                KPICard("Rotación", "1.2%", Modifier.weight(1f))
-            }
+                Spacer(modifier = Modifier.height(20.dp))
 
-            val menuItems = listOf(
-                DashboardMenuItem("Empleados", Icons.Default.People, onNavigateToEmployeeList),
-                DashboardMenuItem("Asistencia", Icons.Default.CheckCircle, onNavigateToAttendance),
-                DashboardMenuItem("Capacitación", Icons.Default.School, onNavigateToTraining),
-                DashboardMenuItem("Seguridad", Icons.Default.Security, onNavigateToSafety),
-                DashboardMenuItem("Mi Portal", Icons.Default.AccountCircle, onNavigateToPortal),
-                DashboardMenuItem("Supervisor", Icons.Default.SupervisorAccount, onNavigateToSupervisor),
-                DashboardMenuItem("Nómina", Icons.Default.Payments, onNavigateToPayroll),
-                DashboardMenuItem("Reportes", Icons.Default.BarChart, onNavigateToReports),
-                DashboardMenuItem("Vacaciones", Icons.Default.BeachAccess, {}),
-                DashboardMenuItem("Evaluación", Icons.Default.Assessment, {}),
-            )
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(menuItems) { item ->
-                    DashboardCard(item)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // AI Assistant Mock
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
-            ) {
+                // KPI Section (Like StatCard in Web)
                 Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text("Asistente IA", style = MaterialTheme.typography.titleSmall)
-                        Text("Detecto un riesgo de rotación del 15% en el área de soldadura. ¿Deseas ver el análisis?", style = MaterialTheme.typography.bodySmall)
+                    KPICard("Total Empleados", "154", "Base de datos", IndustrialBlue, Modifier.weight(1f))
+                    KPICard("Asistencia", "98%", "Hoy", Color(0xFF22C55E), Modifier.weight(1f))
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "Módulos de Gestión",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(bottom = 12.dp),
+                    fontWeight = FontWeight.Bold
+                )
+
+                val menuItems = listOf(
+                    DashboardMenuItem("Plantilla", Icons.Default.People, onNavigateToEmployeeList),
+                    DashboardMenuItem("Asistencia", Icons.Default.Face, onNavigateToAttendance),
+                    DashboardMenuItem("Capacitación", Icons.Default.ModelTraining, onNavigateToTraining),
+                    DashboardMenuItem("Seguridad EHS", Icons.Default.HealthAndSafety, onNavigateToSafety),
+                    DashboardMenuItem("Nómina", Icons.Default.AccountBalanceWallet, onNavigateToPayroll),
+                    DashboardMenuItem("Reportes", Icons.Default.BarChart, onNavigateToReports),
+                    DashboardMenuItem("Activos", Icons.Default.Inventory2, {}),
+                    DashboardMenuItem("Ajustes", Icons.Default.Settings, {}),
+                )
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    items(menuItems) { item ->
+                        DashboardCard(item)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // AI Insight Widget
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = IndustrialDark),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(IndustrialBlue),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("NAF AI Insight", color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Se detectó riesgo de rotación en Producción. Sugiero revisar bonos de asistencia.",
+                                color = Color.LightGray,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                 }
             }
@@ -115,25 +171,25 @@ fun DashboardScreen(
 }
 
 @Composable
-fun KPICard(label: String, value: String, modifier: Modifier = Modifier) {
+fun KPICard(label: String, value: String, sub: String, color: Color, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
             modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(16.dp)
+                .fillMaxWidth()
         ) {
-            Text(text = label, style = MaterialTheme.typography.labelSmall)
+            Text(text = label, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                color = IndustrialDark
             )
+            Text(text = sub, style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -150,21 +206,36 @@ fun DashboardCard(item: DashboardMenuItem) {
         onClick = item.onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(120.dp)
+            .height(110.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = item.title,
-                modifier = Modifier.size(40.dp),
-                tint = MaterialTheme.colorScheme.primary
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(IndustrialLight),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = item.title,
+                    modifier = Modifier.size(20.dp),
+                    tint = IndustrialBlue
+                )
+            }
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = IndustrialDark
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = item.title, style = MaterialTheme.typography.titleMedium)
         }
     }
 }

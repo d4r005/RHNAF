@@ -1154,7 +1154,7 @@ fun SettingsView(name: String, avatar: String, lang: Language, onNameChange: (St
                                 width(52.px); height(52.px); borderRadius(50.percent); cursor("pointer")
                                 property("border", if (url == tempAvatar) "3px solid $SidebarActiveColor" else "1px solid #ddd")
                                 property("transition", "all 0.2s")
-                                if (url == tempAvatar) transform { scale(1.1) }
+                                if (url == tempAvatar) property("transform", "scale(1.1)")
                             }
                             onClick { tempAvatar = url }
                         }
