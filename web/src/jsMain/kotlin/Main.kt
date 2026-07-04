@@ -1123,6 +1123,10 @@ fun AttendanceModule(t: Translations) {
 
 @Composable
 fun SettingsView(name: String, avatar: String, lang: Language, onNameChange: (String) -> Unit, onAvatarChange: (String) -> Unit, onLangChange: (Language) -> Unit, t: Translations) {
+    var tempName by remember { mutableStateOf(name) }
+    var tempAvatar by remember { mutableStateOf(avatar) }
+    var tempLang by remember { mutableStateOf(lang) }
+
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(16.px); property("box-shadow", CardShadow) } }) {
         H2 { Text(t.get("profile_settings")) }
         P({ style { color(Color.gray); marginBottom(24.px) } }) { Text("Personalice su identidad en el portal NAF CONNECT.") }
@@ -1130,34 +1134,29 @@ fun SettingsView(name: String, avatar: String, lang: Language, onNameChange: (St
         Div({ style { display(DisplayStyle.Flex); gap(40.px); alignItems(AlignItems.Center) } }) {
             // Avatar Actual
             Div({ style { textAlign("center") } }) {
-                Img(src = avatar) {
+                Img(src = tempAvatar) {
                     style { width(120.px); height(120.px); borderRadius(50.percent); property("border", "4px solid $SidebarActiveColor"); marginBottom(16.px) }
                 }
-                P({ style { fontWeight("bold"); margin(0.px) } }) { Text(name) }
+                P({ style { fontWeight("bold"); margin(0.px) } }) { Text(tempName) }
             }
             
             // Selector de Avatares
             Div({ style { flex(1) } }) {
                 H4 { Text(t.get("select_avatar")) }
-                Div({ style { display(DisplayStyle.Flex); gap(16.px); flexWrap(FlexWrap.Wrap) } }) {
+                Div({ style { display(DisplayStyle.Flex); gap(12.px); flexWrap(FlexWrap.Wrap) } }) {
                     val avatars = listOf(
-                        "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
-                        "https://api.dicebear.com/7.x/avataaars/svg?seed=Jace",
-                        "https://api.dicebear.com/7.x/avataaars/svg?seed=Jack",
-                        "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka",
-                        "https://api.dicebear.com/7.x/avataaars/svg?seed=Caleb"
-                    )
+                        "Felix", "Jace", "Jack", "Aneka", "Caleb", "Aiden", "Liza", "Mia", "Zoey", "Max", "Toby", "Coco"
+                    ).map { "https://api.dicebear.com/7.x/avataaars/svg?seed=$it" }
+
                     avatars.forEach { url ->
                         Img(src = url) {
                             style { 
-                                width(60.px); height(60.px); borderRadius(50.percent); cursor("pointer")
-                                property("border", if (url == avatar) "3px solid $SidebarActiveColor" else "1px solid #ddd")
-                                property("transition", "transform 0.2s")
+                                width(52.px); height(52.px); borderRadius(50.percent); cursor("pointer")
+                                property("border", if (url == tempAvatar) "3px solid $SidebarActiveColor" else "1px solid #ddd")
+                                property("transition", "all 0.2s")
+                                if (url == tempAvatar) transform { scale(1.1) }
                             }
-                            onClick { 
-                                onAvatarChange(url)
-                                window.localStorage.setItem("naf_user_avatar", url)
-                            }
+                            onClick { tempAvatar = url }
                         }
                     }
                 }
@@ -1168,24 +1167,38 @@ fun SettingsView(name: String, avatar: String, lang: Language, onNameChange: (St
                         Button({
                             style {
                                 padding(8.px, 16.px); borderRadius(6.px); cursor("pointer")
-                                backgroundColor(if (l == lang) SidebarActiveColor else Color.white)
-                                color(if (l == lang) Color.white else Color.black)
+                                backgroundColor(if (l == tempLang) SidebarActiveColor else Color.white)
+                                color(if (l == tempLang) Color.white else Color.black)
                                 property("border", "1px solid #ddd")
                             }
-                            onClick { onLangChange(l) }
+                            onClick { tempLang = l }
                         }) { Text(l.name) }
                     }
                 }
                 
                 H4({ style { marginTop(24.px) } }) { Text(t.get("display_name")) }
                 Input(InputType.Text) {
-                    value(name)
-                    onInput { 
-                        onNameChange(it.value)
-                        window.localStorage.setItem("naf_user_name", it.value)
-                    }
-                    style { width(100.percent); padding(12.px); borderRadius(8.px); property("border", "1px solid #e2e8f0") }
+                    value(tempName)
+                    onInput { tempName = it.value }
+                    style { width(100.percent); padding(12.px); borderRadius(8.px); property("border", "1px solid #e2e8f0"); marginBottom(24.px) }
                 }
+
+                Button({
+                    style {
+                        padding(12.px, 32.px); backgroundColor(Color("#22c55e")); color(Color.white)
+                        property("border", "none"); borderRadius(8.px); cursor("pointer")
+                        fontWeight("bold"); fontSize(14.px); width(100.percent)
+                    }
+                    onClick {
+                        onNameChange(tempName)
+                        onAvatarChange(tempAvatar)
+                        onLangChange(tempLang)
+                        window.localStorage.setItem("naf_user_name", tempName)
+                        window.localStorage.setItem("naf_user_avatar", tempAvatar)
+                        window.localStorage.setItem("naf_lang", tempLang.name)
+                        window.alert("Configuración guardada exitosamente.")
+                    }
+                }) { Text(t.get("save")) }
             }
         }
     }
