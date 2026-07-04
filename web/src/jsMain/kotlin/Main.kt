@@ -36,8 +36,8 @@ fun main() {
         var selectedEmployee by remember { mutableStateOf<Employee?>(null) }
         
         var employees by remember { mutableStateOf(emptyList<Employee>()) }
-        var userName by remember { mutableStateOf("Admin NAF") }
-        var userAvatar by remember { mutableStateOf("https://api.dicebear.com/7.x/avataaars/svg?seed=Felix") }
+        var userName by remember { mutableStateOf(window.localStorage.getItem("naf_user_name") ?: "Dario Robles") }
+        var userAvatar by remember { mutableStateOf(window.localStorage.getItem("naf_user_avatar") ?: "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix") }
         val scope = rememberCoroutineScope()
 
         if (!isLoggedIn) {
@@ -54,6 +54,7 @@ fun main() {
                                 "arni.oziel@brancoindustries.com" -> "Arni Oziel"
                                 else -> "Administrador"
                             }
+                            window.localStorage.setItem("naf_user_name", userName)
                             employees = client.get("/api/employees").body()
                             isLoggedIn = true
                         }
@@ -366,14 +367,23 @@ fun TopBar(user: String, role: String, avatarUrl: String) {
             P({ style { margin(0.px); fontSize(12.px); color(Color("#64728b")) } }) { Text("Gestión Industrial de Talento") }
         }
         Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(20.px) } }) {
-            Div({ style { width(20.px); height(20.px); backgroundColor(Color("#64728b")); borderRadius(50.percent) } })
             Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(12.px) } }) {
                 Div({ style { textAlign("right") } }) {
                     P({ style { margin(0.px); fontSize(14.px); fontWeight("600") } }) { Text(user) }
                     P({ style { margin(0.px); fontSize(12.px); color(Color("#64728b")) } }) { Text(role) }
                 }
-                Img(src = avatarUrl) {
-                    style { width(36.px); height(36.px); borderRadius(50.percent); property("object-fit", "cover"); backgroundColor(Color("#cbd5e1")) }
+                Div({ style { position(Position.Relative) } }) {
+                    Img(src = avatarUrl) {
+                        style { width(36.px); height(36.px); borderRadius(50.percent); property("object-fit", "cover"); backgroundColor(Color("#cbd5e1")) }
+                    }
+                    // Punto de estado Online
+                    Div({
+                        style {
+                            width(10.px); height(10.px); backgroundColor(Color("#22c55e"))
+                            borderRadius(50.percent); position(Position.Absolute); bottom(0.px); right(0.px)
+                            property("border", "2px solid white")
+                        }
+                    })
                 }
             }
         }
@@ -707,7 +717,10 @@ fun SettingsView(name: String, avatar: String, onNameChange: (String) -> Unit, o
                                 property("border", if (url == avatar) "3px solid $SidebarActiveColor" else "1px solid #ddd")
                                 property("transition", "transform 0.2s")
                             }
-                            onClick { onAvatarChange(url) }
+                            onClick { 
+                                onAvatarChange(url)
+                                window.localStorage.setItem("naf_user_avatar", url)
+                            }
                         }
                     }
                 }
@@ -715,7 +728,10 @@ fun SettingsView(name: String, avatar: String, onNameChange: (String) -> Unit, o
                 H4({ style { marginTop(24.px) } }) { Text("Nombre a mostrar") }
                 Input(InputType.Text) {
                     value(name)
-                    onInput { onNameChange(it.value) }
+                    onInput { 
+                        onNameChange(it.value)
+                        window.localStorage.setItem("naf_user_name", it.value)
+                    }
                     style { width(100.percent); padding(12.px); borderRadius(8.px); property("border", "1px solid #e2e8f0") }
                 }
             }
