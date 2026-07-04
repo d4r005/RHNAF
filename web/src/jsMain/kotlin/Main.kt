@@ -108,7 +108,7 @@ fun Sidebar(active: Module, onSelect: (Module) -> Unit) {
                 Text("N")
             }
             H2({ style { margin(0.px); fontSize(20.px); letterSpacing(1.px) } }) { 
-                Span({ style { fontWeight("bold"); fontStyle("italic") } }) { Text("NAF ") }
+                Span({ style { fontWeight("bold"); property("font-style", "italic") } }) { Text("NAF ") }
                 Span({ style { fontWeight("lighter"); color(Color("#94a3b8")) } }) { Text("CONNECT") }
             }
         }
@@ -469,18 +469,18 @@ fun LoginScreen(onLogin: (String, String) -> Unit) {
     Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); height(100.vh); backgroundColor(SidebarColor) } }) {
         Div({ style { backgroundColor(Color.white); padding(48.px); borderRadius(24.px); width(360.px); property("box-shadow", "0 25px 50px -12px rgba(0, 0, 0, 0.5)") } }) {
             Div({ style { textAlign("center"); marginBottom(32.px) } }) {
-                Div({ style { width(48.px); height(48.px); backgroundColor(SidebarActiveColor); borderRadius(8.px); display(DisplayStyle.InlineFlex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); color(Color.white); fontWeight("bold"); fontSize(24.px); marginBottom(16.px) } }) { Text("N") }
+                Div({ style { width(48.px); height(48.px); backgroundColor(SidebarActiveColor); borderRadius(8.px); property("display", "inline-flex"); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); color(Color.white); fontWeight("bold"); fontSize(24.px); marginBottom(16.px) } }) { Text("N") }
                 H1({ style { color(SidebarColor); margin(0.px); fontSize(26.px); letterSpacing(1.px) } }) { 
-                    Span({ style { fontWeight("bold"); fontStyle("italic") } }) { Text("NAF ") }
+                    Span({ style { fontWeight("bold"); property("font-style", "italic") } }) { Text("NAF ") }
                     Span({ style { fontWeight("lighter"); color(Color("#64728b")) } }) { Text("CONNECT") }
                 }
                 P({ style { color(Color("#64728b")); margin(0.px); fontSize(14.px) } }) { Text("Portal de Gestión de Talento") }
             }
             
-            Label({ style { fontSize(12.px); fontWeight("600"); color(Color("#475569")) } }) { Text("CORREO ELECTRÓNICO") }
+            Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")) } }) { Text("CORREO ELECTRÓNICO") }
             Input(InputType.Text) { placeholder("usuario@dominio.com"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none") }; onInput { u = it.value } }
             
-            Label({ style { fontSize(12.px); fontWeight("600"); color(Color("#475569")) } }) { Text("CONTRASEÑA") }
+            Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")) } }) { Text("CONTRASEÑA") }
             Input(InputType.Password) { placeholder("••••••••"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none") }; onInput { p = it.value } }
             
             Button({ 
