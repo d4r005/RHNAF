@@ -12,6 +12,7 @@ object EmployeeTable : Table("employees") {
     val entryDate = varchar("entry_date", 20)
     val status = enumerationByName("status", 20, EmployeeStatus::class)
     val email = varchar("email", 100).nullable()
+    val readerId = varchar("reader_id", 50).nullable() // ID de la lectora (Rostro)
     
     override val primaryKey = PrimaryKey(id)
 }

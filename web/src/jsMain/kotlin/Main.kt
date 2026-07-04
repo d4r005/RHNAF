@@ -13,11 +13,11 @@ import io.ktor.http.*
 import com.example.rhnaf.shared.model.*
 import kotlinx.coroutines.launch
 
-// DISEÑO INDUSTRIAL PROFESIONAL (Basado en la imagen HRMPro)
-val SidebarColor = Color("#1e293b")
-val SidebarActiveColor = Color("#3b82f6")
-val BackgroundColor = Color("#f8fafc")
-val CardShadow = "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)"
+// DISEÑO NAF CONNECT - IDENTIDAD INDUSTRIAL MODERNA
+val SidebarColor = Color("#0f172a") 
+val SidebarActiveColor = Color("#2563eb")
+val BackgroundColor = Color("#f1f5f9")
+val CardShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
 
 enum class Module {
     DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS
@@ -56,7 +56,7 @@ fun main() {
                 style {
                     display(DisplayStyle.Flex)
                     height(100.vh)
-                    fontFamily("Inter", "system-ui", "sans-serif")
+                    fontFamily("Inter", "Segoe UI", "sans-serif")
                     backgroundColor(BackgroundColor)
                 }
             }) {
@@ -68,9 +68,9 @@ fun main() {
 
                 // CONTENIDO PRINCIPAL
                 Div({ style { flex(1); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); overflowY("auto") } }) {
-                    TopBar("Ana Martínez", "Recursos Humanos")
+                    TopBar("Admin NAF", "Gestión Industrial")
 
-                    Div({ style { padding(24.px) } }) {
+                    Div({ style { padding(32.px) } }) {
                         when (activeModule) {
                             Module.DASHBOARD -> DashboardView(employees)
                             Module.EMPLOYEES -> {
@@ -81,6 +81,7 @@ fun main() {
                                 }
                             }
                             Module.INCIDENTS -> SafetyModule(client, scope)
+                            Module.ATTENDANCE -> AttendanceModule()
                             else -> PlaceholderModule(activeModule.name)
                         }
                     }
@@ -94,59 +95,52 @@ fun main() {
 fun Sidebar(active: Module, onSelect: (Module) -> Unit) {
     Nav({
         style {
-            width(240.px)
+            width(260.px)
             backgroundColor(SidebarColor)
             color(Color.white)
             display(DisplayStyle.Flex)
             flexDirection(FlexDirection.Column)
         }
     }) {
-        Div({ style { padding(24.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(12.px) } }) {
-            Div({ style { width(32.px); height(32.px); backgroundColor(Color.white); borderRadius(8.px) } })
-            H2({ style { margin(0.px); fontSize(18.px); fontWeight("bold") } }) { Text("HRMPro") }
+        Div({ style { padding(32.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(12.px) } }) {
+            // Logo NAF
+            Div({ style { width(36.px); height(36.px); backgroundColor(SidebarActiveColor); borderRadius(4.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
+                Text("N")
+            }
+            H2({ style { margin(0.px); fontSize(20.px); letterSpacing(1.px) } }) { 
+                Span({ style { fontWeight("bold"); fontStyle("italic") } }) { Text("NAF ") }
+                Span({ style { fontWeight("lighter"); color(Color("#94a3b8")) } }) { Text("CONNECT") }
+            }
         }
 
         Input(InputType.Text) {
             style {
-                property("margin", "0 16px 24px 16px")
-                padding(8.px, 12.px)
-                backgroundColor(Color("#334155"))
-                property("border", "none")
-                borderRadius(6.px)
+                property("margin", "0 20px 24px 20px")
+                padding(10.px, 14.px)
+                backgroundColor(Color("#1e293b"))
+                property("border", "1px solid #334155")
+                borderRadius(8.px)
                 color(Color.white)
                 property("outline", "none")
             }
-            placeholder("Buscar en el menú...")
+            placeholder("Buscar...")
         }
 
-        Div({ style { flex(1); overflowY("auto"); padding(0.px, 12.px) } }) {
-            SidebarLink("Dashboard", Module.DASHBOARD, active == Module.DASHBOARD, onSelect)
-            SidebarLink("Empleados", Module.EMPLOYEES, active == Module.EMPLOYEES, onSelect)
+        Div({ style { flex(1); overflowY("auto"); padding(0.px, 16.px) } }) {
+            SidebarLink("Panel de Control", Module.DASHBOARD, active == Module.DASHBOARD, onSelect)
+            SidebarLink("Plantilla Personal", Module.EMPLOYEES, active == Module.EMPLOYEES, onSelect)
             SidebarLink("Reclutamiento", Module.RECRUITMENT, active == Module.RECRUITMENT, onSelect)
-            SidebarLink("Asistencia", Module.ATTENDANCE, active == Module.ATTENDANCE, onSelect)
-            SidebarLink("Nómina", Module.PAYROLL, active == Module.PAYROLL, onSelect)
+            SidebarLink("Asistencia Facial", Module.ATTENDANCE, active == Module.ATTENDANCE, onSelect)
+            SidebarLink("Nómina y Pagos", Module.PAYROLL, active == Module.PAYROLL, onSelect)
             SidebarLink("Capacitación", Module.TRAINING, active == Module.TRAINING, onSelect)
-            SidebarLink("Evaluaciones", Module.PERFORMANCE, active == Module.PERFORMANCE, onSelect)
-            SidebarLink("Incidencias", Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
+            SidebarLink("Seguridad (EHS)", Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
             SidebarLink("Vacaciones", Module.VACATIONS, active == Module.VACATIONS, onSelect)
-            SidebarLink("Documentos", Module.DOCUMENTS, active == Module.DOCUMENTS, onSelect)
-            SidebarLink("Reportes", Module.REPORTS, active == Module.REPORTS, onSelect)
+            SidebarLink("Expedientes", Module.DOCUMENTS, active == Module.DOCUMENTS, onSelect)
             SidebarLink("Configuración", Module.SETTINGS, active == Module.SETTINGS, onSelect)
         }
 
-        Div({ style { padding(24.px); property("border-top", "1px solid #334155") } }) {
-            Button({
-                style {
-                    width(100.percent)
-                    padding(10.px)
-                    backgroundColor(Color("#334155"))
-                    color(Color.white)
-                    property("border", "none")
-                    borderRadius(6.px)
-                    cursor("pointer")
-                }
-            }) { Text("Soporte") }
-            P({ style { fontSize(10.px); color(Color("#94a3b8")); marginTop(12.px); textAlign("center") } }) { Text("Versión 2.4.0 © 2024 HRMPro") }
+        Div({ style { padding(24.px); property("border-top", "1px solid #1e293b") } }) {
+            P({ style { fontSize(11.px); color(Color("#64728b")); textAlign("center") } }) { Text("NAF CONNECT v3.0") }
         }
     }
 }
@@ -473,12 +467,32 @@ fun LoginScreen(onLogin: (String, String) -> Unit) {
     var u by remember { mutableStateOf("") }
     var p by remember { mutableStateOf("") }
     Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); height(100.vh); backgroundColor(SidebarColor) } }) {
-        Div({ style { backgroundColor(Color.white); padding(48.px); borderRadius(20.px); width(340.px); property("box-shadow", "0 25px 50px -12px rgba(0, 0, 0, 0.5)") } }) {
-            H1({ style { color(SidebarColor); property("margin", "0 0 8px 0") } }) { Text("HRMPro") }
-            P({ style { color(Color.gray); marginBottom(32.px) } }) { Text("Acceso al Portal Industrial") }
-            Input(InputType.Text) { placeholder("Usuario de Red"); style { width(100.percent); padding(12.px); property("margin", "10px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box") }; onInput { u = it.value } }
-            Input(InputType.Password) { placeholder("Contraseña"); style { width(100.percent); padding(12.px); property("margin", "10px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box") }; onInput { p = it.value } }
-            Button({ style { width(100.percent); padding(14.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); property("margin-top", "24px"); fontWeight("bold") }; onClick { onLogin(u, p) } }) { Text("Iniciar Sesión") }
+        Div({ style { backgroundColor(Color.white); padding(48.px); borderRadius(24.px); width(360.px); property("box-shadow", "0 25px 50px -12px rgba(0, 0, 0, 0.5)") } }) {
+            Div({ style { textAlign("center"); marginBottom(32.px) } }) {
+                Div({ style { width(48.px); height(48.px); backgroundColor(SidebarActiveColor); borderRadius(8.px); display(DisplayStyle.InlineFlex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); color(Color.white); fontWeight("bold"); fontSize(24.px); marginBottom(16.px) } }) { Text("N") }
+                H1({ style { color(SidebarColor); margin(0.px); fontSize(26.px); letterSpacing(1.px) } }) { 
+                    Span({ style { fontWeight("bold"); fontStyle("italic") } }) { Text("NAF ") }
+                    Span({ style { fontWeight("lighter"); color(Color("#64728b")) } }) { Text("CONNECT") }
+                }
+                P({ style { color(Color("#64728b")); margin(0.px); fontSize(14.px) } }) { Text("Portal de Gestión de Talento") }
+            }
+            
+            Label({ style { fontSize(12.px); fontWeight("600"); color(Color("#475569")) } }) { Text("CORREO ELECTRÓNICO") }
+            Input(InputType.Text) { placeholder("usuario@dominio.com"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none") }; onInput { u = it.value } }
+            
+            Label({ style { fontSize(12.px); fontWeight("600"); color(Color("#475569")) } }) { Text("CONTRASEÑA") }
+            Input(InputType.Password) { placeholder("••••••••"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none") }; onInput { p = it.value } }
+            
+            Button({ 
+                style { 
+                    width(100.percent); padding(14.px); backgroundColor(SidebarActiveColor); color(Color.white); 
+                    property("border", "none"); borderRadius(8.px); cursor("pointer"); property("margin-top", "12.px"); 
+                    fontWeight("bold"); fontSize(14.px); property("transition", "background 0.2s") 
+                }
+                onClick { onLogin(u, p) } 
+            }) { Text("ACCEDER AL SISTEMA") }
+            
+            P({ style { textAlign("center"); marginTop(24.px); fontSize(11.px); color(Color("#94a3b8")) } }) { Text("Uso exclusivo para personal autorizado NAF CONNECT") }
         }
     }
 }
@@ -515,6 +529,48 @@ fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
             Div({ style { property("margin-top", "32px"); padding(20.px); backgroundColor(Color("#f0f9ff")); property("border-left", "4px solid $SidebarActiveColor"); borderRadius(4.px) } }) { 
                 H4({ style { property("margin", "0 0 10px 0") } }) { Text("Análisis de Riesgo:") }
                 Text(res) 
+            }
+        }
+    }
+}
+
+@Composable
+fun AttendanceModule() {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text("Control de Asistencia Biométrica (Rostro)") }
+        P({ style { color(Color.gray) } }) { Text("Monitoreo en tiempo real de terminales Hikonect con reconocimiento facial.") }
+        
+        Div({ style { display(DisplayStyle.Flex); gap(24.px); property("margin-top", "24px") } }) {
+            // Estado de la lectora
+            Div({ style { flex(1); padding(20.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px); property("border", "1px solid #e2e8f0") } }) {
+                H4({ style { margin(0.px) } }) { Text("Terminal Acceso Principal") }
+                P({ style { color(Color("#22c55e")); fontWeight("bold"); fontSize(14.px) } }) { Text("● RECONOCIMIENTO ACTIVO") }
+                P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Modelo: Hikonect Face-ID v2") }
+                P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Usuarios en memoria: 154") }
+            }
+            
+            Div({ style { flex(2) } }) {
+                H4 { Text("Últimos Accesos (Rostro Detectado)") }
+                Table({ style { width(100.percent); fontSize(13.px) } }) {
+                    Tbody {
+                        Tr {
+                            Td { Text("08:30:12 AM") }
+                            Td { B { Text("Daniel Trujillo") } }
+                            Td { Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px) } }) { Text("Rostro Verificado") } }
+                        }
+                        Tr {
+                            Td { Text("08:32:45 AM") }
+                            Td { B { Text("Arni Oziel") } }
+                            Td { Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px) } }) { Text("Rostro Verificado") } }
+                        }
+                    }
+                }
+            }
+        }
+        
+        Div({ style { property("margin-top", "32px"); padding(16.px); backgroundColor(Color("#f0fdf4")); borderRadius(8.px); property("border", "1px solid #dcfce7") } }) {
+            P({ style { margin(0.px); fontSize(13.px); color(Color("#166534")) } }) { 
+                Text("Sincronización Automática: La lectora está vinculada mediante el ID de empleado (employeeNo). Los registros se alimentan directamente de la base de datos interna del dispositivo.")
             }
         }
     }

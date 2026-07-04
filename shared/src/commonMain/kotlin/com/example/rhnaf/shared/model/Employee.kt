@@ -15,6 +15,7 @@ data class Employee(
     val nss: String? = null,
     val ine: String? = null,
     val license: String? = null,
+    val readerId: String? = null, // ID vinculado en la lectora facial (ej. employeeNo)
     
     // Estructura Organizacional
     val position: String,

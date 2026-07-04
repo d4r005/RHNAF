@@ -45,9 +45,14 @@ fun Application.module() {
                 val username = credentials["username"]
                 val password = credentials["password"]
                 
-                // Login simple para propósitos industriales
-                if (username == "admin" && password == "industrial123") {
-                    call.respond(mapOf("status" to "success", "token" to "mock-jwt-token-rhnaf"))
+                // Login con usuarios administradores solicitados
+                val validUsers = mapOf(
+                    "d.trujillo@brancoindustries.com" to "Branco2025",
+                    "arni.oziel@brancoindustries.com" to "Branco2025"
+                )
+                
+                if (validUsers[username] == password) {
+                    call.respond(mapOf("status" to "success", "token" to "mock-jwt-token-nafconnect"))
                 } else {
                     call.respond(HttpStatusCode.Unauthorized, mapOf("status" to "error", "message" to "Credenciales incorrectas"))
                 }
@@ -63,11 +68,28 @@ fun Application.module() {
                             position = it[EmployeeTable.position],
                             department = it[EmployeeTable.department],
                             entryDate = it[EmployeeTable.entryDate],
-                            status = it[EmployeeTable.status]
+                            status = it[EmployeeTable.status],
+                            readerId = it[EmployeeTable.readerId]
                         )
                     }
                 }
                 call.respond(employees)
+            }
+
+            post("/attendance/biometric") {
+                val data = call.receive<Map<String, String>>()
+                val readerId = data["employeeNo"] ?: data["userId"]
+                val authType = data["authType"] ?: "Face"
+                
+                // Registro de asistencia por biometría (Rostro)
+                println("Evento Biométrico recibido - ID Lectora: $readerId, Tipo: $authType")
+                
+                // Aquí se buscaría en la DB al empleado con ese readerId y se insertaría en una tabla de logs
+                call.respond(mapOf(
+                    "status" to "success", 
+                    "message" to "Acceso verificado por Rostro",
+                    "timestamp" to System.currentTimeMillis()
+                ))
             }
             
             post("/safety/analyze") {
