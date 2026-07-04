@@ -41,6 +41,7 @@ class Translations(val lang: Language) {
         "login" to "INICIAR SESIÓN",
         "email" to "CORREO ELECTRÓNICO",
         "password" to "CONTRASEÑA",
+        "remember_me" to "Recordar usuario",
         "total_emp" to "Total Empleados",
         "active_emp" to "Empleados Activos",
         "vacancies" to "Vacantes Abiertas",
@@ -104,6 +105,7 @@ class Translations(val lang: Language) {
         "login" to "LOG IN",
         "email" to "EMAIL ADDRESS",
         "password" to "PASSWORD",
+        "remember_me" to "Remember me",
         "total_emp" to "Total Employees",
         "active_emp" to "Active Employees",
         "vacancies" to "Open Vacancies",
@@ -172,6 +174,7 @@ class Translations(val lang: Language) {
         "login" to "登入",
         "email" to "电子邮件",
         "password" to "密码",
+        "remember_me" to "记住我",
         "total_emp" to "总员工数",
         "active_emp" to "在职员工",
         "vacancies" to "招聘空缺",
@@ -273,7 +276,7 @@ fun main() {
         val scope = rememberCoroutineScope()
 
         if (!isLoggedIn) {
-            LoginScreen(t) { u, p ->
+            LoginScreen(t) { u, p, rememberMe ->
                 scope.launch {
                     try {
                         val resp = client.post("/api/login") {
@@ -292,6 +295,11 @@ fun main() {
                             userRole = role
                             userName = name
                             window.localStorage.setItem("naf_user_name", userName)
+                            if (rememberMe) {
+                                window.localStorage.setItem("naf_saved_email", u)
+                            } else {
+                                window.localStorage.removeItem("naf_saved_email")
+                            }
                             employees = client.get("/api/employees").body()
                             isLoggedIn = true
                         }
@@ -913,9 +921,11 @@ fun StatusBadge(s: EmployeeStatus) {
 }
 
 @Composable
-fun LoginScreen(t: Translations, onLogin: (String, String) -> Unit) {
-    var u by remember { mutableStateOf("") }
+fun LoginScreen(t: Translations, onLogin: (String, String, Boolean) -> Unit) {
+    var u by remember { mutableStateOf(window.localStorage.getItem("naf_saved_email") ?: "") }
     var p by remember { mutableStateOf("") }
+    var rememberMe by remember { mutableStateOf(u.isNotEmpty()) }
+
     Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); height(100.vh); backgroundColor(SidebarColor) } }) {
         Div({ style { backgroundColor(Color.white); padding(48.px); borderRadius(24.px); width(400.px); property("box-shadow", "0 25px 50px -12px rgba(0, 0, 0, 0.5)") } }) {
             Div({ style { textAlign("center"); marginBottom(40.px) } }) {
@@ -928,29 +938,43 @@ fun LoginScreen(t: Translations, onLogin: (String, String) -> Unit) {
             }
             
             Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")); letterSpacing(0.5.px) } }) { Text(t.get("email")) }
-            Input(InputType.Text) { placeholder("usuario@dominio.com"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none"); backgroundColor(Color("#f8fafc")) }; onInput { u = it.value } }
+            Input(InputType.Text) { 
+                value(u)
+                placeholder("usuario@dominio.com")
+                style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none"); backgroundColor(Color("#f8fafc")) }
+                onInput { u = it.value } 
+            }
             
             Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")); letterSpacing(0.5.px) } }) { Text(t.get("password")) }
-            Input(InputType.Password) { placeholder("••••••••"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none"); backgroundColor(Color("#f8fafc")) }; onInput { p = it.value } }
+            Input(InputType.Password) { 
+                value(p)
+                placeholder("••••••••")
+                style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none"); backgroundColor(Color("#f8fafc")) }
+                onInput { p = it.value } 
+            }
+
+            Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(8.px); marginBottom(20.px) } }) {
+                Input(InputType.Checkbox) {
+                    checked(rememberMe)
+                    onInput { rememberMe = it.value }
+                    style { cursor("pointer") }
+                }
+                Label {
+                    style { fontSize(13.px); color(Color("#64728b")); cursor("pointer") }
+                    Text(t.get("remember_me"))
+                }
+            }
             
             Button({ 
                 style { 
                     width(100.percent); padding(16.px); backgroundColor(Color("#0f172a")); color(Color.white); 
-                    property("border", "none"); borderRadius(8.px); cursor("pointer"); property("margin-top", "12.px"); 
+                    property("border", "none"); borderRadius(8.px); cursor("pointer"); 
                     fontWeight("bold"); fontSize(14.px); property("transition", "all 0.2s") 
                 }
-                onClick { onLogin(u, p) } 
+                onClick { onLogin(u, p, rememberMe) } 
             }) { Text(t.get("login")) }
             
             P({ style { textAlign("center"); marginTop(32.px); fontSize(11.px); color(Color("#94a3b8")) } }) { Text("© 2024 NAF CONNECT • SISTEMA INDUSTRIAL") }
-            
-            // Ayuda para Demo (Roles)
-            Div({ style { marginTop(24.px); padding(12.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px); fontSize(10.px); color(Color.gray) } }) {
-                P({ style { fontWeight("bold"); marginBottom(4.px) } }) { Text("Usuarios Demo (Password: Branco2025):") }
-                P { Text("● Admin: d.trujillo@brancoindustries.com") }
-                P { Text("● RH: arni.oziel@brancoindustries.com") }
-                P { Text("● Compras: compras@brancoindustries.com") }
-            }
         }
     }
 }
