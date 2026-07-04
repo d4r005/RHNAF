@@ -402,7 +402,7 @@ fun main() {
 }
 
 @Composable
-fun Sidebar(active: Module, t: Translations, onSelect: (Module) -> Unit) {
+fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) -> Unit) {
     Nav({
         style {
             width(260.px)
@@ -443,7 +443,7 @@ fun Sidebar(active: Module, t: Translations, onSelect: (Module) -> Unit) {
             if (isModuleVisible(Module.INCIDENTS, role)) SidebarLink(t.get("incidents"), Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
             if (isModuleVisible(Module.PATRIMONIAL_SECURITY, role)) SidebarLink(t.get("patrimonial"), Module.PATRIMONIAL_SECURITY, active == Module.PATRIMONIAL_SECURITY, onSelect)
             if (isModuleVisible(Module.MAINTENANCE, role)) SidebarLink(t.get("maintenance"), Module.MAINTENANCE, active == Module.MAINTENANCE, onSelect)
-            if (isModuleVisible(Module.EMPLOYEEE_PORTAL, role)) SidebarLink(t.get("employee_portal"), Module.EMPLOYEE_PORTAL, active == Module.EMPLOYEE_PORTAL, onSelect)
+            if (isModuleVisible(Module.EMPLOYEE_PORTAL, role)) SidebarLink(t.get("employee_portal"), Module.EMPLOYEE_PORTAL, active == Module.EMPLOYEE_PORTAL, onSelect)
             if (isModuleVisible(Module.FINANCE, role)) SidebarLink(t.get("finance"), Module.FINANCE, active == Module.FINANCE, onSelect)
             if (isModuleVisible(Module.ENERGY, role)) SidebarLink(t.get("energy"), Module.ENERGY, active == Module.ENERGY, onSelect)
             if (isModuleVisible(Module.VACATIONS, role)) SidebarLink(t.get("vacations"), Module.VACATIONS, active == Module.VACATIONS, onSelect)
@@ -693,7 +693,7 @@ fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit, on
                 if (userRole == UserRole.ADMIN || userRole == UserRole.RH) {
                     // Importador de CSV
                     Input(InputType.File) {
-                        id("csv-upload"); style { display(None) }
+                    id("csv-upload"); style { property("display", "none") }
                         onChange { 
                             isImporting = true
                             window.setTimeout({ isImporting = false; window.alert("Importación de personal finalizada con éxito.") }, 1500)
@@ -778,7 +778,7 @@ fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit, onSave: (Employee) ->
                 if (userRole == UserRole.ADMIN || userRole == UserRole.RH) {
                     // Escáner IA
                     Input(InputType.File) {
-                        id("doc-scan"); style { display(None) }
+                        id("doc-scan"); style { property("display", "none") }
                         onChange { 
                             isScanning = true
                             window.setTimeout({ 
@@ -1042,8 +1042,8 @@ fun PatrimonialSecurityModule(t: Translations) {
                 listOf("Ronda Perímetro Norte" to "100%", "Revisión Extintores" to "45%", "Cierre de Puertas" to "0%").forEach { (tour, progress) ->
                     Div({ style { marginBottom(16.px) } }) {
                         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween) } }) {
-                            Text(tour, { style { fontSize(12.px) } })
-                            Text(progress, { style { fontSize(12.px); fontWeight("bold") } })
+                            Span({ style { fontSize(12.px) } }) { Text(tour) }
+                            Span({ style { fontSize(12.px); fontWeight("bold") } }) { Text(progress) }
                         }
                         Div({ style { height(4.px); backgroundColor(Color("#e2e8f0")); borderRadius(2.px); marginTop(4.px) } }) {
                             Div({ style { height(100.percent); property("width", progress); backgroundColor(SidebarActiveColor) } })
@@ -1472,7 +1472,7 @@ fun AiAssistantWidget(t: Translations, client: HttpClient, scope: kotlinx.corout
 
     Div({
         style {
-            position(Position.Fixed); bottom(24.px); right(24.px); zIndex(1000)
+            position(Position.Fixed); bottom(24.px); right(24.px); property("z-index", "1000")
         }
     }) {
         if (isOpen) {
@@ -1571,7 +1571,7 @@ fun WorkflowsModule(t: Translations) {
         H3 { Text(t.get("workflows")) }
         Div {
             listOf("Aumento Salarial - Op. 405" to "Pendiente Finanzas", "Cambio de Puesto - Op. 112" to "Pendiente Director").forEach { (req, status) ->
-                Div({ style { padding(16.px); borderBottom(1.px, LineStyle.Solid, Color("#f1f5f9")); display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween) } }) {
+                Div({ style { padding(16.px); property("border-bottom", "1px solid #f1f5f9"); display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween) } }) {
                     Text(req)
                     Span({ style { color(Color("#f59e0b")); fontWeight("bold") } }) { Text(status) }
                 }
@@ -1632,7 +1632,7 @@ fun ImportExportModule(t: Translations) {
             Div({ style { padding(20.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px) } }) {
                 H4 { Text("Documentación Pendiente") }
                 listOf("Certificados de Origen", "Facturas Comerciales", "Listas de Empaque").forEach { doc ->
-                    Div({ style { padding(8.px, 0.px); borderBottom(1.px, LineStyle.Solid, Color("#e2e8f0")) } }) {
+                    Div({ style { padding(8.px, 0.px); property("border-bottom", "1px solid #e2e8f0") } }) {
                         Text("● $doc")
                     }
                 }
