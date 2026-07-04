@@ -1,5 +1,5 @@
 # Etapa 1: Construcción
-FROM eclipse-temurin:17-jdk-jammy AS build
+FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /app
 
 # Copiar archivos de configuración de Gradle
@@ -23,7 +23,7 @@ RUN chmod +x gradlew
 RUN SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentDistribution :server:installDist --no-daemon --max-workers=1
 
 # Etapa 2: Ejecución
-FROM eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
 # Copiar el servidor instalado desde la etapa de build
