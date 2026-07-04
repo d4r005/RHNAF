@@ -10,375 +10,203 @@ import io.ktor.serialization.kotlinx.json.*
 import io.ktor.client.request.*
 import io.ktor.client.call.*
 import io.ktor.http.*
-import com.example.rhnaf.shared.model.Employee
+import com.example.rhnaf.shared.model.*
 import kotlinx.coroutines.launch
-import org.w3c.dom.HTMLFormElement
 
-enum class NavItem {
-    DASHBOARD, EMPLOYEES, SAFETY_EHS, AI_HUGGINGFACE
+// TEMAS Y COLORES INDUSTRIALES
+val Blue900 = Color("#0d47a1")
+val Blue700 = Color("#1976d2")
+val Blue50 = Color("#e3f2fd")
+val Gray100 = Color("#f5f5f5")
+val Gray800 = Color("#424242")
+val SuccessGreen = Color("#2e7d32")
+val WarningOrange = Color("#ed6c02")
+val ErrorRed = Color("#d32f2f")
+
+enum class Module {
+    DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, SAFETY, TRAINING, DOCUMENTS, SETTINGS
 }
-
-val PrimaryBlue = Color("#0d47a1")
-val BackgroundGray = Color("#f4f7f9")
-val TextDark = Color("#2c3e50")
 
 fun main() {
     val client = HttpClient(Js) {
-        install(ContentNegotiation) {
-            json()
-        }
+        install(ContentNegotiation) { json() }
     }
 
     renderComposable(rootElementId = "root") {
         var isLoggedIn by remember { mutableStateOf(false) }
-        var currentNav by remember { mutableStateOf(NavItem.DASHBOARD) }
+        var activeModule by remember { mutableStateOf(Module.DASHBOARD) }
+        var selectedEmployee by remember { mutableStateOf<Employee?>(null) }
         
         var username by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
-        var loginError by remember { mutableStateOf("") }
-        
         var employees by remember { mutableStateOf(emptyList<Employee>()) }
         val scope = rememberCoroutineScope()
 
         if (!isLoggedIn) {
             LoginScreen(
-                onUsernameChange = { username = it },
-                onPasswordChange = { password = it },
-                loginError = loginError,
-                onLoginClick = {
+                onLogin = { u, p ->
                     scope.launch {
                         try {
-                            val response = client.post("/api/login") {
+                            val resp = client.post("/api/login") {
                                 contentType(ContentType.Application.Json)
-                                setBody(mapOf("username" to username, "password" to password))
+                                setBody(mapOf("username" to u, "password" to p))
                             }
-                            if (response.status == HttpStatusCode.OK) {
-                                isLoggedIn = true
+                            if (resp.status == HttpStatusCode.OK) {
                                 employees = client.get("/api/employees").body()
-                            } else {
-                                loginError = "Credenciales incorrectas"
+                                isLoggedIn = true
                             }
-                        } catch (e: Exception) {
-                            loginError = "Error de conexión"
-                        }
+                        } catch (e: Exception) { console.log(e) }
                     }
                 }
             )
         } else {
-            // APP LAYOUT
-            MainLayout(
-                currentNav = currentNav,
-                onNavChange = { currentNav = it },
-                onLogout = { isLoggedIn = false }
-            ) {
-                when (currentNav) {
-                    NavItem.DASHBOARD -> DashboardContent(employees)
-                    NavItem.EMPLOYEES -> EmployeesContent(employees)
-                    NavItem.SAFETY_EHS -> SafetyContent(client, scope)
-                    NavItem.AI_HUGGINGFACE -> AIHuggingFaceContent(client, scope)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun LoginScreen(
-    onUsernameChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    loginError: String,
-    onLoginClick: () -> Unit
-) {
-    Div({
-        style {
-            display(DisplayStyle.Flex)
-            flexDirection(FlexDirection.Column)
-            alignItems(AlignItems.Center)
-            justifyContent(JustifyContent.Center)
-            height(100.vh)
-            backgroundColor(BackgroundGray)
-            fontFamily("Segoe UI", "Tahoma", "Geneva", "Verdana", "sans-serif")
-        }
-    }) {
-        Div({
-            style {
-                padding(40.px)
-                backgroundColor(Color.white)
-                borderRadius(16.px)
-                property("box-shadow", "0 10px 25px rgba(0,0,0,0.1)")
-                display(DisplayStyle.Flex)
-                flexDirection(FlexDirection.Column)
-                width(350.px)
-                textAlign("center")
-            }
-        }) {
             Div({
                 style {
-                    color(PrimaryBlue)
-                    fontSize(2.em)
-                    fontWeight("bold")
-                    marginBottom(10.px)
+                    display(DisplayStyle.Flex)
+                    height(100.vh)
+                    fontFamily("Roboto", "Segoe UI", "sans-serif")
+                    backgroundColor(Gray100)
                 }
-            }) { Text("RH NAF Industrial") }
-            
-            P({ style { color(Color.gray); marginBottom(30.px) } }) { 
-                Text("Sistema de Gestión de Capital Humano") 
-            }
-
-            Input(InputType.Text) {
-                style {
-                    padding(12.px)
-                    marginBottom(15.px)
-                    borderRadius(8.px)
-                    property("border", "1.5px solid #e0e0e0")
-                    property("outline", "none")
-                }
-                placeholder("Usuario de Red")
-                onInput { onUsernameChange(it.value) }
-            }
-
-            Input(InputType.Password) {
-                style {
-                    padding(12.px)
-                    marginBottom(25.px)
-                    borderRadius(8.px)
-                    property("border", "1.5px solid #e0e0e0")
-                    property("outline", "none")
-                }
-                placeholder("Contraseña")
-                onInput { onPasswordChange(it.value) }
-            }
-
-            Button({
-                style {
-                    padding(14.px)
-                    backgroundColor(PrimaryBlue)
-                    color(Color.white)
-                    property("border", "none")
-                    borderRadius(8.px)
-                    cursor("pointer")
-                    fontWeight("bold")
-                    fontSize(1.em)
-                    property("transition", "background-color 0.3s")
-                }
-                onClick { onLoginClick() }
             }) {
-                Text("Ingresar al Portal")
-            }
+                // SIDEBAR
+                Sidebar(activeModule) { 
+                    activeModule = it 
+                    selectedEmployee = null
+                }
 
-            if (loginError.isNotEmpty()) {
-                P({ style { color(Color.red); fontSize(14.px); marginTop(15.px) } }) {
-                    Text(loginError)
+                // CONTENIDO PRINCIPAL
+                Div({ style { flex(1); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); overflowY("auto") } }) {
+                    TopBar("Administrador RH")
+
+                    Div({ style { padding(24.px) } }) {
+                        when (activeModule) {
+                            Module.DASHBOARD -> DashboardView(employees)
+                            Module.EMPLOYEES -> {
+                                if (selectedEmployee == null) {
+                                    EmployeeListView(employees) { selectedEmployee = it }
+                                } else {
+                                    EmployeeDigitalFile(selectedEmployee!!) { selectedEmployee = null }
+                                }
+                            }
+                            Module.SAFETY -> SafetyModule(client, scope)
+                            else -> PlaceholderModule(activeModule.name)
+                        }
+                    }
                 }
             }
-        }
-        
-        P({ style { marginTop(20.px); color(Color.gray); fontSize(12.px) } }) {
-            Text("© 2026 RH NAF Industrial. Todos los derechos reservados.")
         }
     }
 }
 
 @Composable
-fun MainLayout(
-    currentNav: NavItem,
-    onNavChange: (NavItem) -> Unit,
-    onLogout: () -> Unit,
-    content: @Composable () -> Unit
-) {
-    Div({
+fun Sidebar(active: Module, onSelect: (Module) -> Unit) {
+    Nav({
         style {
+            width(260.px)
+            backgroundColor(Blue900)
+            color(Color.white)
             display(DisplayStyle.Flex)
-            height(100.vh)
-            fontFamily("Segoe UI", "sans-serif")
-            backgroundColor(BackgroundGray)
+            flexDirection(FlexDirection.Column)
         }
     }) {
-        // SIDEBAR
-        Nav({
-            style {
-                width(260.px)
-                backgroundColor(PrimaryBlue)
-                color(Color.white)
-                display(DisplayStyle.Flex)
-                flexDirection(FlexDirection.Column)
-                padding(20.px)
-            }
-        }) {
-            H3({ style { marginBottom(40.px); textAlign("center") } }) { Text("RH NAF PANEL") }
-
-            SidebarItem("Dashboard", NavItem.DASHBOARD, currentNav == NavItem.DASHBOARD) { onNavChange(NavItem.DASHBOARD) }
-            SidebarItem("Colaboradores", NavItem.EMPLOYEES, currentNav == NavItem.EMPLOYEES) { onNavChange(NavItem.EMPLOYEES) }
-            SidebarItem("Seguridad EHS", NavItem.SAFETY_EHS, currentNav == NavItem.SAFETY_EHS) { onNavChange(NavItem.SAFETY_EHS) }
-            SidebarItem("Inteligencia Artificial", NavItem.AI_HUGGINGFACE, currentNav == NavItem.AI_HUGGINGFACE) { onNavChange(NavItem.AI_HUGGINGFACE) }
-
-            Div({ style { marginTop(DisplayStyle.Auto.toString()) } }) {
-                Button({
-                    style {
-                        width(100.percent)
-                        padding(10.px)
-                        backgroundColor(Color("#ffffff33"))
-                        color(Color.white)
-                        property("border", "none")
-                        borderRadius(6.px)
-                        cursor("pointer")
-                    }
-                    onClick { onLogout() }
-                }) { Text("Cerrar Sesión") }
-            }
+        Div({ style { padding(32.px); textAlign("center"); borderBottom("1px solid #ffffff22") } }) {
+            H2({ style { margin(0.px); fontSize(20.px) } }) { Text("RH NAF INDUSTRIAL") }
         }
 
-        // MAIN CONTENT AREA
-        Div({
-            style {
-                flex(1)
-                display(DisplayStyle.Flex)
-                flexDirection(FlexDirection.Column)
-                overflowY("auto")
-            }
-        }) {
-            Header({
-                style {
-                    backgroundColor(Color.white)
-                    padding(15.px, 30.px)
-                    display(DisplayStyle.Flex)
-                    justifyContent(JustifyContent.SpaceBetween)
-                    alignItems(AlignItems.Center)
-                    property("box-shadow", "0 2px 4px rgba(0,0,0,0.05)")
-                }
-            }) {
-                H2({ style { margin(0.px); color(TextDark) } }) {
-                    Text(when(currentNav) {
-                        NavItem.DASHBOARD -> "Panel Principal"
-                        NavItem.EMPLOYEES -> "Gestión de Personal"
-                        NavItem.SAFETY_EHS -> "Incidentes y Seguridad"
-                        NavItem.AI_HUGGINGFACE -> "Servicios de IA"
-                    })
-                }
-                Span({ style { color(Color.gray) } }) { Text("Admin: RH_NAF_01") }
-            }
-
-            Div({ style { padding(30.px) } }) {
-                content()
-            }
+        Div({ style { padding(16.px); flex(1) } }) {
+            SidebarLink("Dashboard", Module.DASHBOARD, active == Module.DASHBOARD, onSelect)
+            SidebarLink("Expediente Digital", Module.EMPLOYEES, active == Module.EMPLOYEES, onSelect)
+            SidebarLink("Asistencia / QR", Module.ATTENDANCE, active == Module.ATTENDANCE, onSelect)
+            SidebarLink("Seguridad EHS (IA)", Module.SAFETY, active == Module.SAFETY, onSelect)
+            SidebarLink("Capacitación / CTPAT", Module.TRAINING, active == Module.TRAINING, onSelect)
+            SidebarLink("Reclutamiento", Module.RECRUITMENT, active == Module.RECRUITMENT, onSelect)
+            SidebarLink("Gestión Documental", Module.DOCUMENTS, active == Module.DOCUMENTS, onSelect)
         }
     }
 }
 
 @Composable
-fun SidebarItem(label: String, item: NavItem, isSelected: Boolean, onClick: () -> Unit) {
+fun SidebarLink(label: String, mod: Module, isSelected: Boolean, onSelect: (Module) -> Unit) {
     Div({
         style {
             padding(12.px, 20.px)
-            marginBottom(10.px)
+            marginBottom(4.px)
             borderRadius(8.px)
             cursor("pointer")
-            if (isSelected) backgroundColor(Color("#ffffff22"))
+            if (isSelected) backgroundColor(Color("#ffffff15"))
             property("transition", "0.2s")
         }
-        onClick { onClick() }
+        onClick { onSelect(mod) }
     }) {
         Text(label)
     }
 }
 
 @Composable
-fun DashboardContent(employees: List<Employee>) {
+fun DashboardView(employees: List<Employee>) {
     Div {
+        H2 { Text("Panel de Control Estratégico") }
+        
+        // KPIs
         Div({
             style {
                 display(DisplayStyle.Grid)
-                property("grid-template-columns", "repeat(auto-fit, minmax(240.px, 1fr))")
-                gap(20.px)
-                marginBottom(30.px)
+                property("grid-template-columns", "repeat(auto-fit, minmax(200.px, 1fr))")
+                gap(20.px); marginBottom(32.px)
             }
         }) {
-            StatCard("Total Personal", employees.size.toString(), PrimaryBlue)
-            StatCard("Activos", employees.count { it.status.name == "ACTIVE" }.toString(), Color.green)
-            StatCard("En Vacaciones", employees.count { it.status.name == "VACATION" }.toString(), Color.orange)
-            StatCard("Incidentes Mes", "0", Color.red)
+            KPICard("Total Personal", employees.size.toString(), Blue700)
+            KPICard("Activos", employees.count { it.status == EmployeeStatus.ACTIVE }.toString(), SuccessGreen)
+            KPICard("En Vacaciones", employees.count { it.status == EmployeeStatus.VACATION }.toString(), WarningOrange)
+            KPICard("Ausentismo %", "2.4%", ErrorRed)
         }
 
         Div({
             style {
-                backgroundColor(Color.white)
-                padding(25.px)
-                borderRadius(12.px)
-                property("box-shadow", "0 4px 10px rgba(0,0,0,0.03)")
+                display(DisplayStyle.Flex); gap(20.px)
             }
         }) {
-            H3 { Text("Resumen Operativo") }
-            P { Text("Bienvenido al sistema RH NAF. Aquí podrá gestionar los expedientes de los colaboradores, analizar reportes de seguridad mediante IA y automatizar el registro de datos.") }
+            // Alertas
+            DashboardPanel("Alertas de Hoy", 1) {
+                AlertItem("Vencimiento de Contrato: 3 empleados", ErrorRed)
+                AlertItem("Examen Médico Pendiente: OP-105", WarningOrange)
+                AlertItem("Capacitación CTPAT Vence: Mañana", Blue700)
+            }
+            // Cumpleaños
+            DashboardPanel("Próximos Cumpleaños", 1) {
+                P { Text("Pedro García - 05 de Julio") }
+                P { Text("María López - 12 de Julio") }
+            }
         }
     }
 }
 
 @Composable
-fun StatCard(title: String, value: String, accent: CSSColorValue) {
-    Div({
-        style {
-            backgroundColor(Color.white)
-            padding(20.px)
-            borderRadius(12.px)
-            display(DisplayStyle.Flex)
-            flexDirection(FlexDirection.Column)
-            property("box-shadow", "0 4px 6px rgba(0,0,0,0.02)")
-            property("border-left", "5.px solid $accent")
-        }
-    }) {
-        Span({ style { color(Color.gray); fontSize(14.px) } }) { Text(title) }
-        Span({ style { fontSize(28.px); fontWeight("bold"); color(TextDark) } }) { Text(value) }
-    }
-}
-
-@Composable
-fun EmployeesContent(employees: List<Employee>) {
-    Div({
-        style {
-            backgroundColor(Color.white)
-            padding(20.px)
-            borderRadius(12.px)
-        }
-    }) {
-        Table({
-            style {
-                width(100.percent)
-                property("border-collapse", "collapse")
-            }
-        }) {
+fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit) {
+    Div({ style { backgroundColor(Color.white); padding(24.px); borderRadius(12.px) } }) {
+        H3 { Text("Listado de Personal") }
+        Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
             Thead {
                 Tr {
-                    Th({ style { textAlign("left"); padding(12.px); borderBottom("2px solid #eee") } }) { Text("ID") }
+                    Th({ style { textAlign("left"); padding(12.px); borderBottom("2px solid #eee") } }) { Text("ID / Foto") }
                     Th({ style { textAlign("left"); padding(12.px); borderBottom("2px solid #eee") } }) { Text("Nombre Completo") }
-                    Th({ style { textAlign("left"); padding(12.px); borderBottom("2px solid #eee") } }) { Text("Departamento") }
                     Th({ style { textAlign("left"); padding(12.px); borderBottom("2px solid #eee") } }) { Text("Puesto") }
-                    Th({ style { textAlign("left"); padding(12.px); borderBottom("2px solid #eee") } }) { Text("Estado") }
+                    Th({ style { textAlign("left"); padding(12.px); borderBottom("2px solid #eee") } }) { Text("Antigüedad") }
+                    Th({ style { textAlign("left"); padding(12.px); borderBottom("2px solid #eee") } }) { Text("Acción") }
                 }
             }
             Tbody {
                 employees.forEach { emp ->
-                    Tr({
-                        style { property("border-bottom", "1px solid #f9f9f9") }
-                    }) {
-                        Td({ style { padding(12.px) } }) { Text(emp.id) }
-                        Td({ style { padding(12.px); fontWeight("500") } }) { Text("${emp.firstName} ${emp.lastName}") }
-                        Td({ style { padding(12.px) } }) { Text(emp.department) }
-                        Td({ style { padding(12.px) } }) { Text(emp.position) }
-                        Td({ style { padding(12.px) } }) {
-                            Span({
-                                style {
-                                    padding(4.px, 10.px)
-                                    borderRadius(20.px)
-                                    fontSize(12.px)
-                                    fontWeight("bold")
-                                    color(Color.white)
-                                    backgroundColor(when(emp.status.name) {
-                                        "ACTIVE" -> Color.green
-                                        "VACATION" -> Color.orange
-                                        else -> Color.red
-                                    })
-                                }
-                            }) { Text(emp.status.name) }
+                    Tr {
+                        Td({ style { padding(12.px); borderBottom("1px solid #eee") } }) { Text(emp.id) }
+                        Td({ style { padding(12.px); borderBottom("1px solid #eee"); fontWeight("bold") } }) { Text("${emp.firstName} ${emp.lastName}") }
+                        Td({ style { padding(12.px); borderBottom("1px solid #eee") } }) { Text(emp.position) }
+                        Td({ style { padding(12.px); borderBottom("1px solid #eee") } }) { Text(emp.entryDate) }
+                        Td({ style { padding(12.px); borderBottom("1px solid #eee") } }) {
+                            Button({
+                                style { padding(6.px, 12.px); backgroundColor(Blue700); color(Color.white); border("none"); borderRadius(4.px); cursor("pointer") }
+                                onClick { onSelect(emp) }
+                            }) { Text("Ver Expediente") }
                         }
                     }
                 }
@@ -388,112 +216,129 @@ fun EmployeesContent(employees: List<Employee>) {
 }
 
 @Composable
-fun SafetyContent(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    var description by remember { mutableStateOf("") }
-    var analysisResult by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-
-    Div({
-        style {
-            backgroundColor(Color.white)
-            padding(30.px)
-            borderRadius(12.px)
-            maxWidth(800.px)
-        }
-    }) {
-        H3 { Text("Reporte de Incidente (Análisis IA)") }
-        P({ style { color(Color.gray); marginBottom(20.px) } }) { 
-            Text("Describa el incidente ocurrido en planta. La IA analizará la gravedad y categoría automáticamente.") 
-        }
-
-        TextArea({
-            style {
-                width(100.percent)
-                height(150.px)
-                padding(15.px)
-                borderRadius(8.px)
-                property("border", "1.5px solid #eee")
-                property("resize", "none")
-                marginBottom(20.px)
-            }
-            placeholder("Ej: Se detectó derrame de aceite en línea 4, operador con resbalón leve...")
-            onInput { description = it.value }
-        })
-
-        Button({
-            style {
-                padding(12.px, 25.px)
-                backgroundColor(if (isLoading) Color.gray else PrimaryBlue)
-                color(Color.white)
-                property("border", "none")
-                borderRadius(8.px)
-                cursor("pointer")
-                fontWeight("bold")
-            }
-            if (isLoading) disabled()
-            onClick {
-                if (description.isBlank()) return@onClick
-                isLoading = true
-                scope.launch {
-                    try {
-                        val response = client.post("/api/safety/analyze") {
-                            contentType(ContentType.Application.Json)
-                            setBody(mapOf("description" to description))
-                        }
-                        val body: Map<String, String> = response.body()
-                        analysisResult = body["analysis"] ?: "No se pudo obtener análisis"
-                    } catch (e: Exception) {
-                        analysisResult = "Error al conectar con el servicio de IA"
-                    } finally {
-                        isLoading = false
-                    }
-                }
-            }
-        }) {
-            Text(if (isLoading) "Analizando..." else "Enviar para Análisis")
-        }
-
-        if (analysisResult.isNotEmpty()) {
-            Div({
-                style {
-                    marginTop(30.px)
-                    padding(20.px)
-                    backgroundColor(Color("#e3f2fd"))
-                    borderRadius(8.px)
-                    property("border-left", "4px solid $PrimaryBlue")
-                }
-            }) {
-                H4({ style { margin(0.px, 0.px, 10.px, 0.px) } }) { Text("Resultado de la IA:") }
-                P { Text(analysisResult) }
-            }
-        }
-    }
-}
-
-@Composable
-fun AIHuggingFaceContent(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    var ocrResult by remember { mutableStateOf("") }
-    
-    Div({
-        style {
-            backgroundColor(Color.white)
-            padding(30.px)
-            borderRadius(12.px)
-        }
-    }) {
-        H3 { Text("Digitalización de Documentos (OCR)") }
-        P { Text("En esta sección podrá cargar fotos de credenciales o contratos para extraer texto automáticamente mediante modelos de visión artificial.") }
+fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit) {
+    Div {
+        Button({ onClick { onBack() }; style { marginBottom(16.px); cursor("pointer") } }) { Text("← Volver a lista") }
         
         Div({
             style {
-                padding(40.px)
-                border("2px dashed lightgray")
-                borderRadius(12.px)
-                textAlign("center")
-                marginTop(20.px)
+                backgroundColor(Color.white); padding(32.px); borderRadius(16.px); display(DisplayStyle.Flex); gap(32.px)
             }
         }) {
-            Text("Módulo de carga en desarrollo. Use la función de incidentes para probar la integración con Hugging Face.")
+            // Columna Izquierda: Foto y Datos Base
+            Div({ style { width(200.px); textAlign("center") } }) {
+                Div({ style { width(150.px); height(150.px); backgroundColor(Color.lightgray); borderRadius(50.percent); margin("0 auto 16.px") } })
+                H3 { Text("${emp.firstName} ${emp.lastName}") }
+                P({ style { color(Color.gray) } }) { Text(emp.position) }
+                StatusBadge(emp.status)
+            }
+
+            // Columna Derecha: Pestañas de información
+            Div({ style { flex(1) } }) {
+                H2 { Text("Expediente Digital Electrónico") }
+                
+                Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr"); gap(24.px) } }) {
+                    InfoGroup("Datos Legales", listOf("CURP: ${emp.curp ?: "N/A"}", "RFC: ${emp.rfc ?: "N/A"}", "NSS: ${emp.nss ?: "N/A"}"))
+                    InfoGroup("Organizacional", listOf("Departamento: ${emp.department}", "Supervisor: ${emp.supervisor ?: "N/A"}", "Ingreso: ${emp.entryDate}"))
+                    InfoGroup("Salud y Seguridad", listOf("Historial Médico: ${emp.medicalHistory ?: "Sin registros"}", "Equipo EPP: Casco, Botas, Lentes"))
+                    InfoGroup("Documentos Digitales", listOf("INE.pdf", "Contrato_Firmado.pdf", "Certificado_Medico.jpg"))
+                }
+            }
+        }
+    }
+}
+
+// COMPONENTES AUXILIARES
+@Composable fun KPICard(t: String, v: String, c: CSSColorValue) {
+    Div({ style { backgroundColor(Color.white); padding(20.px); borderRadius(12.px); borderLeft("5px solid $c"); property("box-shadow", "0 2px 4px rgba(0,0,0,0.05)") } }) {
+        Span({ style { color(Color.gray); fontSize(14.px) } }) { Text(t) }
+        Div({ style { fontSize(28.px); fontWeight("bold"); color(Gray800) } }) { Text(v) }
+    }
+}
+
+@Composable fun DashboardPanel(t: String, f: Int, content: @Composable () -> Unit) {
+    Div({ style { flex(f.toString()); backgroundColor(Color.white); padding(20.px); borderRadius(12.px) } }) {
+        H3({ style { borderBottom("1px solid #eee"); paddingBottom(10.px) } }) { Text(t) }
+        content()
+    }
+}
+
+@Composable fun AlertItem(t: String, c: CSSColorValue) {
+    Div({ style { padding(8.px); marginBottom(8.px); backgroundColor(Blue50); borderLeft("3px solid $c"); fontSize(14.px) } }) { Text(t) }
+}
+
+@Composable fun InfoGroup(title: String, items: List<String>) {
+    Div({ style { marginBottom(20.px) } }) {
+        H4({ style { color(Blue700); margin("0 0 8px 0") } }) { Text(title) }
+        Ul({ style { paddingLeft(20.px); margin(0.px) } }) {
+            items.forEach { Li { Text(it) } }
+        }
+    }
+}
+
+@Composable fun StatusBadge(s: EmployeeStatus) {
+    Span({
+        style {
+            padding(4.px, 12.px); borderRadius(20.px); color(Color.white); fontSize(12.px); fontWeight("bold")
+            backgroundColor(when(s) {
+                EmployeeStatus.ACTIVE -> SuccessGreen
+                EmployeeStatus.VACATION -> WarningOrange
+                else -> ErrorRed
+            })
+        }
+    }) { Text(s.name) }
+}
+
+@Composable fun TopBar(user: String) {
+    Header({ style { backgroundColor(Color.white); padding(16.px, 32.px); display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); borderBottom("1px solid #eee") } }) {
+        Div { Text("Bienvenido, $user") }
+        Button({ style { cursor("pointer") } }) { Text("Soporte Técnico") }
+    }
+}
+
+@Composable fun LoginScreen(onLogin: (String, String) -> Unit) {
+    var u by remember { mutableStateOf("") }
+    var p by remember { mutableStateOf("") }
+    Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); height(100.vh); backgroundColor(Blue900) } }) {
+        Div({ style { backgroundColor(Color.white); padding(48.px); borderRadius(16.px); width(320.px); textAlign("center") } }) {
+            H1({ style { color(Blue900) } }) { Text("RH NAF") }
+            P { Text("Sistema Industrial") }
+            Input(InputType.Text) { placeholder("Usuario"); style { width(100.percent); padding(10.px); margin("10px 0"); borderRadius(4.px); border("1px solid #ccc") }; onInput { u = it.value } }
+            Input(InputType.Password) { placeholder("Contraseña"); style { width(100.percent); padding(10.px); margin("10px 0"); borderRadius(4.px); border("1px solid #ccc") }; onInput { p = it.value } }
+            Button({ style { width(100.percent); padding(12.px); backgroundColor(Blue900); color(Color.white); border("none"); borderRadius(4.px); cursor("pointer"); marginTop(16.px) }; onClick { onLogin(u, p) } }) { Text("Entrar") }
+        }
+    }
+}
+
+@Composable fun PlaceholderModule(name: String) {
+    Div({ style { textAlign("center"); padding(100.px) } }) {
+        H2 { Text("Módulo $name en Desarrollo") }
+        P { Text("Estamos trabajando para integrar esta funcionalidad.") }
+    }
+}
+
+@Composable fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var desc by remember { mutableStateOf("") }
+    var res by remember { mutableStateOf("") }
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px) } }) {
+        H3 { Text("Investigación de Incidentes EHS (IA)") }
+        P { Text("Describa el evento para análisis de riesgo inmediato.") }
+        TextArea({ style { width(100.percent); height(120.px); margin("16px 0") }; onInput { desc = it.value } })
+        Button({ 
+            style { padding(12.px, 24.px); backgroundColor(Blue900); color(Color.white); border("none"); borderRadius(6.px); cursor("pointer") }
+            onClick {
+                scope.launch {
+                    val resp = client.post("/api/safety/analyze") {
+                        contentType(ContentType.Application.Json)
+                        setBody(mapOf("description" to desc))
+                    }
+                    val body: Map<String, String> = resp.body()
+                    res = body["analysis"] ?: ""
+                }
+            }
+        }) { Text("Analizar Incidente") }
+        if (res.isNotEmpty()) {
+            Div({ style { marginTop(24.px); padding(16.px); backgroundColor(Blue50); borderLeft("4px solid $Blue900") } }) { Text(res) }
         }
     }
 }
