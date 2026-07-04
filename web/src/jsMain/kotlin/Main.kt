@@ -57,11 +57,14 @@ class Translations(val lang: Language) {
         "select_avatar" to "Seleccionar Avatar Profesional",
         "display_name" to "Nombre a mostrar",
         "select_lang" to "Idioma del Sistema",
-        "processing" to "Procesando con IA...",
         "ai_analysis" to "Análisis Inteligente",
         "turnover_risk" to "Riesgo de Rotación (IA)",
         "skill_heatmap" to "Mapa de Habilidades",
-        "predictive" to "Predictivo"
+        "predictive" to "Predictivo",
+        "talent_market" to "Mercado de Talento",
+        "esg_metrics" to "Sostenibilidad (ESG)",
+        "pulse" to "Clima Laboral (Pulse)",
+        "ai_assistant" to "Asistente NAF AI"
     )
     private val en = mapOf(
         "dashboard" to "Dashboard",
@@ -104,7 +107,11 @@ class Translations(val lang: Language) {
         "ai_analysis" to "AI Analysis",
         "turnover_risk" to "Attrition Risk (AI)",
         "skill_heatmap" to "Skill Heatmap",
-        "predictive" to "Predictive"
+        "predictive" to "Predictive",
+        "talent_market" to "Talent Marketplace",
+        "esg_metrics" to "Sustainability (ESG)",
+        "pulse" to "Employee Pulse",
+        "ai_assistant" to "NAF AI Assistant"
     )
     private val zh = mapOf(
         "dashboard" to "仪表板",
@@ -147,7 +154,11 @@ class Translations(val lang: Language) {
         "ai_analysis" to "智能分析",
         "turnover_risk" to "人员离职风险 (AI)",
         "skill_heatmap" to "技能热图",
-        "predictive" to "预测性"
+        "predictive" to "预测性",
+        "talent_market" to "内部人才市场",
+        "esg_metrics" to "可持续发展 (ESG)",
+        "pulse" to "员工满意度调查",
+        "ai_assistant" to "NAF AI 助手"
     )
 
     fun get(key: String): String {
@@ -159,8 +170,8 @@ class Translations(val lang: Language) {
     }
 }
 
-enum class Module {
-    DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS
+    DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS,
+    TALENT_MARKET, SUSTAINABILITY, PULSE_SURVEY
 }
 
 fun main() {
@@ -267,6 +278,9 @@ fun main() {
                             Module.VACATIONS -> VacationsModule(t)
                             Module.DOCUMENTS -> DocumentsModule(t)
                             Module.REPORTS -> ReportsModule(t)
+                            Module.TALENT_MARKET -> TalentMarketModule(t)
+                            Module.SUSTAINABILITY -> SustainabilityModule(t)
+                            Module.PULSE_SURVEY -> PulseModule(t)
                             Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
                                 currentLang = it
                                 window.localStorage.setItem("naf_lang", it.name)
@@ -274,6 +288,8 @@ fun main() {
                         }
                     }
                 }
+                // FLOATING AI ASSISTANT
+                AiAssistantWidget(t, client, scope)
             }
         }
     }
@@ -321,6 +337,9 @@ fun Sidebar(active: Module, t: Translations, onSelect: (Module) -> Unit) {
             SidebarLink(t.get("incidents"), Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
             SidebarLink(t.get("vacations"), Module.VACATIONS, active == Module.VACATIONS, onSelect)
             SidebarLink(t.get("documents"), Module.DOCUMENTS, active == Module.DOCUMENTS, onSelect)
+            SidebarLink(t.get("talent_market"), Module.TALENT_MARKET, active == Module.TALENT_MARKET, onSelect)
+            SidebarLink(t.get("esg_metrics"), Module.SUSTAINABILITY, active == Module.SUSTAINABILITY, onSelect)
+            SidebarLink(t.get("pulse"), Module.PULSE_SURVEY, active == Module.PULSE_SURVEY, onSelect)
             SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
         }
 
@@ -1193,6 +1212,110 @@ fun ReportsModule(t: Translations) {
         Div({ style { marginTop(32.px); textAlign("center") } }) {
             Button({ style { padding(12.px, 24.px); backgroundColor(SidebarColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer") } }) { Text("Generar Reporte Anual NAF (PDF)") }
         }
+    }
+}
+
+@Composable
+fun TalentMarketModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("talent_market")) }
+        P({ style { color(Color.gray); marginBottom(24.px) } }) { Text("Gig economy interna: Proyectos estratégicos para colaboradores actuales.") }
+        
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fit, minmax(300.px, 1fr))"); gap(20.px) } }) {
+            listOf(
+                "Optimización de Logística" to "Habilidad: Análisis de Datos",
+                "Brigada de Primeros Auxilios" to "Habilidad: EHS",
+                "Mentoría a Nuevos Operadores" to "Habilidad: Liderazgo"
+            ).forEach { (project, skill) ->
+                Div({ style { padding(20.px); property("border", "1px solid #e2e8f0"); borderRadius(12.px); backgroundColor(Color("#f8fafc")) } }) {
+                    H4({ style { margin(0.px); color(SidebarActiveColor) } }) { Text(project) }
+                    P({ style { fontSize(13.px); color(Color.gray) } }) { Text(skill) }
+                    Button({ style { width(100.percent); padding(8.px); backgroundColor(Color("#0f172a")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") } }) { Text("Postularse") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SustainabilityModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("esg_metrics") + " - Planta NAF") }
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr 1fr"); gap(24.px); marginBottom(32.px) } }) {
+            StatCard("Huella de Carbono", "12.4 tCO2e", "Bajo el promedio", Color("#10b981"))
+            StatCard("Consumo Energético", "450 kWh", "Objetivo: 400", Color("#f59e0b"))
+            StatCard("Reciclaje Industrial", "88%", "KPI de excelencia", Color("#3b82f6"))
+        }
+    }
+}
+
+@Composable
+fun PulseModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("pulse")) }
+        Div({ style { display(DisplayStyle.Flex); gap(24.px); alignItems(AlignItems.Center) } }) {
+            Div({ style { flex(1); padding(32.px); backgroundColor(Color("#f0f9ff")); borderRadius(50.percent); textAlign("center"); width(150.px); height(150.px); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); justifyContent(JustifyContent.Center) } }) {
+                H2({ style { margin(0.px); color(Color("#0369a1")) } }) { Text("86%") }
+                P({ style { fontSize(11.px); color(Color.gray) } }) { Text("Felicidad") }
+            }
+            Div({ style { flex(2) } }) {
+                H4 { Text("Tendencias de Sentimiento") }
+                P { Text("● El personal de producción se siente motivado por los nuevos bonos.") }
+                P { Text("● Se detectó cansancio en el turno nocturno (Mantenimiento).") }
+            }
+        }
+    }
+}
+
+@Composable
+fun AiAssistantWidget(t: Translations, client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var isOpen by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    var response by remember { mutableStateOf("") }
+
+    Div({
+        style {
+            position(Position.Fixed); bottom(24.px); right(24.px); zIndex(1000)
+        }
+    }) {
+        if (isOpen) {
+            Div({
+                style {
+                    width(350.px); height(450.px); backgroundColor(Color.white); borderRadius(16.px)
+                    property("box-shadow", "0 10px 25px -5px rgba(0, 0, 0, 0.2)")
+                    display(DisplayStyle.Flex); flexDirection(FlexDirection.Column)
+                    marginBottom(16.px); property("border", "1px solid #e2e8f0")
+                }
+            }) {
+                Div({ style { padding(16.px); backgroundColor(Color("#0f172a")); color(Color.white); borderRadius(16.px, 16.px, 0.px, 0.px) } }) {
+                    Text(t.get("ai_assistant"))
+                }
+                Div({ style { flex(1); padding(16.px); overflowY("auto"); fontSize(13.px) } }) {
+                    if (response.isEmpty()) {
+                        Text("¿En qué puedo ayudarte hoy? Ejemplo: '¿Quién tiene riesgo de renuncia?' o 'Genera reporte de capacitación'.")
+                    } else {
+                        Div({ style { padding(12.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px) } }) { Text(response) }
+                    }
+                }
+                Div({ style { padding(16.px); property("border-top", "1px solid #e2e8f0") } }) {
+                    Input(InputType.Text) {
+                        placeholder("Pregunta a NAF AI...")
+                        style { width(100.percent); padding(10.px); borderRadius(8.px); property("border", "1px solid #ddd") }
+                        onInput { query = it.value }
+                        onKeyDown { if (it.key == "Enter") { response = "Analizando datos de la planta..."; window.setTimeout({ response = "Basado en los datos actuales, el índice de rotación ha bajado 2% y Dario Robles tiene certificaciones al día." }, 1500) } }
+                    }
+                }
+            }
+        }
+        
+        Button({
+            style {
+                width(60.px); height(60.px); borderRadius(50.percent); backgroundColor(Color("#0f172a"))
+                color(Color.white); fontSize(24.px); cursor("pointer"); property("border", "none")
+                property("box-shadow", "0 4px 6px -1px rgba(0, 0, 0, 0.1)")
+            }
+            onClick { isOpen = !isOpen }
+        }) { Text("✨") }
     }
 }
 
