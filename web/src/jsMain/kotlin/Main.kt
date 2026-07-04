@@ -60,7 +60,7 @@ fun main() {
                     backgroundColor(BackgroundColor)
                 }
             }) {
-                // SIDEBAR (Fiel a la imagen)
+                // SIDEBAR
                 Sidebar(activeModule) { 
                     activeModule = it 
                     selectedEmployee = null
@@ -108,7 +108,7 @@ fun Sidebar(active: Module, onSelect: (Module) -> Unit) {
 
         Input(InputType.Text) {
             style {
-                margin(0.px, 16.px, 24.px, 16.px)
+                property("margin", "0 16px 24px 16px")
                 padding(8.px, 12.px)
                 backgroundColor(Color("#334155"))
                 property("border", "none")
@@ -180,7 +180,8 @@ fun DashboardView(employees: List<Employee>) {
             style {
                 display(DisplayStyle.Grid)
                 property("grid-template-columns", "repeat(auto-fit, minmax(200.px, 1fr))")
-                gap(20.px); marginBottom(24.px)
+                gap(20.px)
+                property("margin-bottom", "24px")
             }
         }) {
             StatCard("Total Empleados", "1,248", "+12 este mes", Color("#6366f1"))
@@ -205,7 +206,7 @@ fun DashboardView(employees: List<Employee>) {
                     property("box-shadow", CardShadow)
                 }
             }) {
-                Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); marginBottom(20.px) } }) {
+                Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); property("margin-bottom", "20px") } }) {
                     H3({ style { margin(0.px); fontSize(16.px) } }) { Text("Indicadores Clave") }
                     Span({ style { color(Color.gray); fontSize(12.px) } }) { Text("Este mes ▼") }
                 }
@@ -213,7 +214,7 @@ fun DashboardView(employees: List<Employee>) {
                     Text("Visualización de Gráfica de Líneas")
                 }
                 Div({
-                    style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); marginTop(20.px) }
+                    style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); property("margin-top", "20px") }
                 }) {
                     MiniStat("Ausentismo", "3.2%", "-0.5% vs anterior", Color("#22c55e"))
                     MiniStat("Rotación", "1.8%", "-0.2% vs anterior", Color("#22c55e"))
@@ -229,7 +230,7 @@ fun DashboardView(employees: List<Employee>) {
                     property("box-shadow", CardShadow)
                 }
             }) {
-                H3({ style { margin(0.px, 0.px, 20.px, 0.px); fontSize(16.px) } }) { Text("Cumpleaños del Mes") }
+                H3({ style { property("margin", "0 0 20px 0"); fontSize(16.px) } }) { Text("Cumpleaños del Mes") }
                 BirthdayItem("Carlos Rodríguez", "15 de Mayo", true)
                 BirthdayItem("María González", "18 de Mayo", false)
                 BirthdayItem("Juan Pérez", "22 de Mayo", false)
@@ -244,7 +245,7 @@ fun DashboardView(employees: List<Employee>) {
                     property("box-shadow", CardShadow)
                 }
             }) {
-                H3({ style { margin(0.px, 0.px, 20.px, 0.px); fontSize(16.px) } }) { Text("Alertas Importantes") }
+                H3({ style { property("margin", "0 0 20px 0"); fontSize(16.px) } }) { Text("Alertas Importantes") }
                 AlertItem("5 contratos vencen en los próximos 7 días", Color("#ef4444"))
                 AlertItem("12 empleados con documentos vencidos", Color("#f97316"))
                 AlertItem("15 capacitaciones por vencer", Color("#3b82f6"))
@@ -266,7 +267,7 @@ fun StatCard(label: String, value: String, sub: String, color: CSSColorValue) {
     }) {
         Div {
             P({ style { margin(0.px); color(Color("#64728b")); fontSize(14.px) } }) { Text(label) }
-            H2({ style { margin(4.px, 0.px); fontSize(24.px); fontWeight("bold") } }) { Text(value) }
+            H2({ style { property("margin", "4px 0"); fontSize(24.px); fontWeight("bold") } }) { Text(value) }
             P({ style { margin(0.px); color(color); fontSize(12.px); fontWeight("500") } }) { Text(sub) }
         }
         Div({ style { width(48.px); height(48.px); backgroundColor(Color("#f1f5f9")); borderRadius(12.px) } })
@@ -277,7 +278,7 @@ fun StatCard(label: String, value: String, sub: String, color: CSSColorValue) {
 fun MiniStat(label: String, value: String, sub: String, color: CSSColorValue) {
     Div {
         P({ style { margin(0.px); color(Color("#64728b")); fontSize(11.px) } }) { Text(label) }
-        P({ style { margin(2.px, 0.px); fontSize(16.px); fontWeight("bold") } }) { Text(value) }
+        P({ style { property("margin", "2px 0"); fontSize(16.px); fontWeight("bold") } }) { Text(value) }
         P({ style { margin(0.px); color(color); fontSize(10.px) } }) { Text(sub) }
     }
 }
@@ -307,7 +308,7 @@ fun AlertItem(text: String, color: CSSColorValue) {
             display(DisplayStyle.Flex); gap(12.px); marginBottom(16.px); alignItems(AlignItems.FlexStart)
         }
     }) {
-        Div({ style { width(20.px); height(20.px); borderRadius(50.percent); property("border", "2px solid $color"); flexShrink(0) } })
+        Div({ style { width(20.px); height(20.px); borderRadius(50.percent); property("border", "2px solid $color"); property("flex-shrink", "0") } })
         Div {
             P({ style { margin(0.px); fontSize(13.px); fontWeight("500") } }) { Text(text) }
             A(href = "#", { style { fontSize(11.px); color(SidebarActiveColor); textDecoration("none") } }) { Text("Ver detalles") }
@@ -396,12 +397,12 @@ fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit) {
         }) {
             // Perfil
             Div({ style { width(220.px); textAlign("center") } }) {
-                Div({ style { width(120.px); height(120.px); backgroundColor(Color("#e2e8f0")); borderRadius(50.percent); margin("0 auto 20.px") } })
+                Div({ style { width(120.px); height(120.px); backgroundColor(Color("#e2e8f0")); borderRadius(50.percent); property("margin", "0 auto 20px") } })
                 H3({ style { margin(0.px) } }) { Text("${emp.firstName} ${emp.lastName}") }
-                P({ style { color(Color.gray); margin(8.px, 0.px) } }) { Text(emp.position) }
+                P({ style { color(Color.gray); property("margin", "8px 0") } }) { Text(emp.position) }
                 StatusBadge(emp.status)
                 
-                Div({ style { marginTop(32.px); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); gap(10.px) } }) {
+                Div({ style { property("margin-top", "32px"); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); gap(10.px) } }) {
                     Button({ style { width(100.percent); padding(10.px); borderRadius(6.px); property("border", "1px solid #e2e8f0"); backgroundColor(Color.white); cursor("pointer") } }) { Text("Editar Perfil") }
                     Button({ style { width(100.percent); padding(10.px); borderRadius(6.px); property("border", "1px solid #e2e8f0"); backgroundColor(Color.white); cursor("pointer") } }) { Text("Descargar PDF") }
                 }
@@ -473,11 +474,11 @@ fun LoginScreen(onLogin: (String, String) -> Unit) {
     var p by remember { mutableStateOf("") }
     Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); height(100.vh); backgroundColor(SidebarColor) } }) {
         Div({ style { backgroundColor(Color.white); padding(48.px); borderRadius(20.px); width(340.px); property("box-shadow", "0 25px 50px -12px rgba(0, 0, 0, 0.5)") } }) {
-            H1({ style { color(SidebarColor); margin(0.px, 0.px, 8.px, 0.px) } }) { Text("HRMPro") }
+            H1({ style { color(SidebarColor); property("margin", "0 0 8px 0") } }) { Text("HRMPro") }
             P({ style { color(Color.gray); marginBottom(32.px) } }) { Text("Acceso al Portal Industrial") }
-            Input(InputType.Text) { placeholder("Usuario de Red"); style { width(100.percent); padding(12.px); margin("10px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box") }; onInput { u = it.value } }
-            Input(InputType.Password) { placeholder("Contraseña"); style { width(100.percent); padding(12.px); margin("10px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box") }; onInput { p = it.value } }
-            Button({ style { width(100.percent); padding(14.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); marginTop(24.px); fontWeight("bold") }; onClick { onLogin(u, p) } }) { Text("Iniciar Sesión") }
+            Input(InputType.Text) { placeholder("Usuario de Red"); style { width(100.percent); padding(12.px); property("margin", "10px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box") }; onInput { u = it.value } }
+            Input(InputType.Password) { placeholder("Contraseña"); style { width(100.percent); padding(12.px); property("margin", "10px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box") }; onInput { p = it.value } }
+            Button({ style { width(100.percent); padding(14.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); property("margin-top", "24px"); fontWeight("bold") }; onClick { onLogin(u, p) } }) { Text("Iniciar Sesión") }
         }
     }
 }
@@ -489,10 +490,14 @@ fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3 { Text("Investigación de Incidentes EHS (Inteligencia Artificial)") }
         P({ style { color(Color.gray) } }) { Text("Describa el incidente para obtener un análisis de riesgo instantáneo mediante modelos de lenguaje.") }
-        TextArea({
-            style { width(100.percent); height(150.px); margin("20px 0"); padding(12.px); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box") }
+        
+        TextArea(value = desc) {
+            style { 
+                width(100.percent); height(150.px); property("margin", "20px 0"); padding(12.px); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box") 
+            }
             onInput { desc = it.value }
-        })
+        }
+        
         Button({ 
             style { padding(12.px, 24.px); backgroundColor(SidebarColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("bold") }
             onClick {
@@ -507,8 +512,8 @@ fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
             }
         }) { Text("Analizar con IA") }
         if (res.isNotEmpty()) {
-            Div({ style { marginTop(32.px); padding(20.px); backgroundColor(Color("#f0f9ff")); property("border-left", "4px solid $SidebarActiveColor"); borderRadius(4.px) } }) { 
-                H4({ style { margin(0.px, 0.px, 10.px, 0.px) } }) { Text("Análisis de Riesgo:") }
+            Div({ style { property("margin-top", "32px"); padding(20.px); backgroundColor(Color("#f0f9ff")); property("border-left", "4px solid $SidebarActiveColor"); borderRadius(4.px) } }) { 
+                H4({ style { property("margin", "0 0 10px 0") } }) { Text("Análisis de Riesgo:") }
                 Text(res) 
             }
         }
