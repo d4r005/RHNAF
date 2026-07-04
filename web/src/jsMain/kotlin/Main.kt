@@ -791,8 +791,8 @@ fun TrainingModule() {
             ).forEach { (course, prog) ->
                 Div({ style { padding(20.px); property("border", "1px solid #e2e8f0"); borderRadius(12.px) } }) {
                     H4({ style { margin(0.px) } }) { Text(course) }
-                    Div({ style { height(8.px); width(100.percent); backgroundColor(Color("#f1f5f9")); borderRadius(4.px); margin(16.px, 0.px) } }) {
-                        Div({ style { height(100.percent); width(prog); backgroundColor(SidebarActiveColor); borderRadius(4.px) } })
+                    Div({ style { height(8.px); width(100.percent); backgroundColor(Color("#f1f5f9")); borderRadius(4.px); property("margin", "16px 0") } }) {
+                        Div({ style { height(100.percent); property("width", prog); backgroundColor(SidebarActiveColor); borderRadius(4.px) } })
                     }
                     P({ style { fontSize(12.px); color(Color.gray); margin(0.px); textAlign("right") } }) { Text("Progreso: $prog") }
                 }
