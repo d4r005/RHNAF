@@ -10,6 +10,7 @@ import com.example.rhnaf.shared.model.EmployeeStatus
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.EmployeeTable
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import com.example.rhnaf.service.HuggingFaceService
 import io.ktor.server.request.*
 import io.ktor.server.plugins.cors.routing.*
