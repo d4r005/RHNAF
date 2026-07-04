@@ -19,11 +19,12 @@ COPY web web
 RUN chmod +x gradlew
 
 # Construir la Web App y el Servidor
-# Usamos flags para minimizar el uso de memoria
+# Ajustamos memoria para evitar OOMKilled en ambientes limitados
 RUN SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentDistribution :server:installDist \
     --no-daemon \
     --max-workers=1 \
-    -Dorg.gradle.jvmargs="-Xmx2048m -XX:+UseParallelGC"
+    -Dorg.gradle.jvmargs="-Xmx1536m -XX:+UseParallelGC" \
+    -Dnode.options="--max-old-space-size=1024"
 
 # Etapa 2: Ejecución
 FROM eclipse-temurin:21-jre-jammy
