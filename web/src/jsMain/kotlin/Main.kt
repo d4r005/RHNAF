@@ -68,7 +68,12 @@ class Translations(val lang: Language) {
         "assets" to "Gestión de Activos (EPP)",
         "shifts" to "Turnos y Horarios",
         "benefits" to "Compensación y Beneficios",
-        "workflows" to "Flujos de Aprobación"
+        "workflows" to "Flujos de Aprobación",
+        "warehouse" to "Almacén e Inventarios",
+        "import_export" to "Importación y Exportación",
+        "stock" to "Stock Actual",
+        "suppliers" to "Proveedores",
+        "customs" to "Aduanas y Logística"
     )
     private val en = mapOf(
         "dashboard" to "Dashboard",
@@ -119,7 +124,12 @@ class Translations(val lang: Language) {
         "assets" to "Asset Mgmt (PPE)",
         "shifts" to "Shifts & Scheduling",
         "benefits" to "Benefits & Compensation",
-        "workflows" to "Approval Workflows"
+        "workflows" to "Approval Workflows",
+        "warehouse" to "Warehouse & Inventory",
+        "import_export" to "Import & Export",
+        "stock" to "Current Stock",
+        "suppliers" to "Suppliers",
+        "customs" to "Customs & Logistics"
     )
     private val zh = mapOf(
         "dashboard" to "仪表板",
@@ -170,7 +180,12 @@ class Translations(val lang: Language) {
         "assets" to "资产管理 (PPE)",
         "shifts" to "班次和排班",
         "benefits" to "福利与薪酬",
-        "workflows" to "审批流"
+        "workflows" to "审批流",
+        "warehouse" to "仓库与库存",
+        "import_export" to "进出口管理",
+        "stock" to "当前库存",
+        "suppliers" to "供应商",
+        "customs" to "海关与物流"
     )
 
     fun get(key: String): String {
@@ -182,9 +197,8 @@ class Translations(val lang: Language) {
     }
 }
 
-enum class Module {
-    DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS,
-    TALENT_MARKET, SUSTAINABILITY, PULSE_SURVEY, ASSETS, SHIFTS, BENEFITS, WORKFLOWS
+    TALENT_MARKET, SUSTAINABILITY, PULSE_SURVEY, ASSETS, SHIFTS, BENEFITS, WORKFLOWS,
+    WAREHOUSE, IMPORT_EXPORT
 }
 
 fun main() {
@@ -292,6 +306,8 @@ fun main() {
                             Module.DOCUMENTS -> DocumentsModule(t)
                             Module.REPORTS -> ReportsModule(t)
                             Module.TALENT_MARKET -> TalentMarketModule(t)
+                            Module.WAREHOUSE -> WarehouseModule(t)
+                            Module.IMPORT_EXPORT -> ImportExportModule(t)
                             Module.SUSTAINABILITY -> SustainabilityModule(t)
                             Module.PULSE_SURVEY -> PulseModule(t)
                             Module.ASSETS -> AssetsModule(t)
@@ -358,6 +374,8 @@ fun Sidebar(active: Module, t: Translations, onSelect: (Module) -> Unit) {
             SidebarLink(t.get("shifts"), Module.SHIFTS, active == Module.SHIFTS, onSelect)
             SidebarLink(t.get("benefits"), Module.BENEFITS, active == Module.BENEFITS, onSelect)
             SidebarLink(t.get("talent_market"), Module.TALENT_MARKET, active == Module.TALENT_MARKET, onSelect)
+            SidebarLink(t.get("warehouse"), Module.WAREHOUSE, active == Module.WAREHOUSE, onSelect)
+            SidebarLink(t.get("import_export"), Module.IMPORT_EXPORT, active == Module.IMPORT_EXPORT, onSelect)
             SidebarLink(t.get("esg_metrics"), Module.SUSTAINABILITY, active == Module.SUSTAINABILITY, onSelect)
             SidebarLink(t.get("pulse"), Module.PULSE_SURVEY, active == Module.PULSE_SURVEY, onSelect)
             SidebarLink(t.get("workflows"), Module.WORKFLOWS, active == Module.WORKFLOWS, onSelect)
@@ -1398,6 +1416,70 @@ fun WorkflowsModule(t: Translations) {
                 Div({ style { padding(16.px); borderBottom(1.px, LineStyle.Solid, Color("#f1f5f9")); display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween) } }) {
                     Text(req)
                     Span({ style { color(Color("#f59e0b")); fontWeight("bold") } }) { Text(status) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WarehouseModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("warehouse")) }
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr 1fr"); gap(24.px); marginBottom(32.px) } }) {
+            StatCard(t.get("stock"), "15,240 SKU", "98% Precisión", SidebarActiveColor)
+            StatCard(t.get("suppliers"), "42 Activos", "3 en espera", Color("#10b981"))
+            StatCard("Órdenes Compra", "12", "Pendientes", Color("#f59e0b"))
+        }
+        
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); marginBottom(16.px) } }) {
+            H4 { Text("Últimos Movimientos de Inventario") }
+            Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px) } }) {
+                Text("+ Registro de Entrada/Salida")
+            }
+        }
+        
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("SKU") }; Th { Text("Producto") }; Th { Text("Cantidad") }; Th { Text("Ubicación") } } }
+            Tbody {
+                listOf("M-701" to "Acero Inox Grade A", "P-202" to "Válvula Industrial 4\"", "E-105" to "Cable Cobre 100m").forEach { (sku, prod) ->
+                    Tr {
+                        Td { Text(sku) }
+                        Td { Text(prod) }
+                        Td { Text("500") }
+                        Td { Text("Pasillo B-12") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ImportExportModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("import_export")) }
+        P({ style { color(Color.gray); marginBottom(24.px) } }) { Text(t.get("customs")) }
+        
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "2fr 1fr"); gap(24.px) } }) {
+            Div {
+                H4 { Text("Embarques en Tránsito") }
+                listOf("Contenedor MSC-901 (China)" to "En Aduana", "Carga Aérea DHL-402 (Alemania)" to "En Ruta", "Camión Laredo-102 (USA)" to "Descargando").forEach { (ship, status) ->
+                    Div({ style { padding(16.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px); marginBottom(12.px); display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween) } }) {
+                        Text(ship)
+                        Span({ style { fontWeight("bold"); color(if(status == "En Aduana") Color("#ef4444") else SidebarActiveColor) } }) { Text(status) }
+                    }
+                }
+            }
+            Div({ style { padding(20.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px) } }) {
+                H4 { Text("Documentación Pendiente") }
+                listOf("Certificados de Origen", "Facturas Comerciales", "Listas de Empaque").forEach { doc ->
+                    Div({ style { padding(8.px, 0.px); borderBottom(1.px, LineStyle.Solid, Color("#e2e8f0")) } }) {
+                        Text("● $doc")
+                    }
+                }
+                Button({ style { marginTop(16.px); width(100.percent); padding(8.px); backgroundColor(Color("#0f172a")); color(Color.white); property("border", "none"); borderRadius(6.px) } }) {
+                    Text("Revisar Compliance")
                 }
             }
         }
