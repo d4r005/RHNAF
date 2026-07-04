@@ -200,6 +200,10 @@ fun SidebarLink(label: String, mod: Module, isSelected: Boolean, onSelect: (Modu
 
 @Composable
 fun DashboardView(employees: List<Employee>) {
+    val totalEmployees = employees.size
+    val activeEmployees = employees.count { it.status == EmployeeStatus.ACTIVE }
+    val activePercent = if (totalEmployees > 0) (activeEmployees.toDouble() / totalEmployees * 100).toInt() else 0
+
     Div {
         // TOP CARDS
         Div({
@@ -210,11 +214,11 @@ fun DashboardView(employees: List<Employee>) {
                 property("margin-bottom", "24px")
             }
         }) {
-            StatCard("Total Empleados", "1,248", "+12 este mes", Color("#6366f1"))
-            StatCard("Empleados Activos", "1,180", "94.5% del total", Color("#22c55e"))
-            StatCard("Vacantes Abiertas", "24", "-3 vs mes anterior", Color("#eab308"))
-            StatCard("Capacitación Pendiente", "15", "Cursos por vencer", Color("#a855f7"))
-            StatCard("Incidencias Hoy", "7", "+2 vs ayer", Color("#ef4444"))
+            StatCard("Total Empleados", "$totalEmployees", "Base de datos NAF", Color("#6366f1"))
+            StatCard("Empleados Activos", "$activeEmployees", "$activePercent% del total", Color("#22c55e"))
+            StatCard("Vacantes Abiertas", "4", "Procesos activos", Color("#eab308"))
+            StatCard("Capacitación Pendiente", "2", "Próximos cursos", Color("#a855f7"))
+            StatCard("Incidencias Hoy", "0", "Sin reportes críticos", Color("#22c55e"))
         }
 
         // MIDDLE SECTION: CHART + WIDGETS
