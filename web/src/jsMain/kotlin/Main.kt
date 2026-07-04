@@ -78,7 +78,14 @@ class Translations(val lang: Language) {
         "incidents_log" to "Bitácora de Incidentes",
         "patrimonial" to "Seguridad Patrimonial",
         "cctv" to "Monitoreo CCTV",
-        "guard_tours" to "Rondas de Guardia"
+        "guard_tours" to "Rondas de Guardia",
+        "maintenance" to "Mantenimiento (CMMS)",
+        "employee_portal" to "Portal del Empleado",
+        "finance" to "Finanzas y Facturación",
+        "energy" to "Gestión Energética",
+        "machine_status" to "Estado de Maquinaria",
+        "billing" to "Facturación Industrial",
+        "self_service" to "Autoservicio"
     )
     private val en = mapOf(
         "dashboard" to "Dashboard",
@@ -139,7 +146,14 @@ class Translations(val lang: Language) {
         "incidents_log" to "Incident Log",
         "patrimonial" to "Asset Protection",
         "cctv" to "CCTV Monitoring",
-        "guard_tours" to "Guard Patrols"
+        "guard_tours" to "Guard Patrols",
+        "maintenance" to "Maintenance (CMMS)",
+        "employee_portal" to "Employee Portal",
+        "finance" to "Finance & Billing",
+        "energy" to "Energy Management",
+        "machine_status" to "Machine Status",
+        "billing" to "Industrial Billing",
+        "self_service" to "Self-Service"
     )
     private val zh = mapOf(
         "dashboard" to "仪表板",
@@ -200,7 +214,14 @@ class Translations(val lang: Language) {
         "incidents_log" to "事故记录",
         "patrimonial" to "资产安保",
         "cctv" to "视频监控 (CCTV)",
-        "guard_tours" to "巡更管理"
+        "guard_tours" to "巡更管理",
+        "maintenance" to "设备维护 (CMMS)",
+        "employee_portal" to "员工自助服务",
+        "finance" to "财务与计费",
+        "energy" to "能源管理",
+        "machine_status" to "机器状态",
+        "billing" to "工业计费",
+        "self_service" to "自助服务"
     )
 
     fun get(key: String): String {
@@ -215,7 +236,7 @@ class Translations(val lang: Language) {
 enum class Module {
     DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS,
     TALENT_MARKET, SUSTAINABILITY, PULSE_SURVEY, ASSETS, SHIFTS, BENEFITS, WORKFLOWS,
-    WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY
+    WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY, MAINTENANCE, EMPLOYEE_PORTAL, FINANCE, ENERGY
 }
 
 fun main() {
@@ -326,6 +347,10 @@ fun main() {
                             Module.TALENT_MARKET -> TalentMarketModule(t)
                             Module.WAREHOUSE -> WarehouseModule(t)
                             Module.IMPORT_EXPORT -> ImportExportModule(t)
+                            Module.MAINTENANCE -> MaintenanceModule(t)
+                            Module.EMPLOYEE_PORTAL -> EmployeePortalModule(t)
+                            Module.FINANCE -> FinanceModule(t)
+                            Module.ENERGY -> EnergyModule(t)
                             Module.SUSTAINABILITY -> SustainabilityModule(t)
                             Module.PULSE_SURVEY -> PulseModule(t)
                             Module.ASSETS -> AssetsModule(t)
@@ -387,6 +412,10 @@ fun Sidebar(active: Module, t: Translations, onSelect: (Module) -> Unit) {
             SidebarLink(t.get("training"), Module.TRAINING, active == Module.TRAINING, onSelect)
             SidebarLink(t.get("incidents"), Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
             SidebarLink(t.get("patrimonial"), Module.PATRIMONIAL_SECURITY, active == Module.PATRIMONIAL_SECURITY, onSelect)
+            SidebarLink(t.get("maintenance"), Module.MAINTENANCE, active == Module.MAINTENANCE, onSelect)
+            SidebarLink(t.get("employee_portal"), Module.EMPLOYEE_PORTAL, active == Module.EMPLOYEE_PORTAL, onSelect)
+            SidebarLink(t.get("finance"), Module.FINANCE, active == Module.FINANCE, onSelect)
+            SidebarLink(t.get("energy"), Module.ENERGY, active == Module.ENERGY, onSelect)
             SidebarLink(t.get("vacations"), Module.VACATIONS, active == Module.VACATIONS, onSelect)
             SidebarLink(t.get("documents"), Module.DOCUMENTS, active == Module.DOCUMENTS, onSelect)
             SidebarLink(t.get("assets"), Module.ASSETS, active == Module.ASSETS, onSelect)
@@ -1566,6 +1595,80 @@ fun ImportExportModule(t: Translations) {
                 Button({ style { marginTop(16.px); width(100.percent); padding(8.px); backgroundColor(Color("#0f172a")); color(Color.white); property("border", "none"); borderRadius(6.px) } }) {
                     Text("Revisar Compliance")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun MaintenanceModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("maintenance")) }
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fit, minmax(250.px, 1fr))"); gap(20.px); marginBottom(32.px) } }) {
+            StatCard("Maquinaria Operativa", "18", "95% Disponibilidad", Color("#10b981"))
+            StatCard("Mantenimientos Hoy", "3", "Preventivos", Color("#3b82f6"))
+            StatCard("Alertas Críticas", "1", "Línea de Ensamble 3", Color("#ef4444"))
+        }
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Máquina") }; Th { Text("Último Mant.") }; Th { Text("Próximo Mant.") }; Th { Text("Estado") } } }
+            Tbody {
+                listOf("Prensa Hidráulica 05" to "2024-06-01", "Torno CNC 02" to "2024-06-15").forEach { (m, last) ->
+                    Tr { Td { Text(m) }; Td { Text(last) }; Td { Text("2024-07-15") }; Td { Span({ style { color(Color("#166534")) } }) { Text("OK") } } }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmployeePortalModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("employee_portal")) }
+        P({ style { color(Color.gray); marginBottom(24.px) } }) { Text("Vista de autoservicio para el colaborador (Simulación App Móvil).") }
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(3, 1fr)"); gap(20.px) } }) {
+            listOf("Mis Recibos", "Solicitar Vacaciones", "Mi Reloj Checador", "Beneficios", "Capacitación", "Mensajes").forEach { item ->
+                Div({ style { textAlign("center"); padding(24.px); property("border", "1px solid #e2e8f0"); borderRadius(12.px); cursor("pointer") } }) {
+                    Div({ style { width(40.px); height(40.px); backgroundColor(SidebarActiveColor); borderRadius(50.percent); property("margin", "0 auto 12.px") } })
+                    Text(item)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FinanceModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("finance")) }
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr"); gap(24.px); marginBottom(32.px) } }) {
+            Div({ style { padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(12.px) } }) {
+                H4 { Text("Estado de Resultados (Mensual)") }
+                P { Text("Ingresos: $2,450,000") }
+                P { Text("Gastos Operativos: $1,800,000") }
+                H3({ style { color(Color("#10b981")) } }) { Text("Utilidad: $650,000") }
+            }
+            Div({ style { padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(12.px) } }) {
+                H4 { Text("Costo de Nómina Actual") }
+                H3 { Text("$458,200.00") }
+                P { Text("Incluye impuestos y prestaciones.") }
+            }
+        }
+    }
+}
+
+@Composable
+fun EnergyModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("energy")) }
+        Div({ style { height(300.px); backgroundColor(Color("#0f172a")); borderRadius(12.px); padding(32.px); color(Color.white) } }) {
+            H4 { Text("Monitor de Consumo Eléctrico Real-Time") }
+            Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Baseline); gap(12.px) } }) {
+                H1({ style { fontSize(64.px); color(Color("#fbbf24")); margin(0.px) } }) { Text("42.5") }
+                Span { Text("kW/h") }
+            }
+            P({ style { color(Color("#94a3b8")) } }) { Text("Pico máximo hoy: 58.2 kW/h a las 11:30 AM") }
+            Div({ style { width(100.percent); height(100.px); backgroundColor(Color("#1e293b")); marginTop(20.px); borderRadius(8.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
+                Text("Gráfica de Ondas de Consumo")
             }
         }
     }
