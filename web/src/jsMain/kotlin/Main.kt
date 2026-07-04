@@ -336,14 +336,26 @@ fun TopBar(user: String, role: String) {
 @Composable
 fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit) {
     Div({ style { backgroundColor(Color.white); padding(24.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text("Gestión de Personal") }
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
+            H3({ style { margin(0.px) } }) { Text("Gestión de Personal NAF CONNECT") }
+            Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
+                Button({
+                    style { padding(8.px, 16.px); backgroundColor(Color("#1e293b")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
+                    onClick { exportToCSV(employees) }
+                }) { Text("Exportar CSV") }
+                Button({
+                    style { padding(8.px, 16.px); backgroundColor(Color("#1e293b")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
+                    onClick { window.print() }
+                }) { Text("Generar PDF (Imprimir)") }
+            }
+        }
         Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
             Thead {
                 Tr {
                     Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("ID") }
                     Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Colaborador") }
-                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Departamento") }
-                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Estado") }
+                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Puesto") }
+                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Fecha Alta") }
                     Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Acción") }
                 }
             }
@@ -356,23 +368,35 @@ fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit) {
                                 Div({ style { width(32.px); height(32.px); backgroundColor(Color("#e2e8f0")); borderRadius(50.percent) } })
                                 Div {
                                     P({ style { margin(0.px); fontWeight("600") } }) { Text("${emp.firstName} ${emp.lastName}") }
-                                    P({ style { margin(0.px); fontSize(12.px); color(Color.gray) } }) { Text(emp.position) }
                                 }
                             }
                         }
-                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(emp.department) }
-                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { StatusBadge(emp.status) }
+                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(emp.position) }
+                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(emp.entryDate) }
                         Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
                             Button({
                                 style { padding(6.px, 12.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                                 onClick { onSelect(emp) }
-                            }) { Text("Ver Expediente") }
+                            }) { Text("Expediente") }
                         }
                     }
                 }
             }
         }
     }
+}
+
+fun exportToCSV(employees: List<Employee>) {
+    val header = "ID,Nombre,Puesto,Fecha Alta,Estado\n"
+    val rows = employees.joinToString("\n") { 
+        "${it.id},${it.firstName} ${it.lastName},${it.position},${it.entryDate},${it.status.name}" 
+    }
+    val csvContent = header + rows
+    val blob = org.w3c.dom.url.URL.createObjectURL(org.w3c.files.Blob(arrayOf(csvContent), org.w3c.files.BlobPropertyBag(type = "text/csv")))
+    val link = kotlinx.browser.document.createElement("a") as org.w3c.dom.HTMLAnchorElement
+    link.href = blob
+    link.download = "Lista_Personal_NAF_CONNECT.csv"
+    link.click()
 }
 
 @Composable
