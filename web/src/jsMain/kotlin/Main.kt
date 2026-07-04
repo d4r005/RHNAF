@@ -239,6 +239,20 @@ enum class Module {
     WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY, MAINTENANCE, EMPLOYEE_PORTAL, FINANCE, ENERGY
 }
 
+enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO }
+
+fun isModuleVisible(module: Module, role: UserRole): Boolean {
+    if (role == UserRole.ADMIN) return true
+    return when(role) {
+        UserRole.RH -> module in listOf(Module.DASHBOARD, Module.EMPLOYEES, Module.RECRUITMENT, Module.ATTENDANCE, Module.PAYROLL, Module.TRAINING, Module.PERFORMANCE, Module.VACATIONS, Module.DOCUMENTS, Module.REPORTS, Module.TALENT_MARKET, Module.PULSE_SURVEY, Module.BENEFITS, Module.WORKFLOWS, Module.SETTINGS)
+        UserRole.COMPRAS -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.ASSETS, Module.FINANCE, Module.SETTINGS)
+        UserRole.MANTENIMIENTO -> module in listOf(Module.DASHBOARD, Module.MAINTENANCE, Module.ENERGY, Module.ASSETS, Module.SETTINGS)
+        UserRole.SEGURIDAD -> module in listOf(Module.DASHBOARD, Module.INCIDENTS, Module.PATRIMONIAL_SECURITY, Module.SETTINGS)
+        UserRole.EMPLEADO -> module in listOf(Module.DASHBOARD, Module.EMPLOYEE_PORTAL, Module.SETTINGS)
+        else -> false
+    }
+}
+
 fun main() {
     val client = HttpClient(Js) {
         install(ContentNegotiation) { json() }
@@ -246,6 +260,7 @@ fun main() {
 
     renderComposable(rootElementId = "root") {
         var isLoggedIn by remember { mutableStateOf(false) }
+        var userRole by remember { mutableStateOf(UserRole.EMPLEADO) }
         var activeModule by remember { mutableStateOf(Module.DASHBOARD) }
         var selectedEmployee by remember { mutableStateOf<Employee?>(null) }
         
@@ -266,11 +281,16 @@ fun main() {
                             setBody(mapOf("username" to u, "password" to p))
                         }
                         if (resp.status == HttpStatusCode.OK) {
-                            userName = when(u) {
-                                "d.trujillo@brancoindustries.com" -> "Dario Robles"
-                                "arni.oziel@brancoindustries.com" -> "Arni Oziel"
-                                else -> "Administrador"
+                            val (role, name) = when(u) {
+                                "d.trujillo@brancoindustries.com" -> UserRole.ADMIN to "Dario Robles"
+                                "arni.oziel@brancoindustries.com" -> UserRole.RH to "Arni Oziel"
+                                "compras@brancoindustries.com" -> UserRole.COMPRAS to "Usuario Compras"
+                                "seguridad@brancoindustries.com" -> UserRole.SEGURIDAD to "Seguridad Planta"
+                                "mantenimiento@brancoindustries.com" -> UserRole.MANTENIMIENTO to "Ing. Mantenimiento"
+                                else -> UserRole.EMPLEADO to "Colaborador"
                             }
+                            userRole = role
+                            userName = name
                             window.localStorage.setItem("naf_user_name", userName)
                             employees = client.get("/api/employees").body()
                             isLoggedIn = true
@@ -288,14 +308,14 @@ fun main() {
                 }
             }) {
                 // SIDEBAR
-                Sidebar(activeModule, t) { 
+                Sidebar(activeModule, t, userRole) { 
                     activeModule = it 
                     selectedEmployee = null
                 }
 
                 // CONTENIDO PRINCIPAL
                 Div({ style { flex(1); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); overflowY("auto") } }) {
-                    TopBar(userName, "Gestión Industrial", userAvatar, t)
+                    TopBar(userName, userRole.name, userAvatar, t)
 
                     Div({ style { padding(32.px) } }) {
                         when (activeModule) {
@@ -306,11 +326,16 @@ fun main() {
                                         employees = employees, 
                                         onSelect = { selectedEmployee = it },
                                         onDelete = { id ->
-                                            scope.launch {
-                                                client.delete("/api/employee/$id")
-                                                employees = client.get("/api/employees").body()
+                                            if (userRole == UserRole.ADMIN) {
+                                                scope.launch {
+                                                    client.delete("/api/employee/$id")
+                                                    employees = client.get("/api/employees").body()
+                                                }
+                                            } else {
+                                                window.alert("Acceso denegado: Solo administradores pueden eliminar.")
                                             }
                                         },
+                                        userRole = userRole,
                                         t = t
                                     )
                                 } else {
@@ -321,15 +346,20 @@ fun main() {
                                             scope.launch { employees = client.get("/api/employees").body() }
                                         },
                                         onSave = { updated ->
-                                            scope.launch {
-                                                client.post("/api/employee/update") {
-                                                    contentType(ContentType.Application.Json)
-                                                    setBody(updated)
+                                            if (userRole == UserRole.ADMIN || userRole == UserRole.RH) {
+                                                scope.launch {
+                                                    client.post("/api/employee/update") {
+                                                        contentType(ContentType.Application.Json)
+                                                        setBody(updated)
+                                                    }
+                                                    employees = client.get("/api/employees").body()
+                                                    selectedEmployee = null
                                                 }
-                                                employees = client.get("/api/employees").body()
-                                                selectedEmployee = null
+                                            } else {
+                                                window.alert("Acceso denegado: No tiene permisos de edición.")
                                             }
                                         },
+                                        userRole = userRole,
                                         t = t
                                     )
                                 }
@@ -404,29 +434,29 @@ fun Sidebar(active: Module, t: Translations, onSelect: (Module) -> Unit) {
         }
 
         Div({ style { flex(1); overflowY("auto"); padding(0.px, 16.px) } }) {
-            SidebarLink(t.get("dashboard"), Module.DASHBOARD, active == Module.DASHBOARD, onSelect)
-            SidebarLink(t.get("employees"), Module.EMPLOYEES, active == Module.EMPLOYEES, onSelect)
-            SidebarLink(t.get("recruitment"), Module.RECRUITMENT, active == Module.RECRUITMENT, onSelect)
-            SidebarLink(t.get("attendance"), Module.ATTENDANCE, active == Module.ATTENDANCE, onSelect)
-            SidebarLink(t.get("payroll"), Module.PAYROLL, active == Module.PAYROLL, onSelect)
-            SidebarLink(t.get("training"), Module.TRAINING, active == Module.TRAINING, onSelect)
-            SidebarLink(t.get("incidents"), Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
-            SidebarLink(t.get("patrimonial"), Module.PATRIMONIAL_SECURITY, active == Module.PATRIMONIAL_SECURITY, onSelect)
-            SidebarLink(t.get("maintenance"), Module.MAINTENANCE, active == Module.MAINTENANCE, onSelect)
-            SidebarLink(t.get("employee_portal"), Module.EMPLOYEE_PORTAL, active == Module.EMPLOYEE_PORTAL, onSelect)
-            SidebarLink(t.get("finance"), Module.FINANCE, active == Module.FINANCE, onSelect)
-            SidebarLink(t.get("energy"), Module.ENERGY, active == Module.ENERGY, onSelect)
-            SidebarLink(t.get("vacations"), Module.VACATIONS, active == Module.VACATIONS, onSelect)
-            SidebarLink(t.get("documents"), Module.DOCUMENTS, active == Module.DOCUMENTS, onSelect)
-            SidebarLink(t.get("assets"), Module.ASSETS, active == Module.ASSETS, onSelect)
-            SidebarLink(t.get("shifts"), Module.SHIFTS, active == Module.SHIFTS, onSelect)
-            SidebarLink(t.get("benefits"), Module.BENEFITS, active == Module.BENEFITS, onSelect)
-            SidebarLink(t.get("talent_market"), Module.TALENT_MARKET, active == Module.TALENT_MARKET, onSelect)
-            SidebarLink(t.get("warehouse"), Module.WAREHOUSE, active == Module.WAREHOUSE, onSelect)
-            SidebarLink(t.get("import_export"), Module.IMPORT_EXPORT, active == Module.IMPORT_EXPORT, onSelect)
-            SidebarLink(t.get("esg_metrics"), Module.SUSTAINABILITY, active == Module.SUSTAINABILITY, onSelect)
-            SidebarLink(t.get("pulse"), Module.PULSE_SURVEY, active == Module.PULSE_SURVEY, onSelect)
-            SidebarLink(t.get("workflows"), Module.WORKFLOWS, active == Module.WORKFLOWS, onSelect)
+            if (isModuleVisible(Module.DASHBOARD, role)) SidebarLink(t.get("dashboard"), Module.DASHBOARD, active == Module.DASHBOARD, onSelect)
+            if (isModuleVisible(Module.EMPLOYEES, role)) SidebarLink(t.get("employees"), Module.EMPLOYEES, active == Module.EMPLOYEES, onSelect)
+            if (isModuleVisible(Module.RECRUITMENT, role)) SidebarLink(t.get("recruitment"), Module.RECRUITMENT, active == Module.RECRUITMENT, onSelect)
+            if (isModuleVisible(Module.ATTENDANCE, role)) SidebarLink(t.get("attendance"), Module.ATTENDANCE, active == Module.ATTENDANCE, onSelect)
+            if (isModuleVisible(Module.PAYROLL, role)) SidebarLink(t.get("payroll"), Module.PAYROLL, active == Module.PAYROLL, onSelect)
+            if (isModuleVisible(Module.TRAINING, role)) SidebarLink(t.get("training"), Module.TRAINING, active == Module.TRAINING, onSelect)
+            if (isModuleVisible(Module.INCIDENTS, role)) SidebarLink(t.get("incidents"), Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
+            if (isModuleVisible(Module.PATRIMONIAL_SECURITY, role)) SidebarLink(t.get("patrimonial"), Module.PATRIMONIAL_SECURITY, active == Module.PATRIMONIAL_SECURITY, onSelect)
+            if (isModuleVisible(Module.MAINTENANCE, role)) SidebarLink(t.get("maintenance"), Module.MAINTENANCE, active == Module.MAINTENANCE, onSelect)
+            if (isModuleVisible(Module.EMPLOYEEE_PORTAL, role)) SidebarLink(t.get("employee_portal"), Module.EMPLOYEE_PORTAL, active == Module.EMPLOYEE_PORTAL, onSelect)
+            if (isModuleVisible(Module.FINANCE, role)) SidebarLink(t.get("finance"), Module.FINANCE, active == Module.FINANCE, onSelect)
+            if (isModuleVisible(Module.ENERGY, role)) SidebarLink(t.get("energy"), Module.ENERGY, active == Module.ENERGY, onSelect)
+            if (isModuleVisible(Module.VACATIONS, role)) SidebarLink(t.get("vacations"), Module.VACATIONS, active == Module.VACATIONS, onSelect)
+            if (isModuleVisible(Module.DOCUMENTS, role)) SidebarLink(t.get("documents"), Module.DOCUMENTS, active == Module.DOCUMENTS, onSelect)
+            if (isModuleVisible(Module.ASSETS, role)) SidebarLink(t.get("assets"), Module.ASSETS, active == Module.ASSETS, onSelect)
+            if (isModuleVisible(Module.SHIFTS, role)) SidebarLink(t.get("shifts"), Module.SHIFTS, active == Module.SHIFTS, onSelect)
+            if (isModuleVisible(Module.BENEFITS, role)) SidebarLink(t.get("benefits"), Module.BENEFITS, active == Module.BENEFITS, onSelect)
+            if (isModuleVisible(Module.TALENT_MARKET, role)) SidebarLink(t.get("talent_market"), Module.TALENT_MARKET, active == Module.TALENT_MARKET, onSelect)
+            if (isModuleVisible(Module.WAREHOUSE, role)) SidebarLink(t.get("warehouse"), Module.WAREHOUSE, active == Module.WAREHOUSE, onSelect)
+            if (isModuleVisible(Module.IMPORT_EXPORT, role)) SidebarLink(t.get("import_export"), Module.IMPORT_EXPORT, active == Module.IMPORT_EXPORT, onSelect)
+            if (isModuleVisible(Module.SUSTAINABILITY, role)) SidebarLink(t.get("esg_metrics"), Module.SUSTAINABILITY, active == Module.SUSTAINABILITY, onSelect)
+            if (isModuleVisible(Module.PULSE_SURVEY, role)) SidebarLink(t.get("pulse"), Module.PULSE_SURVEY, active == Module.PULSE_SURVEY, onSelect)
+            if (isModuleVisible(Module.WORKFLOWS, role)) SidebarLink(t.get("workflows"), Module.WORKFLOWS, active == Module.WORKFLOWS, onSelect)
             SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
         }
 
@@ -653,31 +683,33 @@ fun TopBar(user: String, role: String, avatarUrl: String, t: Translations) {
 }
 
 @Composable
-fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit, onDelete: (String) -> Unit, t: Translations) {
+fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit, onDelete: (String) -> Unit, userRole: UserRole, t: Translations) {
     var isImporting by remember { mutableStateOf(false) }
     
     Div({ style { backgroundColor(Color.white); padding(24.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
             H3({ style { margin(0.px) } }) { Text("${t.get("employees")} NAF CONNECT") }
             Div({ style { display(DisplayStyle.Flex); gap(12.px); alignItems(AlignItems.Center) } }) {
-                // Importador de CSV
-                Input(InputType.File) {
-                    id("csv-upload"); style { display(None) }
-                    onChange { 
-                        isImporting = true
-                        window.setTimeout({ isImporting = false; window.alert("Importación de personal finalizada con éxito.") }, 1500)
+                if (userRole == UserRole.ADMIN || userRole == UserRole.RH) {
+                    // Importador de CSV
+                    Input(InputType.File) {
+                        id("csv-upload"); style { display(None) }
+                        onChange { 
+                            isImporting = true
+                            window.setTimeout({ isImporting = false; window.alert("Importación de personal finalizada con éxito.") }, 1500)
+                        }
                     }
+                    Button({
+                        style { padding(8.px, 16.px); backgroundColor(Color("#475569")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
+                        onClick { document.getElementById("csv-upload")?.let { (it as org.w3c.dom.HTMLInputElement).click() } }
+                    }) { Text(if(isImporting) t.get("processing") else t.get("import_data")) }
+
+                    Button({
+                        style { padding(8.px, 16.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px); fontWeight("bold") }
+                        onClick { /* Nuevo Empleado */ }
+                    }) { Text(t.get("new_emp")) }
                 }
-                Button({
-                    style { padding(8.px, 16.px); backgroundColor(Color("#475569")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
-                    onClick { document.getElementById("csv-upload")?.let { (it as org.w3c.dom.HTMLInputElement).click() } }
-                }) { Text(if(isImporting) t.get("processing") else t.get("import_data")) }
-
-                Button({
-                    style { padding(8.px, 16.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px); fontWeight("bold") }
-                    onClick { /* Nuevo Empleado */ }
-                }) { Text(t.get("new_emp")) }
-
+                
                 Button({
                     style { padding(8.px, 16.px); backgroundColor(Color("#1e293b")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
                     onClick { exportToCSV(employees) }
@@ -705,11 +737,13 @@ fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit, on
                             Button({
                                 style { padding(6.px, 12.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                                 onClick { onSelect(emp) }
-                            }) { Text(t.get("edit")) }
-                            Button({
-                                style { padding(6.px, 12.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
-                                onClick { if(window.confirm("¿Eliminar a ${emp.firstName}?")) onDelete(emp.id) }
-                            }) { Text(t.get("delete")) }
+                            }) { Text(if (userRole == UserRole.ADMIN || userRole == UserRole.RH) t.get("edit") else "Ver") }
+                            if (userRole == UserRole.ADMIN) {
+                                Button({
+                                    style { padding(6.px, 12.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                                    onClick { if(window.confirm("¿Eliminar a ${emp.firstName}?")) onDelete(emp.id) }
+                                }) { Text(t.get("delete")) }
+                            }
                         }
                     }
                 }
@@ -732,7 +766,7 @@ fun exportToCSV(employees: List<Employee>) {
 }
 
 @Composable
-fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit, onSave: (Employee) -> Unit, t: Translations) {
+fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit, onSave: (Employee) -> Unit, userRole: UserRole, t: Translations) {
     var editMode by remember { mutableStateOf(false) }
     var editedEmp by remember { mutableStateOf(emp) }
     var isScanning by remember { mutableStateOf(false) }
@@ -741,36 +775,38 @@ fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit, onSave: (Employee) ->
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); marginBottom(16.px) } }) {
             Button({ onClick { onBack() }; style { cursor("pointer"); backgroundColor(Color.white); property("border", "1px solid #ccc"); padding(8.px, 16.px); borderRadius(6.px) } }) { Text("← ${t.get("back")}") }
             Div({ style { display(DisplayStyle.Flex); gap(12.px); alignItems(AlignItems.Center) } }) {
-                // Escáner IA
-                Input(InputType.File) {
-                    id("doc-scan"); style { display(None) }
-                    onChange { 
-                        isScanning = true
-                        window.setTimeout({ 
-                            isScanning = false
-                            window.alert("IA: Se detectó identificación de ${emp.firstName}. Datos actualizados automáticamente.") 
-                        }, 2000)
+                if (userRole == UserRole.ADMIN || userRole == UserRole.RH) {
+                    // Escáner IA
+                    Input(InputType.File) {
+                        id("doc-scan"); style { display(None) }
+                        onChange { 
+                            isScanning = true
+                            window.setTimeout({ 
+                                isScanning = false
+                                window.alert("IA: Se detectó identificación de ${emp.firstName}. Datos actualizados automáticamente.") 
+                            }, 2000)
+                        }
                     }
-                }
-                Button({
-                    style { padding(8.px, 16.px); backgroundColor(Color("#6366f1")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
-                    onClick { document.getElementById("doc-scan")?.let { (it as org.w3c.dom.HTMLInputElement).click() } }
-                }) { Text(if(isScanning) t.get("processing") else t.get("scan_doc")) }
+                    Button({
+                        style { padding(8.px, 16.px); backgroundColor(Color("#6366f1")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
+                        onClick { document.getElementById("doc-scan")?.let { (it as org.w3c.dom.HTMLInputElement).click() } }
+                    }) { Text(if(isScanning) t.get("processing") else t.get("scan_doc")) }
 
-                if (editMode) {
-                    Button({ 
-                        style { padding(8.px, 20.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
-                        onClick { onSave(editedEmp) }
-                    }) { Text(t.get("save")) }
-                    Button({ 
-                        style { padding(8.px, 20.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
-                        onClick { editMode = false }
-                    }) { Text(t.get("cancel")) }
-                } else {
-                    Button({ 
-                        style { padding(8.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
-                        onClick { editMode = true }
-                    }) { Text(t.get("edit")) }
+                    if (editMode) {
+                        Button({ 
+                            style { padding(8.px, 20.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
+                            onClick { onSave(editedEmp) }
+                        }) { Text(t.get("save")) }
+                        Button({ 
+                            style { padding(8.px, 20.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                            onClick { editMode = false }
+                        }) { Text(t.get("cancel")) }
+                    } else {
+                        Button({ 
+                            style { padding(8.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                            onClick { editMode = true }
+                        }) { Text(t.get("edit")) }
+                    }
                 }
             }
         }
@@ -907,6 +943,14 @@ fun LoginScreen(t: Translations, onLogin: (String, String) -> Unit) {
             }) { Text(t.get("login")) }
             
             P({ style { textAlign("center"); marginTop(32.px); fontSize(11.px); color(Color("#94a3b8")) } }) { Text("© 2024 NAF CONNECT • SISTEMA INDUSTRIAL") }
+            
+            // Ayuda para Demo (Roles)
+            Div({ style { marginTop(24.px); padding(12.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px); fontSize(10.px); color(Color.gray) } }) {
+                P({ style { fontWeight("bold"); marginBottom(4.px) } }) { Text("Usuarios Demo (Password: Branco2025):") }
+                P { Text("● Admin: d.trujillo@brancoindustries.com") }
+                P { Text("● RH: arni.oziel@brancoindustries.com") }
+                P { Text("● Compras: compras@brancoindustries.com") }
+            }
         }
     }
 }

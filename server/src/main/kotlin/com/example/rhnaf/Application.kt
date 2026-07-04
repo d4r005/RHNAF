@@ -46,10 +46,13 @@ fun Application.module() {
                 val username = credentials["username"]
                 val password = credentials["password"]
                 
-                // Login con usuarios administradores solicitados
+                // Login con usuarios y roles (Demo)
                 val validUsers = mapOf(
                     "d.trujillo@brancoindustries.com" to "Branco2025",
-                    "arni.oziel@brancoindustries.com" to "Branco2025"
+                    "arni.oziel@brancoindustries.com" to "Branco2025",
+                    "compras@brancoindustries.com" to "Branco2025",
+                    "seguridad@brancoindustries.com" to "Branco2025",
+                    "mantenimiento@brancoindustries.com" to "Branco2025"
                 )
                 
                 if (validUsers[username] == password) {
