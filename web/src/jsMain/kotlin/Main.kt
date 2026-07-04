@@ -116,8 +116,14 @@ fun main() {
                             }
                             Module.INCIDENTS -> SafetyModule(client, scope)
                             Module.ATTENDANCE -> AttendanceModule()
+                            Module.RECRUITMENT -> RecruitmentModule()
+                            Module.PAYROLL -> PayrollModule()
+                            Module.TRAINING -> TrainingModule()
+                            Module.PERFORMANCE -> PerformanceModule()
+                            Module.VACATIONS -> VacationsModule()
+                            Module.DOCUMENTS -> DocumentsModule()
+                            Module.REPORTS -> ReportsModule()
                             Module.SETTINGS -> SettingsView(userName, userAvatar, { userName = it }, { userAvatar = it })
-                            else -> PlaceholderModule(activeModule.name)
                         }
                     }
                 }
@@ -713,6 +719,162 @@ fun SettingsView(name: String, avatar: String, onNameChange: (String) -> Unit, o
                     style { width(100.percent); padding(12.px); borderRadius(8.px); property("border", "1px solid #e2e8f0") }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun RecruitmentModule() {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text("Módulo de Reclutamiento") }
+        P({ style { color(Color.gray); marginBottom(24.px) } }) { Text("Gestión de vacantes y candidatos para NAF CONNECT.") }
+        
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr"); gap(24.px) } }) {
+            // Vacantes
+            Div({ style { padding(20.px); property("border", "1px solid #e2e8f0"); borderRadius(8.px) } }) {
+                H4 { Text("Vacantes Activas") }
+                listOf("Ingeniero de Procesos", "Operador de Montacargas", "Técnico Eléctrico").forEach { job ->
+                    Div({ style { padding(12.px, 0.px); property("border-bottom", "1px solid #f1f5f9"); display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween) } }) {
+                        Text(job)
+                        Span({ style { color(SidebarActiveColor); fontWeight("bold"); fontSize(12.px) } }) { Text("4 Candidatos") }
+                    }
+                }
+            }
+            // Candidatos Recientes
+            Div({ style { padding(20.px); property("border", "1px solid #e2e8f0"); borderRadius(8.px) } }) {
+                H4 { Text("Últimos Candidatos") }
+                listOf("Roberto Sosa", "Elena Peña", "Miguel Rivas").forEach { name ->
+                    Div({ style { padding(12.px, 0.px); property("border-bottom", "1px solid #f1f5f9") } }) {
+                        Text(name)
+                        P({ style { fontSize(11.px); color(Color.gray); margin(0.px) } }) { Text("Entrevista pendiente") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PayrollModule() {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text("Gestión de Nómina") }
+        Div({ style { display(DisplayStyle.Flex); gap(24.px); marginBottom(32.px) } }) {
+            StatCard("Próxima Dispersión", "15 Jul", "Nómina Quincenal", SidebarActiveColor)
+            StatCard("Total a Pagar", "$458,200", "Estimado actual", Color("#10b981"))
+        }
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Periodo") }; Th { Text("Monto Total") }; Th { Text("Estado") }; Th { Text("Recibos") } } }
+            Tbody {
+                listOf("Junio Q2", "Junio Q1", "Mayo Q2").forEach { period ->
+                    Tr {
+                        Td { Text(period) }
+                        Td { Text("$442,150.00") }
+                        Td { Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px); fontSize(11.px) } }) { Text("Pagado") } }
+                        Td { Button({ style { property("border", "none"); background("none"); color(SidebarActiveColor); cursor("pointer") } }) { Text("Descargar ZIP") } }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TrainingModule() {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text("Centro de Capacitación") }
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fill, minmax(280.px, 1fr))"); gap(20.px) } }) {
+            listOf(
+                "Seguridad Industrial (EHS)" to "85%",
+                "Manejo de Sustancias" to "40%",
+                "Cultura NAF Connect" to "100%",
+                "Primeros Auxilios" to "15%"
+            ).forEach { (course, prog) ->
+                Div({ style { padding(20.px); property("border", "1px solid #e2e8f0"); borderRadius(12.px) } }) {
+                    H4({ style { margin(0.px) } }) { Text(course) }
+                    Div({ style { height(8.px); width(100.percent); backgroundColor(Color("#f1f5f9")); borderRadius(4.px); margin(16.px, 0.px) } }) {
+                        Div({ style { height(100.percent); width(prog); backgroundColor(SidebarActiveColor); borderRadius(4.px) } })
+                    }
+                    P({ style { fontSize(12.px); color(Color.gray); margin(0.px); textAlign("right") } }) { Text("Progreso: $prog") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PerformanceModule() {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text("Evaluación de Desempeño") }
+        Div({ style { display(DisplayStyle.Flex); gap(24.px); alignItems(AlignItems.Center); marginBottom(32.px) } }) {
+            Div({ style { flex(1); padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(12.px); textAlign("center") } }) {
+                H2({ style { margin(0.px); color(SidebarActiveColor) } }) { Text("4.8 / 5.0") }
+                P({ style { color(Color.gray) } }) { Text("Calificación Promedio Planta") }
+            }
+            Div({ style { flex(2) } }) {
+                Text("Ciclo de evaluación actual: Junio - Diciembre 2024")
+                Div({ style { marginTop(12.px); display(DisplayStyle.Flex); gap(12.px) } }) {
+                    Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") } }) { Text("Iniciar Evaluación 360") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun VacationsModule() {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text("Control de Vacaciones y Ausencias") }
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "2fr 1fr"); gap(24.px) } }) {
+            Div {
+                H4 { Text("Solicitudes Pendientes") }
+                listOf("Juan Perez (3 días)", "Ana López (5 días)").forEach { req ->
+                    Div({ style { padding(16.px); backgroundColor(Color("#fffbeb")); property("border-left", "4px solid #f59e0b"); borderRadius(4.px); marginBottom(12.px); display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center) } }) {
+                        Text(req)
+                        Div({ style { display(DisplayStyle.Flex); gap(8.px) } }) {
+                            Button({ style { backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 8.px); cursor("pointer") } }) { Text("✓") }
+                            Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 8.px); cursor("pointer") } }) { Text("✕") }
+                        }
+                    }
+                }
+            }
+            Div({ style { padding(20.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px) } }) {
+                H4 { Text("Resumen Global") }
+                P { Text("● 5 Empleados ausentes hoy") }
+                P { Text("● 12 Vacaciones programadas este mes") }
+            }
+        }
+    }
+}
+
+@Composable
+fun DocumentsModule() {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text("Repositorio de Documentos") }
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(4, 1fr)"); gap(20.px) } }) {
+            listOf("Contratos", "Identificaciones", "Políticas", "Certificados").forEach { folder ->
+                Div({ style { textAlign("center"); padding(24.px); property("border", "1px solid #e2e8f0"); borderRadius(12.px); cursor("pointer") } }) {
+                    Div({ style { width(48.px); height(48.px); backgroundColor(Color("#cbd5e1")); borderRadius(8.px); property("margin", "0 auto 12.px") } })
+                    Text(folder)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ReportsModule() {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text("Reportes y Estadísticas") }
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr"); gap(24.px) } }) {
+            Div({ style { height(250.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
+                Text("Gráfica: Distribución por Departamentos")
+            }
+            Div({ style { height(250.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
+                Text("Gráfica: Índice de Rotación Anual")
+            }
+        }
+        Div({ style { marginTop(32.px); textAlign("center") } }) {
+            Button({ style { padding(12.px, 24.px); backgroundColor(SidebarColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer") } }) { Text("Generar Reporte Anual NAF (PDF)") }
         }
     }
 }
