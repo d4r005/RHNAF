@@ -21,6 +21,127 @@ val SidebarActiveColor = Color("#2563eb")
 val BackgroundColor = Color("#f1f5f9")
 val CardShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
 
+enum class Language { ES, EN, ZH }
+
+class Translations(val lang: Language) {
+    private val es = mapOf(
+        "dashboard" to "Panel de Control",
+        "employees" to "Plantilla Personal",
+        "recruitment" to "Reclutamiento",
+        "attendance" to "Asistencia Facial",
+        "payroll" to "Nómina y Pagos",
+        "training" to "Capacitación",
+        "performance" to "Desempeño",
+        "incidents" to "Seguridad (EHS)",
+        "vacations" to "Vacaciones",
+        "documents" to "Expedientes",
+        "reports" to "Reportes",
+        "settings" to "Configuración",
+        "welcome" to "Bienvenido",
+        "login" to "INICIAR SESIÓN",
+        "email" to "CORREO ELECTRÓNICO",
+        "password" to "CONTRASEÑA",
+        "total_emp" to "Total Empleados",
+        "active_emp" to "Empleados Activos",
+        "vacancies" to "Vacantes Abiertas",
+        "training_pending" to "Capacitación Pendiente",
+        "incidents_today" to "Incidencias Hoy",
+        "export_csv" to "Exportar CSV",
+        "new_emp" to "+ Nuevo Empleado",
+        "edit" to "Editar",
+        "delete" to "Eliminar",
+        "save" to "Guardar Cambios",
+        "cancel" to "Cancelar",
+        "back" to "Regresar",
+        "profile_settings" to "Configuración de Perfil",
+        "select_avatar" to "Seleccionar Avatar Profesional",
+        "display_name" to "Nombre a mostrar",
+        "select_lang" to "Idioma del Sistema",
+        "real_time" to "Monitoreo en tiempo real de terminales Hikonect.",
+        "verified" to "Rostro Verificado"
+    )
+    private val en = mapOf(
+        "dashboard" to "Dashboard",
+        "employees" to "Staff Directory",
+        "recruitment" to "Recruitment",
+        "attendance" to "Facial Attendance",
+        "payroll" to "Payroll",
+        "training" to "Training",
+        "performance" to "Performance",
+        "incidents" to "Safety (EHS)",
+        "vacations" to "Vacations",
+        "documents" to "Documents",
+        "reports" to "Reports",
+        "settings" to "Settings",
+        "welcome" to "Welcome",
+        "login" to "LOG IN",
+        "email" to "EMAIL ADDRESS",
+        "password" to "PASSWORD",
+        "total_emp" to "Total Employees",
+        "active_emp" to "Active Employees",
+        "vacancies" to "Open Vacancies",
+        "training_pending" to "Pending Training",
+        "incidents_today" to "Incidents Today",
+        "export_csv" to "Export CSV",
+        "new_emp" to "+ New Employee",
+        "edit" to "Edit",
+        "delete" to "Delete",
+        "save" to "Save Changes",
+        "cancel" to "Cancel",
+        "back" to "Go Back",
+        "profile_settings" to "Profile Settings",
+        "select_avatar" to "Select Professional Avatar",
+        "display_name" to "Display Name",
+        "select_lang" to "System Language",
+        "real_time" to "Real-time monitoring of Hikonect terminals.",
+        "verified" to "Face Verified"
+    )
+    private val zh = mapOf(
+        "dashboard" to "仪表板",
+        "employees" to "员工名册",
+        "recruitment" to "招聘管理",
+        "attendance" to "人脸考勤",
+        "payroll" to "薪资管理",
+        "training" to "培训中心",
+        "performance" to "绩效评估",
+        "incidents" to "安全 (EHS)",
+        "vacations" to "假期管理",
+        "documents" to "文档中心",
+        "reports" to "报告统计",
+        "settings" to "系统设置",
+        "welcome" to "欢迎",
+        "login" to "登入",
+        "email" to "电子邮件",
+        "password" to "密码",
+        "total_emp" to "总员工数",
+        "active_emp" to "在职员工",
+        "vacancies" to "招聘空缺",
+        "training_pending" to "待完成培训",
+        "incidents_today" to "今日事故",
+        "export_csv" to "导出 CSV",
+        "new_emp" to "+ 新增员工",
+        "edit" to "编辑",
+        "delete" to "删除",
+        "save" to "保存更改",
+        "cancel" to "取消",
+        "back" to "返回",
+        "profile_settings" to "个人资料设置",
+        "select_avatar" to "选择专业头像",
+        "display_name" to "显示名称",
+        "select_lang" to "系统语言",
+        "real_time" to "Hikonect 终端实时监控。",
+        "verified" to "人脸验证成功"
+    )
+
+    fun get(key: String): String {
+        return when(lang) {
+            Language.ES -> es[key] ?: key
+            Language.EN -> en[key] ?: key
+            Language.ZH -> zh[key] ?: key
+        }
+    }
+}
+
 enum class Module {
     DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS
 }
@@ -38,10 +159,13 @@ fun main() {
         var employees by remember { mutableStateOf(emptyList<Employee>()) }
         var userName by remember { mutableStateOf(window.localStorage.getItem("naf_user_name") ?: "Dario Robles") }
         var userAvatar by remember { mutableStateOf(window.localStorage.getItem("naf_user_avatar") ?: "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix") }
+        var currentLang by remember { mutableStateOf(Language.valueOf(window.localStorage.getItem("naf_lang") ?: "ES")) }
+        val t = Translations(currentLang)
+
         val scope = rememberCoroutineScope()
 
         if (!isLoggedIn) {
-            LoginScreen { u, p ->
+            LoginScreen(t) { u, p ->
                 scope.launch {
                     try {
                         val resp = client.post("/api/login") {
@@ -71,18 +195,18 @@ fun main() {
                 }
             }) {
                 // SIDEBAR
-                Sidebar(activeModule) { 
+                Sidebar(activeModule, t) { 
                     activeModule = it 
                     selectedEmployee = null
                 }
 
                 // CONTENIDO PRINCIPAL
                 Div({ style { flex(1); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); overflowY("auto") } }) {
-                    TopBar(userName, "Gestión Industrial", userAvatar)
+                    TopBar(userName, "Gestión Industrial", userAvatar, t)
 
                     Div({ style { padding(32.px) } }) {
                         when (activeModule) {
-                            Module.DASHBOARD -> DashboardView(employees)
+                            Module.DASHBOARD -> DashboardView(employees, t)
                             Module.EMPLOYEES -> {
                                 if (selectedEmployee == null) {
                                     EmployeeListView(
@@ -93,7 +217,8 @@ fun main() {
                                                 client.delete("/api/employee/$id")
                                                 employees = client.get("/api/employees").body()
                                             }
-                                        }
+                                        },
+                                        t = t
                                     )
                                 } else {
                                     EmployeeDigitalFile(
@@ -111,20 +236,24 @@ fun main() {
                                                 employees = client.get("/api/employees").body()
                                                 selectedEmployee = null
                                             }
-                                        }
+                                        },
+                                        t = t
                                     )
                                 }
                             }
                             Module.INCIDENTS -> SafetyModule(client, scope)
-                            Module.ATTENDANCE -> AttendanceModule()
+                            Module.ATTENDANCE -> AttendanceModule(t)
                             Module.RECRUITMENT -> RecruitmentModule()
-                            Module.PAYROLL -> PayrollModule()
-                            Module.TRAINING -> TrainingModule()
+                            Module.PAYROLL -> PayrollModule(t)
+                            Module.TRAINING -> TrainingModule(t)
                             Module.PERFORMANCE -> PerformanceModule()
                             Module.VACATIONS -> VacationsModule()
                             Module.DOCUMENTS -> DocumentsModule()
                             Module.REPORTS -> ReportsModule()
-                            Module.SETTINGS -> SettingsView(userName, userAvatar, { userName = it }, { userAvatar = it })
+                            Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
+                                currentLang = it
+                                window.localStorage.setItem("naf_lang", it.name)
+                            }, t)
                         }
                     }
                 }
@@ -134,7 +263,7 @@ fun main() {
 }
 
 @Composable
-fun Sidebar(active: Module, onSelect: (Module) -> Unit) {
+fun Sidebar(active: Module, t: Translations, onSelect: (Module) -> Unit) {
     Nav({
         style {
             width(260.px)
@@ -166,16 +295,16 @@ fun Sidebar(active: Module, onSelect: (Module) -> Unit) {
         }
 
         Div({ style { flex(1); overflowY("auto"); padding(0.px, 16.px) } }) {
-            SidebarLink("Panel de Control", Module.DASHBOARD, active == Module.DASHBOARD, onSelect)
-            SidebarLink("Plantilla Personal", Module.EMPLOYEES, active == Module.EMPLOYEES, onSelect)
-            SidebarLink("Reclutamiento", Module.RECRUITMENT, active == Module.RECRUITMENT, onSelect)
-            SidebarLink("Asistencia Facial", Module.ATTENDANCE, active == Module.ATTENDANCE, onSelect)
-            SidebarLink("Nómina y Pagos", Module.PAYROLL, active == Module.PAYROLL, onSelect)
-            SidebarLink("Capacitación", Module.TRAINING, active == Module.TRAINING, onSelect)
-            SidebarLink("Seguridad (EHS)", Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
-            SidebarLink("Vacaciones", Module.VACATIONS, active == Module.VACATIONS, onSelect)
-            SidebarLink("Expedientes", Module.DOCUMENTS, active == Module.DOCUMENTS, onSelect)
-            SidebarLink("Configuración", Module.SETTINGS, active == Module.SETTINGS, onSelect)
+            SidebarLink(t.get("dashboard"), Module.DASHBOARD, active == Module.DASHBOARD, onSelect)
+            SidebarLink(t.get("employees"), Module.EMPLOYEES, active == Module.EMPLOYEES, onSelect)
+            SidebarLink(t.get("recruitment"), Module.RECRUITMENT, active == Module.RECRUITMENT, onSelect)
+            SidebarLink(t.get("attendance"), Module.ATTENDANCE, active == Module.ATTENDANCE, onSelect)
+            SidebarLink(t.get("payroll"), Module.PAYROLL, active == Module.PAYROLL, onSelect)
+            SidebarLink(t.get("training"), Module.TRAINING, active == Module.TRAINING, onSelect)
+            SidebarLink(t.get("incidents"), Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
+            SidebarLink(t.get("vacations"), Module.VACATIONS, active == Module.VACATIONS, onSelect)
+            SidebarLink(t.get("documents"), Module.DOCUMENTS, active == Module.DOCUMENTS, onSelect)
+            SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
         }
 
         Div({ style { padding(24.px); property("border-top", "1px solid #1e293b") } }) {
@@ -206,7 +335,7 @@ fun SidebarLink(label: String, mod: Module, isSelected: Boolean, onSelect: (Modu
 }
 
 @Composable
-fun DashboardView(employees: List<Employee>) {
+fun DashboardView(employees: List<Employee>, t: Translations) {
     val totalEmployees = employees.size
     val activeEmployees = employees.count { it.status == EmployeeStatus.ACTIVE }
     val activePercent = if (totalEmployees > 0) (activeEmployees.toDouble() / totalEmployees * 100).toInt() else 0
@@ -221,11 +350,11 @@ fun DashboardView(employees: List<Employee>) {
                 property("margin-bottom", "24px")
             }
         }) {
-            StatCard("Total Empleados", "$totalEmployees", "Base de datos NAF", Color("#6366f1"))
-            StatCard("Empleados Activos", "$activeEmployees", "$activePercent% del total", Color("#22c55e"))
-            StatCard("Vacantes Abiertas", "4", "Procesos activos", Color("#eab308"))
-            StatCard("Capacitación Pendiente", "2", "Próximos cursos", Color("#a855f7"))
-            StatCard("Incidencias Hoy", "0", "Sin reportes críticos", Color("#22c55e"))
+            StatCard(t.get("total_emp"), "$totalEmployees", "Base de datos NAF", Color("#6366f1"))
+            StatCard(t.get("active_emp"), "$activeEmployees", "$activePercent% del total", Color("#22c55e"))
+            StatCard(t.get("vacancies"), "4", "Procesos activos", Color("#eab308"))
+            StatCard(t.get("training_pending"), "2", "Próximos cursos", Color("#a855f7"))
+            StatCard(t.get("incidents_today"), "0", "Sin reportes críticos", Color("#22c55e"))
         }
 
         // MIDDLE SECTION: CHART + WIDGETS
@@ -354,7 +483,7 @@ fun AlertItem(text: String, color: CSSColorValue) {
 }
 
 @Composable
-fun TopBar(user: String, role: String, avatarUrl: String) {
+fun TopBar(user: String, role: String, avatarUrl: String, t: Translations) {
     Header({
         style {
             backgroundColor(Color.white); padding(12.px, 24.px); display(DisplayStyle.Flex)
@@ -391,19 +520,19 @@ fun TopBar(user: String, role: String, avatarUrl: String) {
 }
 
 @Composable
-fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit, onDelete: (String) -> Unit) {
+fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit, onDelete: (String) -> Unit, t: Translations) {
     Div({ style { backgroundColor(Color.white); padding(24.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
-            H3({ style { margin(0.px) } }) { Text("Gestión de Personal NAF CONNECT") }
+            H3({ style { margin(0.px) } }) { Text("${t.get("employees")} NAF CONNECT") }
             Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
                 Button({
                     style { padding(8.px, 16.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px); fontWeight("bold") }
                     onClick { /* Implementar diálogo de nuevo empleado */ }
-                }) { Text("+ Nuevo Empleado") }
+                }) { Text(t.get("new_emp")) }
                 Button({
                     style { padding(8.px, 16.px); backgroundColor(Color("#1e293b")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
                     onClick { exportToCSV(employees) }
-                }) { Text("Exportar CSV") }
+                }) { Text(t.get("export_csv")) }
             }
         }
         Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
@@ -427,11 +556,11 @@ fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit, on
                             Button({
                                 style { padding(6.px, 12.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                                 onClick { onSelect(emp) }
-                            }) { Text("Editar") }
+                            }) { Text(t.get("edit")) }
                             Button({
                                 style { padding(6.px, 12.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                                 onClick { if(window.confirm("¿Eliminar a ${emp.firstName}?")) onDelete(emp.id) }
-                            }) { Text("Eliminar") }
+                            }) { Text(t.get("delete")) }
                         }
                     }
                 }
@@ -454,28 +583,28 @@ fun exportToCSV(employees: List<Employee>) {
 }
 
 @Composable
-fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit, onSave: (Employee) -> Unit) {
+fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit, onSave: (Employee) -> Unit, t: Translations) {
     var editMode by remember { mutableStateOf(false) }
     var editedEmp by remember { mutableStateOf(emp) }
     
     Div {
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); marginBottom(16.px) } }) {
-            Button({ onClick { onBack() }; style { cursor("pointer"); backgroundColor(Color.white); property("border", "1px solid #ccc"); padding(8.px, 16.px); borderRadius(6.px) } }) { Text("← Regresar") }
+            Button({ onClick { onBack() }; style { cursor("pointer"); backgroundColor(Color.white); property("border", "1px solid #ccc"); padding(8.px, 16.px); borderRadius(6.px) } }) { Text("← ${t.get("back")}") }
             Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
                 if (editMode) {
                     Button({ 
                         style { padding(8.px, 20.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
                         onClick { onSave(editedEmp) }
-                    }) { Text("Guardar Cambios") }
+                    }) { Text(t.get("save")) }
                     Button({ 
                         style { padding(8.px, 20.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                         onClick { editMode = false }
-                    }) { Text("Cancelar") }
+                    }) { Text(t.get("cancel")) }
                 } else {
                     Button({ 
                         style { padding(8.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                         onClick { editMode = true }
-                    }) { Text("Editar Información") }
+                    }) { Text(t.get("edit")) }
                 }
             }
         }
@@ -571,7 +700,7 @@ fun StatusBadge(s: EmployeeStatus) {
 }
 
 @Composable
-fun LoginScreen(onLogin: (String, String) -> Unit) {
+fun LoginScreen(t: Translations, onLogin: (String, String) -> Unit) {
     var u by remember { mutableStateOf("") }
     var p by remember { mutableStateOf("") }
     Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); height(100.vh); backgroundColor(SidebarColor) } }) {
@@ -585,10 +714,10 @@ fun LoginScreen(onLogin: (String, String) -> Unit) {
                 P({ style { color(Color("#64728b")); marginTop(4.px); fontSize(14.px); letterSpacing(2.px); fontWeight("500") } }) { Text("PORTAL DE GESTIÓN") }
             }
             
-            Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")); letterSpacing(0.5.px) } }) { Text("CORREO ELECTRÓNICO") }
+            Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")); letterSpacing(0.5.px) } }) { Text(t.get("email")) }
             Input(InputType.Text) { placeholder("usuario@dominio.com"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none"); backgroundColor(Color("#f8fafc")) }; onInput { u = it.value } }
             
-            Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")); letterSpacing(0.5.px) } }) { Text("CONTRASEÑA") }
+            Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")); letterSpacing(0.5.px) } }) { Text(t.get("password")) }
             Input(InputType.Password) { placeholder("••••••••"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none"); backgroundColor(Color("#f8fafc")) }; onInput { p = it.value } }
             
             Button({ 
@@ -598,7 +727,7 @@ fun LoginScreen(onLogin: (String, String) -> Unit) {
                     fontWeight("bold"); fontSize(14.px); property("transition", "all 0.2s") 
                 }
                 onClick { onLogin(u, p) } 
-            }) { Text("INICIAR SESIÓN") }
+            }) { Text(t.get("login")) }
             
             P({ style { textAlign("center"); marginTop(32.px); fontSize(11.px); color(Color("#94a3b8")) } }) { Text("© 2024 NAF CONNECT • SISTEMA INDUSTRIAL") }
         }
@@ -643,10 +772,10 @@ fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
 }
 
 @Composable
-fun AttendanceModule() {
+fun AttendanceModule(t: Translations) {
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text("Control de Asistencia Biométrica (Rostro)") }
-        P({ style { color(Color.gray) } }) { Text("Monitoreo en tiempo real de terminales Hikonect con reconocimiento facial.") }
+        H3 { Text(t.get("attendance")) }
+        P({ style { color(Color.gray) } }) { Text(t.get("real_time")) }
         
         Div({ style { display(DisplayStyle.Flex); gap(24.px); property("margin-top", "24px") } }) {
             // Estado de la lectora
@@ -664,12 +793,12 @@ fun AttendanceModule() {
                         Tr {
                             Td { Text("08:30:12 AM") }
                             Td { B { Text("Daniel Trujillo") } }
-                            Td { Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px) } }) { Text("Rostro Verificado") } }
+                            Td { Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px) } }) { Text(t.get("verified")) } }
                         }
                         Tr {
                             Td { Text("08:32:45 AM") }
                             Td { B { Text("Arni Oziel") } }
-                            Td { Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px) } }) { Text("Rostro Verificado") } }
+                            Td { Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px) } }) { Text(t.get("verified")) } }
                         }
                     }
                 }
@@ -685,9 +814,9 @@ fun AttendanceModule() {
 }
 
 @Composable
-fun SettingsView(name: String, avatar: String, onNameChange: (String) -> Unit, onAvatarChange: (String) -> Unit) {
+fun SettingsView(name: String, avatar: String, lang: Language, onNameChange: (String) -> Unit, onAvatarChange: (String) -> Unit, onLangChange: (Language) -> Unit, t: Translations) {
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(16.px); property("box-shadow", CardShadow) } }) {
-        H2 { Text("Configuración de Perfil") }
+        H2 { Text(t.get("profile_settings")) }
         P({ style { color(Color.gray); marginBottom(24.px) } }) { Text("Personalice su identidad en el portal NAF CONNECT.") }
         
         Div({ style { display(DisplayStyle.Flex); gap(40.px); alignItems(AlignItems.Center) } }) {
@@ -701,7 +830,7 @@ fun SettingsView(name: String, avatar: String, onNameChange: (String) -> Unit, o
             
             // Selector de Avatares
             Div({ style { flex(1) } }) {
-                H4 { Text("Seleccionar Avatar Profesional") }
+                H4 { Text(t.get("select_avatar")) }
                 Div({ style { display(DisplayStyle.Flex); gap(16.px); flexWrap(FlexWrap.Wrap) } }) {
                     val avatars = listOf(
                         "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
@@ -724,8 +853,23 @@ fun SettingsView(name: String, avatar: String, onNameChange: (String) -> Unit, o
                         }
                     }
                 }
+
+                H4({ style { marginTop(24.px) } }) { Text(t.get("select_lang")) }
+                Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
+                    Language.entries.forEach { l ->
+                        Button({
+                            style {
+                                padding(8.px, 16.px); borderRadius(6.px); cursor("pointer")
+                                backgroundColor(if (l == lang) SidebarActiveColor else Color.white)
+                                color(if (l == lang) Color.white else Color.black)
+                                property("border", "1px solid #ddd")
+                            }
+                            onClick { onLangChange(l) }
+                        }) { Text(l.name) }
+                    }
+                }
                 
-                H4({ style { marginTop(24.px) } }) { Text("Nombre a mostrar") }
+                H4({ style { marginTop(24.px) } }) { Text(t.get("display_name")) }
                 Input(InputType.Text) {
                     value(name)
                     onInput { 
@@ -771,9 +915,9 @@ fun RecruitmentModule() {
 }
 
 @Composable
-fun PayrollModule() {
+fun PayrollModule(t: Translations) {
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text("Gestión de Nómina") }
+        H3 { Text(t.get("payroll")) }
         Div({ style { display(DisplayStyle.Flex); gap(24.px); marginBottom(32.px) } }) {
             StatCard("Próxima Dispersión", "15 Jul", "Nómina Quincenal", SidebarActiveColor)
             StatCard("Total a Pagar", "$458,200", "Estimado actual", Color("#10b981"))
@@ -795,9 +939,9 @@ fun PayrollModule() {
 }
 
 @Composable
-fun TrainingModule() {
+fun TrainingModule(t: Translations) {
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text("Centro de Capacitación") }
+        H3 { Text(t.get("training")) }
         Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fill, minmax(280.px, 1fr))"); gap(20.px) } }) {
             listOf(
                 "Seguridad Industrial (EHS)" to "85%",
