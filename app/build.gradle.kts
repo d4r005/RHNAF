@@ -1,5 +1,3 @@
-import com.android.build.api.dsl.ApplicationExtension
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -7,7 +5,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.plugin.serialization)
 }
 
-extensions.configure<ApplicationExtension> {
+android {
     namespace = "com.example.rhnaf"
     compileSdk {
         version = release(36) {

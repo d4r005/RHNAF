@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import com.android.build.api.dsl.LibraryExtension
 
 plugins {
     kotlin("multiplatform")
@@ -37,7 +36,7 @@ kotlin {
     }
 }
 
-extensions.configure<LibraryExtension> {
+android {
     namespace = "com.example.rhnaf.shared"
     compileSdk = 36
     defaultConfig {
