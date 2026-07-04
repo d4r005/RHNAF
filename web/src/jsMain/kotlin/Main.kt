@@ -12,6 +12,8 @@ import io.ktor.client.call.*
 import io.ktor.http.*
 import com.example.rhnaf.shared.model.*
 import kotlinx.coroutines.launch
+import kotlinx.browser.window
+import kotlinx.browser.document
 
 // DISEÑO NAF CONNECT - IDENTIDAD INDUSTRIAL MODERNA
 val SidebarColor = Color("#0f172a") 
@@ -34,6 +36,8 @@ fun main() {
         var selectedEmployee by remember { mutableStateOf<Employee?>(null) }
         
         var employees by remember { mutableStateOf(emptyList<Employee>()) }
+        var userName by remember { mutableStateOf("Admin NAF") }
+        var userAvatar by remember { mutableStateOf("https://api.dicebear.com/7.x/avataaars/svg?seed=Felix") }
         val scope = rememberCoroutineScope()
 
         if (!isLoggedIn) {
@@ -45,6 +49,11 @@ fun main() {
                             setBody(mapOf("username" to u, "password" to p))
                         }
                         if (resp.status == HttpStatusCode.OK) {
+                            userName = when(u) {
+                                "d.trujillo@brancoindustries.com" -> "Dario Robles"
+                                "arni.oziel@brancoindustries.com" -> "Arni Oziel"
+                                else -> "Administrador"
+                            }
                             employees = client.get("/api/employees").body()
                             isLoggedIn = true
                         }
@@ -68,7 +77,7 @@ fun main() {
 
                 // CONTENIDO PRINCIPAL
                 Div({ style { flex(1); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); overflowY("auto") } }) {
-                    TopBar("Admin NAF", "Gestión Industrial")
+                    TopBar(userName, "Gestión Industrial", userAvatar)
 
                     Div({ style { padding(32.px) } }) {
                         when (activeModule) {
@@ -107,6 +116,7 @@ fun main() {
                             }
                             Module.INCIDENTS -> SafetyModule(client, scope)
                             Module.ATTENDANCE -> AttendanceModule()
+                            Module.SETTINGS -> SettingsView(userName, userAvatar, { userName = it }, { userAvatar = it })
                             else -> PlaceholderModule(activeModule.name)
                         }
                     }
@@ -333,7 +343,7 @@ fun AlertItem(text: String, color: CSSColorValue) {
 }
 
 @Composable
-fun TopBar(user: String, role: String) {
+fun TopBar(user: String, role: String, avatarUrl: String) {
     Header({
         style {
             backgroundColor(Color.white); padding(12.px, 24.px); display(DisplayStyle.Flex)
@@ -342,8 +352,8 @@ fun TopBar(user: String, role: String) {
         }
     }) {
         Div {
-            H2({ style { margin(0.px); fontSize(16.px); fontWeight("bold") } }) { Text("Dashboard") }
-            P({ style { margin(0.px); fontSize(12.px); color(Color("#64728b")) } }) { Text("Resumen general del sistema") }
+            H2({ style { margin(0.px); fontSize(16.px); fontWeight("bold") } }) { Text("Panel NAF CONNECT") }
+            P({ style { margin(0.px); fontSize(12.px); color(Color("#64728b")) } }) { Text("Gestión Industrial de Talento") }
         }
         Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(20.px) } }) {
             Div({ style { width(20.px); height(20.px); backgroundColor(Color("#64728b")); borderRadius(50.percent) } })
@@ -352,7 +362,9 @@ fun TopBar(user: String, role: String) {
                     P({ style { margin(0.px); fontSize(14.px); fontWeight("600") } }) { Text(user) }
                     P({ style { margin(0.px); fontSize(12.px); color(Color("#64728b")) } }) { Text(role) }
                 }
-                Div({ style { width(36.px); height(36.px); backgroundColor(Color("#cbd5e1")); borderRadius(50.percent) } })
+                Img(src = avatarUrl) {
+                    style { width(36.px); height(36.px); borderRadius(50.percent); property("object-fit", "cover"); backgroundColor(Color("#cbd5e1")) }
+                }
             }
         }
     }
@@ -647,6 +659,55 @@ fun AttendanceModule() {
         Div({ style { property("margin-top", "32px"); padding(16.px); backgroundColor(Color("#f0fdf4")); borderRadius(8.px); property("border", "1px solid #dcfce7") } }) {
             P({ style { margin(0.px); fontSize(13.px); color(Color("#166534")) } }) { 
                 Text("Sincronización Automática: La lectora está vinculada mediante el ID de empleado (employeeNo). Los registros se alimentan directamente de la base de datos interna del dispositivo.")
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsView(name: String, avatar: String, onNameChange: (String) -> Unit, onAvatarChange: (String) -> Unit) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(16.px); property("box-shadow", CardShadow) } }) {
+        H2 { Text("Configuración de Perfil") }
+        P({ style { color(Color.gray); marginBottom(24.px) } }) { Text("Personalice su identidad en el portal NAF CONNECT.") }
+        
+        Div({ style { display(DisplayStyle.Flex); gap(40.px); alignItems(AlignItems.Center) } }) {
+            // Avatar Actual
+            Div({ style { textAlign("center") } }) {
+                Img(src = avatar) {
+                    style { width(120.px); height(120.px); borderRadius(50.percent); property("border", "4px solid $SidebarActiveColor"); marginBottom(16.px) }
+                }
+                P({ style { fontWeight("bold"); margin(0.px) } }) { Text(name) }
+            }
+            
+            // Selector de Avatares
+            Div({ style { flex(1) } }) {
+                H4 { Text("Seleccionar Avatar Profesional") }
+                Div({ style { display(DisplayStyle.Flex); gap(16.px); flexWrap(FlexWrap.Wrap) } }) {
+                    val avatars = listOf(
+                        "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
+                        "https://api.dicebear.com/7.x/avataaars/svg?seed=Jace",
+                        "https://api.dicebear.com/7.x/avataaars/svg?seed=Jack",
+                        "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka",
+                        "https://api.dicebear.com/7.x/avataaars/svg?seed=Caleb"
+                    )
+                    avatars.forEach { url ->
+                        Img(src = url) {
+                            style { 
+                                width(60.px); height(60.px); borderRadius(50.percent); cursor("pointer")
+                                property("border", if (url == avatar) "3px solid $SidebarActiveColor" else "1px solid #ddd")
+                                property("transition", "transform 0.2s")
+                            }
+                            onClick { onAvatarChange(url) }
+                        }
+                    }
+                }
+                
+                H4({ style { marginTop(24.px) } }) { Text("Nombre a mostrar") }
+                Input(InputType.Text) {
+                    value(name)
+                    onInput { onNameChange(it.value) }
+                    style { width(100.percent); padding(12.px); borderRadius(8.px); property("border", "1px solid #e2e8f0") }
+                }
             }
         }
     }
