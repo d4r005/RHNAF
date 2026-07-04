@@ -64,7 +64,11 @@ class Translations(val lang: Language) {
         "talent_market" to "Mercado de Talento",
         "esg_metrics" to "Sostenibilidad (ESG)",
         "pulse" to "Clima Laboral (Pulse)",
-        "ai_assistant" to "Asistente NAF AI"
+        "ai_assistant" to "Asistente NAF AI",
+        "assets" to "Gestión de Activos (EPP)",
+        "shifts" to "Turnos y Horarios",
+        "benefits" to "Compensación y Beneficios",
+        "workflows" to "Flujos de Aprobación"
     )
     private val en = mapOf(
         "dashboard" to "Dashboard",
@@ -111,7 +115,11 @@ class Translations(val lang: Language) {
         "talent_market" to "Talent Marketplace",
         "esg_metrics" to "Sustainability (ESG)",
         "pulse" to "Employee Pulse",
-        "ai_assistant" to "NAF AI Assistant"
+        "ai_assistant" to "NAF AI Assistant",
+        "assets" to "Asset Mgmt (PPE)",
+        "shifts" to "Shifts & Scheduling",
+        "benefits" to "Benefits & Compensation",
+        "workflows" to "Approval Workflows"
     )
     private val zh = mapOf(
         "dashboard" to "仪表板",
@@ -158,7 +166,11 @@ class Translations(val lang: Language) {
         "talent_market" to "内部人才市场",
         "esg_metrics" to "可持续发展 (ESG)",
         "pulse" to "员工满意度调查",
-        "ai_assistant" to "NAF AI 助手"
+        "ai_assistant" to "NAF AI 助手",
+        "assets" to "资产管理 (PPE)",
+        "shifts" to "班次和排班",
+        "benefits" to "福利与薪酬",
+        "workflows" to "审批流"
     )
 
     fun get(key: String): String {
@@ -170,8 +182,9 @@ class Translations(val lang: Language) {
     }
 }
 
+enum class Module {
     DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS,
-    TALENT_MARKET, SUSTAINABILITY, PULSE_SURVEY
+    TALENT_MARKET, SUSTAINABILITY, PULSE_SURVEY, ASSETS, SHIFTS, BENEFITS, WORKFLOWS
 }
 
 fun main() {
@@ -281,6 +294,10 @@ fun main() {
                             Module.TALENT_MARKET -> TalentMarketModule(t)
                             Module.SUSTAINABILITY -> SustainabilityModule(t)
                             Module.PULSE_SURVEY -> PulseModule(t)
+                            Module.ASSETS -> AssetsModule(t)
+                            Module.SHIFTS -> ShiftsModule(t)
+                            Module.BENEFITS -> BenefitsModule(t)
+                            Module.WORKFLOWS -> WorkflowsModule(t)
                             Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
                                 currentLang = it
                                 window.localStorage.setItem("naf_lang", it.name)
@@ -337,9 +354,13 @@ fun Sidebar(active: Module, t: Translations, onSelect: (Module) -> Unit) {
             SidebarLink(t.get("incidents"), Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
             SidebarLink(t.get("vacations"), Module.VACATIONS, active == Module.VACATIONS, onSelect)
             SidebarLink(t.get("documents"), Module.DOCUMENTS, active == Module.DOCUMENTS, onSelect)
+            SidebarLink(t.get("assets"), Module.ASSETS, active == Module.ASSETS, onSelect)
+            SidebarLink(t.get("shifts"), Module.SHIFTS, active == Module.SHIFTS, onSelect)
+            SidebarLink(t.get("benefits"), Module.BENEFITS, active == Module.BENEFITS, onSelect)
             SidebarLink(t.get("talent_market"), Module.TALENT_MARKET, active == Module.TALENT_MARKET, onSelect)
             SidebarLink(t.get("esg_metrics"), Module.SUSTAINABILITY, active == Module.SUSTAINABILITY, onSelect)
             SidebarLink(t.get("pulse"), Module.PULSE_SURVEY, active == Module.PULSE_SURVEY, onSelect)
+            SidebarLink(t.get("workflows"), Module.WORKFLOWS, active == Module.WORKFLOWS, onSelect)
             SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
         }
 
@@ -1316,6 +1337,70 @@ fun AiAssistantWidget(t: Translations, client: HttpClient, scope: kotlinx.corout
             }
             onClick { isOpen = !isOpen }
         }) { Text("✨") }
+    }
+}
+
+@Composable
+fun AssetsModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("assets")) }
+        P({ style { color(Color.gray); marginBottom(24.px) } }) { Text("Control de inventario de EPP, herramientas y equipos asignados.") }
+        
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fit, minmax(250.px, 1fr))"); gap(20.px) } }) {
+            listOf("Cascos Diieléctricos" to "45 disp.", "Botas de Seguridad" to "12 disp.", "Laptops IT" to "8 disp.").forEach { (item, qty) ->
+                Div({ style { padding(20.px); property("border", "1px solid #e2e8f0"); borderRadius(12.px) } }) {
+                    H4({ style { margin(0.px) } }) { Text(item) }
+                    P({ style { color(SidebarActiveColor); fontWeight("bold") } }) { Text(qty) }
+                    Button({ style { marginTop(12.px); width(100.percent); padding(8.px); borderRadius(6.px); property("border", "1px solid #ddd"); cursor("pointer") } }) { Text("Asignar a Colaborador") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ShiftsModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("shifts")) }
+        Div({ style { height(300.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); flexDirection(FlexDirection.Column) } }) {
+            H4 { Text("Calendario de Rola de Turnos") }
+            Text("Turno A (Matutino) | Turno B (Vespertino) | Turno C (Nocturno)")
+            Div({ style { marginTop(20.px); display(DisplayStyle.Flex); gap(12.px) } }) {
+                Button({ style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px) } }) { Text("Programar Rola Semanal") }
+            }
+        }
+    }
+}
+
+@Composable
+fun BenefitsModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("benefits")) }
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr"); gap(24.px) } }) {
+            Div({ style { padding(20.px); backgroundColor(Color("#f0fdf4")); borderRadius(12.px) } }) {
+                H4 { Text("Seguros y Gastos Médicos") }
+                P { Text("● 95% de la plantilla con cobertura activa.") }
+            }
+            Div({ style { padding(20.px); backgroundColor(Color("#eff6ff")); borderRadius(12.px) } }) {
+                H4 { Text("Bonos por Desempeño") }
+                P { Text("● Próximo cálculo: 30 de Julio.") }
+            }
+        }
+    }
+}
+
+@Composable
+fun WorkflowsModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("workflows")) }
+        Div {
+            listOf("Aumento Salarial - Op. 405" to "Pendiente Finanzas", "Cambio de Puesto - Op. 112" to "Pendiente Director").forEach { (req, status) ->
+                Div({ style { padding(16.px); borderBottom(1.px, LineStyle.Solid, Color("#f1f5f9")); display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween) } }) {
+                    Text(req)
+                    Span({ style { color(Color("#f59e0b")); fontWeight("bold") } }) { Text(status) }
+                }
+            }
+        }
     }
 }
 
