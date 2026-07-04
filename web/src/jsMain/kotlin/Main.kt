@@ -243,13 +243,13 @@ fun main() {
                             }
                             Module.INCIDENTS -> SafetyModule(client, scope)
                             Module.ATTENDANCE -> AttendanceModule(t)
-                            Module.RECRUITMENT -> RecruitmentModule()
+                            Module.RECRUITMENT -> RecruitmentModule(t)
                             Module.PAYROLL -> PayrollModule(t)
                             Module.TRAINING -> TrainingModule(t)
-                            Module.PERFORMANCE -> PerformanceModule()
-                            Module.VACATIONS -> VacationsModule()
-                            Module.DOCUMENTS -> DocumentsModule()
-                            Module.REPORTS -> ReportsModule()
+                            Module.PERFORMANCE -> PerformanceModule(t)
+                            Module.VACATIONS -> VacationsModule(t)
+                            Module.DOCUMENTS -> DocumentsModule(t)
+                            Module.REPORTS -> ReportsModule(t)
                             Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
                                 currentLang = it
                                 window.localStorage.setItem("naf_lang", it.name)
@@ -884,10 +884,24 @@ fun SettingsView(name: String, avatar: String, lang: Language, onNameChange: (St
 }
 
 @Composable
-fun RecruitmentModule() {
+fun RecruitmentModule(t: Translations) {
+    var showForm by remember { mutableStateOf(false) }
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text("Módulo de Reclutamiento") }
-        P({ style { color(Color.gray); marginBottom(24.px) } }) { Text("Gestión de vacantes y candidatos para NAF CONNECT.") }
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
+            H3({ style { margin(0.px) } }) { Text(t.get("recruitment")) }
+            Button({ 
+                style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("bold") }
+                onClick { showForm = !showForm }
+            }) { Text(if (showForm) t.get("cancel") else "+ " + t.get("new_emp")) }
+        }
+
+        if (showForm) {
+            Div({ style { padding(20.px); backgroundColor(Color("#f8fafc")); borderRadius(12.px); marginBottom(24.px); display(DisplayStyle.Flex); gap(16.px); flexWrap(FlexWrap.Wrap) } }) {
+                Input(InputType.Text) { placeholder("Puesto"); style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
+                Input(InputType.Text) { placeholder("Candidato"); style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
+                Button({ style { padding(10.px, 20.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") } }) { Text("Registrar Candidato") }
+            }
+        }
         
         Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr"); gap(24.px) } }) {
             // Vacantes
@@ -940,8 +954,28 @@ fun PayrollModule(t: Translations) {
 
 @Composable
 fun TrainingModule(t: Translations) {
+    var showAddForm by remember { mutableStateOf(false) }
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text(t.get("training")) }
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
+            H3({ style { margin(0.px) } }) { Text(t.get("training")) }
+            Button({ 
+                style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("bold") }
+                onClick { showAddForm = !showAddForm }
+            }) { Text(if (showAddForm) t.get("cancel") else "+ Registrar Curso") }
+        }
+
+        if (showAddForm) {
+            Div({ style { padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(12.px); marginBottom(32.px); property("border", "1px solid #e2e8f0") } }) {
+                H4 { Text("Nuevo Registro de Capacitación") }
+                Div({ style { display(DisplayStyle.Flex); gap(16.px); flexWrap(FlexWrap.Wrap) } }) {
+                    Input(InputType.Text) { placeholder("Nombre del Curso"); style { flex(1); padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
+                    Input(InputType.Date) { style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
+                    Input(InputType.Text) { placeholder("Instructor"); style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
+                    Button({ style { padding(10.px, 24.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") } }) { Text("Guardar Registro") }
+                }
+            }
+        }
+
         Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fill, minmax(280.px, 1fr))"); gap(20.px) } }) {
             listOf(
                 "Seguridad Industrial (EHS)" to "85%",
@@ -962,10 +996,32 @@ fun TrainingModule(t: Translations) {
 }
 
 @Composable
-fun PerformanceModule() {
+fun PerformanceModule(t: Translations) {
+    var showReviewForm by remember { mutableStateOf(false) }
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text("Evaluación de Desempeño") }
-        Div({ style { display(DisplayStyle.Flex); gap(24.px); alignItems(AlignItems.Center); marginBottom(32.px) } }) {
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(32.px) } }) {
+            H3({ style { margin(0.px) } }) { Text(t.get("performance")) }
+            Button({ 
+                style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("bold") }
+                onClick { showReviewForm = !showReviewForm }
+            }) { Text(if (showReviewForm) t.get("cancel") else "+ Nueva Evaluación") }
+        }
+
+        if (showReviewForm) {
+            Div({ style { padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(12.px); marginBottom(32.px) } }) {
+                H4 { Text("Registrar Evaluación de Desempeño") }
+                Div({ style { display(DisplayStyle.Flex); gap(16.px); flexDirection(FlexDirection.Column) } }) {
+                    Input(InputType.Text) { placeholder("ID o Nombre del Colaborador"); style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
+                    TextArea { placeholder("Comentarios del Supervisor"); style { height(100.px); padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
+                    Div({ style { display(DisplayStyle.Flex); gap(16.px) } }) {
+                        Input(InputType.Number) { placeholder("Calificación (1-5)"); style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
+                        Button({ style { flex(1); padding(10.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") } }) { Text("Publicar Evaluación") }
+                    }
+                }
+            }
+        }
+
+        Div({ style { display(DisplayStyle.Flex); gap(24.px); alignItems(AlignItems.Center) } }) {
             Div({ style { flex(1); padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(12.px); textAlign("center") } }) {
                 H2({ style { margin(0.px); color(SidebarActiveColor) } }) { Text("4.8 / 5.0") }
                 P({ style { color(Color.gray) } }) { Text("Calificación Promedio Planta") }
@@ -981,9 +1037,28 @@ fun PerformanceModule() {
 }
 
 @Composable
-fun VacationsModule() {
+fun VacationsModule(t: Translations) {
+    var showReqForm by remember { mutableStateOf(false) }
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text("Control de Vacaciones y Ausencias") }
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
+            H3({ style { margin(0.px) } }) { Text(t.get("vacations")) }
+            Button({ 
+                style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("bold") }
+                onClick { showReqForm = !showReqForm }
+            }) { Text(if (showReqForm) t.get("cancel") else "+ Nueva Solicitud") }
+        }
+
+        if (showReqForm) {
+            Div({ style { padding(20.px); backgroundColor(Color("#fffbeb")); borderRadius(12.px); marginBottom(24.px) } }) {
+                H4 { Text("Solicitar Periodo Vacacional") }
+                Div({ style { display(DisplayStyle.Flex); gap(16.px) } }) {
+                    Input(InputType.Date) { style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
+                    Input(InputType.Date) { style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
+                    Button({ style { padding(10.px, 20.px); backgroundColor(Color("#f59e0b")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") } }) { Text("Enviar Solicitud") }
+                }
+            }
+        }
+
         Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "2fr 1fr"); gap(24.px) } }) {
             Div {
                 H4 { Text("Solicitudes Pendientes") }
@@ -1007,9 +1082,14 @@ fun VacationsModule() {
 }
 
 @Composable
-fun DocumentsModule() {
+fun DocumentsModule(t: Translations) {
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text("Repositorio de Documentos") }
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
+            H3({ style { margin(0.px) } }) { Text(t.get("documents")) }
+            Button({ 
+                style { padding(10.px, 20.px); backgroundColor(SidebarColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer") }
+            }) { Text("↑ Subir Documento") }
+        }
         Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(4, 1fr)"); gap(20.px) } }) {
             listOf("Contratos", "Identificaciones", "Políticas", "Certificados").forEach { folder ->
                 Div({ style { textAlign("center"); padding(24.px); property("border", "1px solid #e2e8f0"); borderRadius(12.px); cursor("pointer") } }) {
@@ -1022,14 +1102,24 @@ fun DocumentsModule() {
 }
 
 @Composable
-fun ReportsModule() {
+fun ReportsModule(t: Translations) {
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text("Reportes y Estadísticas") }
+        H3 { Text(t.get("reports")) }
         Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr"); gap(24.px) } }) {
-            Div({ style { height(250.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
+            Div({ style { padding(20.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px); textAlign("center") } }) {
+                H4 { Text("Generar PDF de Asistencia") }
+                Button({ style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") } }) { Text("Descargar Reporte") }
+            }
+            Div({ style { padding(20.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px); textAlign("center") } }) {
+                H4 { Text("Reporte de Incidencias EHS") }
+                Button({ style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") } }) { Text("Descargar Reporte") }
+            }
+        }
+        Div({ style { marginTop(32.px); display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr"); gap(24.px) } }) {
+            Div({ style { height(200.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
                 Text("Gráfica: Distribución por Departamentos")
             }
-            Div({ style { height(250.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
+            Div({ style { height(200.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
                 Text("Gráfica: Índice de Rotación Anual")
             }
         }
