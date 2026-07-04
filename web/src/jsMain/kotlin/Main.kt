@@ -75,9 +75,34 @@ fun main() {
                             Module.DASHBOARD -> DashboardView(employees)
                             Module.EMPLOYEES -> {
                                 if (selectedEmployee == null) {
-                                    EmployeeListView(employees) { selectedEmployee = it }
+                                    EmployeeListView(
+                                        employees = employees, 
+                                        onSelect = { selectedEmployee = it },
+                                        onDelete = { id ->
+                                            scope.launch {
+                                                client.delete("/api/employee/$id")
+                                                employees = client.get("/api/employees").body()
+                                            }
+                                        }
+                                    )
                                 } else {
-                                    EmployeeDigitalFile(selectedEmployee!!) { selectedEmployee = null }
+                                    EmployeeDigitalFile(
+                                        emp = selectedEmployee!!,
+                                        onBack = { 
+                                            selectedEmployee = null
+                                            scope.launch { employees = client.get("/api/employees").body() }
+                                        },
+                                        onSave = { updated ->
+                                            scope.launch {
+                                                client.post("/api/employee/update") {
+                                                    contentType(ContentType.Application.Json)
+                                                    setBody(updated)
+                                                }
+                                                employees = client.get("/api/employees").body()
+                                                selectedEmployee = null
+                                            }
+                                        }
+                                    )
                                 }
                             }
                             Module.INCIDENTS -> SafetyModule(client, scope)
@@ -334,19 +359,19 @@ fun TopBar(user: String, role: String) {
 }
 
 @Composable
-fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit) {
+fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit, onDelete: (String) -> Unit) {
     Div({ style { backgroundColor(Color.white); padding(24.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
             H3({ style { margin(0.px) } }) { Text("Gestión de Personal NAF CONNECT") }
             Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
                 Button({
+                    style { padding(8.px, 16.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px); fontWeight("bold") }
+                    onClick { /* Implementar diálogo de nuevo empleado */ }
+                }) { Text("+ Nuevo Empleado") }
+                Button({
                     style { padding(8.px, 16.px); backgroundColor(Color("#1e293b")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
                     onClick { exportToCSV(employees) }
                 }) { Text("Exportar CSV") }
-                Button({
-                    style { padding(8.px, 16.px); backgroundColor(Color("#1e293b")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
-                    onClick { window.print() }
-                }) { Text("Generar PDF (Imprimir)") }
             }
         }
         Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
@@ -355,8 +380,7 @@ fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit) {
                     Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("ID") }
                     Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Colaborador") }
                     Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Puesto") }
-                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Fecha Alta") }
-                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Acción") }
+                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Acciones") }
                 }
             }
             Tbody {
@@ -364,20 +388,18 @@ fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit) {
                     Tr {
                         Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(emp.id) }
                         Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
-                            Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(12.px) } }) {
-                                Div({ style { width(32.px); height(32.px); backgroundColor(Color("#e2e8f0")); borderRadius(50.percent) } })
-                                Div {
-                                    P({ style { margin(0.px); fontWeight("600") } }) { Text("${emp.firstName} ${emp.lastName}") }
-                                }
-                            }
+                            Text("${emp.firstName} ${emp.lastName}")
                         }
                         Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(emp.position) }
-                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(emp.entryDate) }
-                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
+                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9"); display(DisplayStyle.Flex); gap(8.px) } }) {
                             Button({
                                 style { padding(6.px, 12.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                                 onClick { onSelect(emp) }
-                            }) { Text("Expediente") }
+                            }) { Text("Editar") }
+                            Button({
+                                style { padding(6.px, 12.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                                onClick { if(window.confirm("¿Eliminar a ${emp.firstName}?")) onDelete(emp.id) }
+                            }) { Text("Eliminar") }
                         }
                     }
                 }
@@ -400,9 +422,31 @@ fun exportToCSV(employees: List<Employee>) {
 }
 
 @Composable
-fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit) {
+fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit, onSave: (Employee) -> Unit) {
+    var editMode by remember { mutableStateOf(false) }
+    var editedEmp by remember { mutableStateOf(emp) }
+    
     Div {
-        Button({ onClick { onBack() }; style { marginBottom(16.px); cursor("pointer"); backgroundColor(Color.white); property("border", "1px solid #ccc"); padding(8.px, 16.px); borderRadius(6.px) } }) { Text("← Regresar al listado") }
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); marginBottom(16.px) } }) {
+            Button({ onClick { onBack() }; style { cursor("pointer"); backgroundColor(Color.white); property("border", "1px solid #ccc"); padding(8.px, 16.px); borderRadius(6.px) } }) { Text("← Regresar") }
+            Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
+                if (editMode) {
+                    Button({ 
+                        style { padding(8.px, 20.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
+                        onClick { onSave(editedEmp) }
+                    }) { Text("Guardar Cambios") }
+                    Button({ 
+                        style { padding(8.px, 20.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                        onClick { editMode = false }
+                    }) { Text("Cancelar") }
+                } else {
+                    Button({ 
+                        style { padding(8.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                        onClick { editMode = true }
+                    }) { Text("Editar Información") }
+                }
+            }
+        }
         
         Div({
             style {
@@ -413,13 +457,18 @@ fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit) {
             // Perfil
             Div({ style { width(220.px); textAlign("center") } }) {
                 Div({ style { width(120.px); height(120.px); backgroundColor(Color("#e2e8f0")); borderRadius(50.percent); property("margin", "0 auto 20px") } })
-                H3({ style { margin(0.px) } }) { Text("${emp.firstName} ${emp.lastName}") }
-                P({ style { color(Color.gray); property("margin", "8px 0") } }) { Text(emp.position) }
-                StatusBadge(emp.status)
-                
-                Div({ style { property("margin-top", "32px"); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); gap(10.px) } }) {
-                    Button({ style { width(100.percent); padding(10.px); borderRadius(6.px); property("border", "1px solid #e2e8f0"); backgroundColor(Color.white); cursor("pointer") } }) { Text("Editar Perfil") }
-                    Button({ style { width(100.percent); padding(10.px); borderRadius(6.px); property("border", "1px solid #e2e8f0"); backgroundColor(Color.white); cursor("pointer") } }) { Text("Descargar PDF") }
+                if (editMode) {
+                    Input(InputType.Text) { 
+                        value(editedEmp.firstName); onInput { editedEmp = editedEmp.copy(firstName = it.value) }
+                        style { width(100.percent); marginBottom(8.px); padding(8.px); borderRadius(4.px); property("border", "1px solid #ccc") }
+                    }
+                    Input(InputType.Text) { 
+                        value(editedEmp.lastName); onInput { editedEmp = editedEmp.copy(lastName = it.value) }
+                        style { width(100.percent); padding(8.px); borderRadius(4.px); property("border", "1px solid #ccc") }
+                    }
+                } else {
+                    H3({ style { margin(0.px) } }) { Text("${emp.firstName} ${emp.lastName}") }
+                    P({ style { color(Color.gray); property("margin", "8px 0") } }) { Text(emp.position) }
                 }
             }
 
@@ -428,30 +477,36 @@ fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit) {
                 H2({ style { property("border-bottom", "2px solid #3b82f6"); display(DisplayStyle.InlineBlock); paddingBottom(8.px); marginBottom(24.px) } }) { Text("Expediente Digital del Empleado") }
                 
                 Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr"); gap(32.px) } }) {
-                    InfoSection("Identidad y Legal", listOf(
-                        "CURP" to (emp.curp ?: "No registrado"),
-                        "RFC" to (emp.rfc ?: "No registrado"),
-                        "NSS" to (emp.nss ?: "No registrado"),
-                        "INE" to (emp.ine ?: "Vigente")
-                    ))
-                    InfoSection("Información Laboral", listOf(
-                        "Departamento" to emp.department,
-                        "Fecha Ingreso" to emp.entryDate,
-                        "Supervisor" to (emp.supervisor ?: "N/A"),
-                        "Tipo Contrato" to (emp.contractType ?: "Indeterminado")
-                    ))
-                    InfoSection("Salud Ocupacional", listOf(
-                        "Examen Médico" to "Realizado (Vence 2025)",
-                        "Historial Médico" to (emp.medicalHistory ?: "Sin observaciones"),
-                        "Restricciones" to "Ninguna"
-                    ))
-                    InfoSection("Documentos Digitales", listOf(
-                        "Contrato" to "✓ Cargado",
-                        "Identificación" to "✓ Cargada",
-                        "Certificados" to "✓ 2 archivos"
-                    ))
+                    Div {
+                        H4({ style { color(SidebarActiveColor); marginBottom(12.px) } }) { Text("Datos Laborales") }
+                        EditField("Puesto", editedEmp.position, editMode) { editedEmp = editedEmp.copy(position = it) }
+                        EditField("Departamento", editedEmp.department, editMode) { editedEmp = editedEmp.copy(department = it) }
+                        EditField("Fecha Ingreso", editedEmp.entryDate, editMode) { editedEmp = editedEmp.copy(entryDate = it) }
+                        EditField("ID Lectora Facial", editedEmp.readerId ?: "", editMode) { editedEmp = editedEmp.copy(readerId = it) }
+                    }
+                    Div {
+                        H4({ style { color(SidebarActiveColor); marginBottom(12.px) } }) { Text("Identidad") }
+                        EditField("CURP", editedEmp.curp ?: "", editMode) { editedEmp = editedEmp.copy(curp = it) }
+                        EditField("RFC", editedEmp.rfc ?: "", editMode) { editedEmp = editedEmp.copy(rfc = it) }
+                        EditField("NSS", editedEmp.nss ?: "", editMode) { editedEmp = editedEmp.copy(nss = it) }
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun EditField(label: String, value: String, editMode: Boolean, onUpdate: (String) -> Unit) {
+    Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); padding(8.px, 0.px); property("border-bottom", "1px solid #f1f5f9"); alignItems(AlignItems.Center) } }) {
+        Span({ style { color(Color.gray); fontSize(13.px) } }) { Text(label) }
+        if (editMode) {
+            Input(InputType.Text) { 
+                value(value); onInput { onUpdate(it.value) }
+                style { padding(4.px); borderRadius(4.px); property("border", "1px solid #ddd"); fontSize(13.px); textAlign("right") }
+            }
+        } else {
+            Span({ style { fontWeight("600"); fontSize(13.px) } }) { Text(value.ifEmpty { "No registrado" }) }
         }
     }
 }

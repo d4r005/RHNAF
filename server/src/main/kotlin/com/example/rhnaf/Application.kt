@@ -76,6 +76,47 @@ fun Application.module() {
                 call.respond(employees)
             }
 
+            post("/employee/add") {
+                val emp = call.receive<Employee>()
+                DatabaseFactory.dbQuery {
+                    EmployeeTable.insert {
+                        it[id] = emp.id
+                        it[firstName] = emp.firstName
+                        it[lastName] = emp.lastName
+                        it[position] = emp.position
+                        it[department] = emp.department
+                        it[entryDate] = emp.entryDate
+                        it[status] = emp.status
+                        it[readerId] = emp.readerId ?: emp.id
+                    }
+                }
+                call.respond(HttpStatusCode.Created, mapOf("status" to "success"))
+            }
+
+            post("/employee/update") {
+                val emp = call.receive<Employee>()
+                DatabaseFactory.dbQuery {
+                    EmployeeTable.update({ EmployeeTable.id eq emp.id }) {
+                        it[firstName] = emp.firstName
+                        it[lastName] = emp.lastName
+                        it[position] = emp.position
+                        it[department] = emp.department
+                        it[entryDate] = emp.entryDate
+                        it[status] = emp.status
+                        it[readerId] = emp.readerId
+                    }
+                }
+                call.respond(mapOf("status" to "success"))
+            }
+
+            delete("/employee/{id}") {
+                val id = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
+                DatabaseFactory.dbQuery {
+                    EmployeeTable.deleteWhere { EmployeeTable.id eq id }
+                }
+                call.respond(mapOf("status" to "success"))
+            }
+
             post("/attendance/biometric") {
                 val data = call.receive<Map<String, String>>()
                 val readerId = data["employeeNo"] ?: data["userId"]
