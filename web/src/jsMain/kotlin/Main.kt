@@ -73,7 +73,12 @@ class Translations(val lang: Language) {
         "import_export" to "Importación y Exportación",
         "stock" to "Stock Actual",
         "suppliers" to "Proveedores",
-        "customs" to "Aduanas y Logística"
+        "customs" to "Aduanas y Logística",
+        "safety_audits" to "Auditorías EHS",
+        "incidents_log" to "Bitácora de Incidentes",
+        "patrimonial" to "Seguridad Patrimonial",
+        "cctv" to "Monitoreo CCTV",
+        "guard_tours" to "Rondas de Guardia"
     )
     private val en = mapOf(
         "dashboard" to "Dashboard",
@@ -129,7 +134,12 @@ class Translations(val lang: Language) {
         "import_export" to "Import & Export",
         "stock" to "Current Stock",
         "suppliers" to "Suppliers",
-        "customs" to "Customs & Logistics"
+        "customs" to "Customs & Logistics",
+        "safety_audits" to "EHS Audits",
+        "incidents_log" to "Incident Log",
+        "patrimonial" to "Asset Protection",
+        "cctv" to "CCTV Monitoring",
+        "guard_tours" to "Guard Patrols"
     )
     private val zh = mapOf(
         "dashboard" to "仪表板",
@@ -185,7 +195,12 @@ class Translations(val lang: Language) {
         "import_export" to "进出口管理",
         "stock" to "当前库存",
         "suppliers" to "供应商",
-        "customs" to "海关与物流"
+        "customs" to "海关与物流",
+        "safety_audits" to "安全审计 (EHS)",
+        "incidents_log" to "事故记录",
+        "patrimonial" to "资产安保",
+        "cctv" to "视频监控 (CCTV)",
+        "guard_tours" to "巡更管理"
     )
 
     fun get(key: String): String {
@@ -197,8 +212,10 @@ class Translations(val lang: Language) {
     }
 }
 
+enum class Module {
+    DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS,
     TALENT_MARKET, SUSTAINABILITY, PULSE_SURVEY, ASSETS, SHIFTS, BENEFITS, WORKFLOWS,
-    WAREHOUSE, IMPORT_EXPORT
+    WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY
 }
 
 fun main() {
@@ -296,7 +313,8 @@ fun main() {
                                     )
                                 }
                             }
-                            Module.INCIDENTS -> SafetyModule(client, scope)
+                            Module.INCIDENTS -> SafetyModule(client, scope, t)
+                            Module.PATRIMONIAL_SECURITY -> PatrimonialSecurityModule(t)
                             Module.ATTENDANCE -> AttendanceModule(t)
                             Module.RECRUITMENT -> RecruitmentModule(t)
                             Module.PAYROLL -> PayrollModule(t)
@@ -368,6 +386,7 @@ fun Sidebar(active: Module, t: Translations, onSelect: (Module) -> Unit) {
             SidebarLink(t.get("payroll"), Module.PAYROLL, active == Module.PAYROLL, onSelect)
             SidebarLink(t.get("training"), Module.TRAINING, active == Module.TRAINING, onSelect)
             SidebarLink(t.get("incidents"), Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
+            SidebarLink(t.get("patrimonial"), Module.PATRIMONIAL_SECURITY, active == Module.PATRIMONIAL_SECURITY, onSelect)
             SidebarLink(t.get("vacations"), Module.VACATIONS, active == Module.VACATIONS, onSelect)
             SidebarLink(t.get("documents"), Module.DOCUMENTS, active == Module.DOCUMENTS, onSelect)
             SidebarLink(t.get("assets"), Module.ASSETS, active == Module.ASSETS, onSelect)
@@ -864,16 +883,30 @@ fun LoginScreen(t: Translations, onLogin: (String, String) -> Unit) {
 }
 
 @Composable
-fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
     var desc by remember { mutableStateOf("") }
     var res by remember { mutableStateOf("") }
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text("Investigación de Incidentes EHS (Inteligencia Artificial)") }
-        P({ style { color(Color.gray) } }) { Text("Describa el incidente para obtener un análisis de riesgo instantáneo mediante modelos de lenguaje.") }
+        H3 { Text(t.get("incidents")) }
+        P({ style { color(Color.gray) } }) { Text("Investigación de Incidentes EHS con Inteligencia Artificial") }
         
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr"); gap(24.px); marginBottom(32.px) } }) {
+            Div({ style { padding(20.px); backgroundColor(Color("#fff1f2")); borderRadius(12.px); property("border-left", "4px solid #ef4444") } }) {
+                H4 { Text("Días sin accidentes") }
+                H1({ style { margin(0.px); color(Color("#991b1b")) } }) { Text("342") }
+                P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Récord histórico: 500 días") }
+            }
+            Div({ style { padding(20.px); backgroundColor(Color("#f0fdf4")); borderRadius(12.px); property("border-left", "4px solid #22c55e") } }) {
+                H4 { Text("Inspecciones de Seguridad") }
+                P { Text("● Planta: 100% Completado") }
+                P { Text("● Almacén: Pendiente hoy") }
+            }
+        }
+
+        H4 { Text("Reportar Incidente / Análisis Predictivo") }
         TextArea(value = desc) {
             style { 
-                width(100.percent); height(150.px); property("margin", "20px 0"); padding(12.px); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box") 
+                width(100.percent); height(100.px); property("margin", "10px 0"); padding(12.px); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box") 
             }
             onInput { desc = it.value }
         }
@@ -890,11 +923,63 @@ fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
                     res = body["analysis"] ?: ""
                 }
             }
-        }) { Text("Analizar con IA") }
+        }) { Text(t.get("ai_analysis")) }
+
         if (res.isNotEmpty()) {
             Div({ style { property("margin-top", "32px"); padding(20.px); backgroundColor(Color("#f0f9ff")); property("border-left", "4px solid $SidebarActiveColor"); borderRadius(4.px) } }) { 
                 H4({ style { property("margin", "0 0 10px 0") } }) { Text("Análisis de Riesgo:") }
                 Text(res) 
+            }
+        }
+
+        Div({ style { marginTop(40.px) } }) {
+            H4 { Text(t.get("safety_audits")) }
+            Table({ style { width(100.percent) } }) {
+                Thead { Tr { Th { Text("Fecha") }; Th { Text("Área") }; Th { Text("Inspector") }; Th { Text("Resultado") } } }
+                Tbody {
+                    listOf("2024-06-30" to "Producción B", "2024-06-28" to "Aduanas").forEach { (date, area) ->
+                        Tr { Td { Text(date) }; Td { Text(area) }; Td { Text("Ing. Martínez") }; Td { Span({ style { color(Color("#166534")); fontWeight("bold") } }) { Text("APROBADO") } } }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PatrimonialSecurityModule(t: Translations) {
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("patrimonial")) }
+        P({ style { color(Color.gray); marginBottom(24.px) } }) { Text("Protección de activos, vigilancia y control de accesos perimetrales.") }
+        
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "2fr 1fr"); gap(24.px) } }) {
+            // CCTV / Monitor
+            Div {
+                H4 { Text(t.get("cctv") + " (En vivo)") }
+                Div({ style { height(300.px); backgroundColor(Color("#000")); borderRadius(8.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); color(Color.white); flexDirection(FlexDirection.Column) } }) {
+                    Text("📡 SEÑAL ENCRIPTADA")
+                    P({ style { fontSize(11.px); color(Color("#22c55e")) } }) { Text("● Cámara 01 - Acceso Principal") }
+                    P({ style { fontSize(11.px); color(Color("#22c55e")) } }) { Text("● Cámara 05 - Almacén Export") }
+                }
+            }
+            
+            // Guard Patrol
+            Div({ style { padding(20.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px) } }) {
+                H4 { Text(t.get("guard_tours")) }
+                listOf("Ronda Perímetro Norte" to "100%", "Revisión Extintores" to "45%", "Cierre de Puertas" to "0%").forEach { (tour, progress) ->
+                    Div({ style { marginBottom(16.px) } }) {
+                        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween) } }) {
+                            Text(tour, { style { fontSize(12.px) } })
+                            Text(progress, { style { fontSize(12.px); fontWeight("bold") } })
+                        }
+                        Div({ style { height(4.px); backgroundColor(Color("#e2e8f0")); borderRadius(2.px); marginTop(4.px) } }) {
+                            Div({ style { height(100.percent); property("width", progress); backgroundColor(SidebarActiveColor) } })
+                        }
+                    }
+                }
+                Button({ style { width(100.percent); padding(10.px); backgroundColor(Color("#0f172a")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") } }) {
+                    Text("Reportar Incidente de Guardia")
+                }
             }
         }
     }
