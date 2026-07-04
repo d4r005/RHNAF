@@ -959,7 +959,7 @@ fun LoginScreen(t: Translations, onLogin: (String, String, Boolean) -> Unit) {
                     onInput { rememberMe = it.value }
                     style { cursor("pointer") }
                 }
-                Label({
+                Label(attrs = {
                     style { fontSize(13.px); color(Color("#64728b")); cursor("pointer") }
                 }) {
                     Text(t.get("remember_me"))
