@@ -19,8 +19,11 @@ COPY web web
 RUN chmod +x gradlew
 
 # Construir la Web App y el Servidor
-# Usamos jsBrowserDevelopmentDistribution para evitar el timeout de optimización en HF
-RUN SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentDistribution :server:installDist --no-daemon --max-workers=1
+# Usamos flags para minimizar el uso de memoria
+RUN SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentDistribution :server:installDist \
+    --no-daemon \
+    --max-workers=1 \
+    -Dorg.gradle.jvmargs="-Xmx2048m -XX:+UseParallelGC"
 
 # Etapa 2: Ejecución
 FROM eclipse-temurin:21-jre-jammy
