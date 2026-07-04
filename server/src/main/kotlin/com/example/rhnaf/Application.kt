@@ -70,7 +70,8 @@ fun Application.module() {
                             department = it[EmployeeTable.department],
                             entryDate = it[EmployeeTable.entryDate],
                             status = it[EmployeeTable.status],
-                            readerId = it[EmployeeTable.readerId]
+                            readerId = it[EmployeeTable.readerId],
+                            attritionRisk = it[EmployeeTable.attritionRisk]
                         )
                     }
                 }
@@ -89,6 +90,7 @@ fun Application.module() {
                         it[entryDate] = emp.entryDate
                         it[status] = emp.status
                         it[readerId] = emp.readerId ?: emp.id
+                        it[attritionRisk] = emp.attritionRisk
                     }
                 }
                 call.respond(HttpStatusCode.Created, mapOf("status" to "success"))
@@ -105,6 +107,7 @@ fun Application.module() {
                         it[entryDate] = emp.entryDate
                         it[status] = emp.status
                         it[readerId] = emp.readerId
+                        it[attritionRisk] = emp.attritionRisk
                     }
                 }
                 call.respond(mapOf("status" to "success"))

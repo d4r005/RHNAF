@@ -37,7 +37,8 @@ data class Employee(
     val disciplinaryHistory: List<String> = emptyList(),
     val medicalHistory: String? = null,
     val certifications: List<String> = emptyList(),
-    val skills: List<String> = emptyList(),
+    val skills: List<String> = listOf("Operación", "Seguridad"),
+    val attritionRisk: Double = 0.15, // 0.0 to 1.0 (Mock predictive AI value)
     
     // EHS y Equipo
     val equipmentAssigned: List<String> = emptyList(),

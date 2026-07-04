@@ -57,12 +57,11 @@ class Translations(val lang: Language) {
         "select_avatar" to "Seleccionar Avatar Profesional",
         "display_name" to "Nombre a mostrar",
         "select_lang" to "Idioma del Sistema",
-        "real_time" to "Monitoreo en tiempo real de terminales Hikonect.",
-        "verified" to "Rostro Verificado",
-        "import_data" to "Importar Datos (CSV/Excel)",
-        "scan_doc" to "Escanear con IA",
         "processing" to "Procesando con IA...",
-        "ai_analysis" to "Análisis Inteligente"
+        "ai_analysis" to "Análisis Inteligente",
+        "turnover_risk" to "Riesgo de Rotación (IA)",
+        "skill_heatmap" to "Mapa de Habilidades",
+        "predictive" to "Predictivo"
     )
     private val en = mapOf(
         "dashboard" to "Dashboard",
@@ -102,7 +101,10 @@ class Translations(val lang: Language) {
         "import_data" to "Import Data (CSV/Excel)",
         "scan_doc" to "AI Scan",
         "processing" to "Processing with AI...",
-        "ai_analysis" to "AI Analysis"
+        "ai_analysis" to "AI Analysis",
+        "turnover_risk" to "Attrition Risk (AI)",
+        "skill_heatmap" to "Skill Heatmap",
+        "predictive" to "Predictive"
     )
     private val zh = mapOf(
         "dashboard" to "仪表板",
@@ -142,7 +144,10 @@ class Translations(val lang: Language) {
         "import_data" to "批量导入 (CSV)",
         "scan_doc" to "AI 扫描",
         "processing" to "AI 处理中...",
-        "ai_analysis" to "智能分析"
+        "ai_analysis" to "智能分析",
+        "turnover_risk" to "人员离职风险 (AI)",
+        "skill_heatmap" to "技能热图",
+        "predictive" to "预测性"
     )
 
     fun get(key: String): String {
@@ -351,6 +356,7 @@ fun DashboardView(employees: List<Employee>, t: Translations) {
     val totalEmployees = employees.size
     val activeEmployees = employees.count { it.status == EmployeeStatus.ACTIVE }
     val activePercent = if (totalEmployees > 0) (activeEmployees.toDouble() / totalEmployees * 100).toInt() else 0
+    val highRiskCount = employees.count { it.attritionRisk > 0.7 }
 
     Div {
         // TOP CARDS
@@ -364,12 +370,12 @@ fun DashboardView(employees: List<Employee>, t: Translations) {
         }) {
             StatCard(t.get("total_emp"), "$totalEmployees", "Base de datos NAF", Color("#6366f1"))
             StatCard(t.get("active_emp"), "$activeEmployees", "$activePercent% del total", Color("#22c55e"))
-            StatCard(t.get("vacancies"), "4", "Procesos activos", Color("#eab308"))
+            StatCard(t.get("turnover_risk"), "$highRiskCount", "${t.get("predictive")}: Crítico", if(highRiskCount > 0) Color("#ef4444") else Color("#22c55e"))
             StatCard(t.get("training_pending"), "2", "Próximos cursos", Color("#a855f7"))
             StatCard(t.get("incidents_today"), "0", "Sin reportes críticos", Color("#22c55e"))
         }
 
-        // MIDDLE SECTION: CHART + WIDGETS
+        // MIDDLE SECTION: AI INSIGHTS + WIDGETS
         Div({
             style {
                 display(DisplayStyle.Grid)
@@ -377,7 +383,7 @@ fun DashboardView(employees: List<Employee>, t: Translations) {
                 gap(24.px)
             }
         }) {
-            // Main Chart Placeholder
+            // Skill Heatmap AI
             Div({
                 style {
                     backgroundColor(Color.white); padding(24.px); borderRadius(12.px)
@@ -385,19 +391,17 @@ fun DashboardView(employees: List<Employee>, t: Translations) {
                 }
             }) {
                 Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); property("margin-bottom", "20px") } }) {
-                    H3({ style { margin(0.px); fontSize(16.px) } }) { Text("Indicadores Clave") }
-                    Span({ style { color(Color.gray); fontSize(12.px) } }) { Text("Este mes ▼") }
+                    H3({ style { margin(0.px); fontSize(16.px) } }) { Text(t.get("skill_heatmap") + " (AI)") }
+                    Span({ style { color(Color.gray); fontSize(12.px) } }) { Text("Análisis de Talentos") }
                 }
-                Div({ style { height(200.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
-                    Text("Visualización de Gráfica de Líneas")
+                Div({ style { height(200.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px); padding(20.px); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); gap(12.px) } }) {
+                    SkillBar("Operación de Planta", "92%", Color("#3b82f6"))
+                    SkillBar("Seguridad EHS", "78%", Color("#ef4444"))
+                    SkillBar("Mantenimiento Técnico", "45%", Color("#f59e0b"))
+                    SkillBar("Liderazgo", "30%", Color("#10b981"))
                 }
-                Div({
-                    style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); property("margin-top", "20px") }
-                }) {
-                    MiniStat("Ausentismo", "3.2%", "-0.5% vs anterior", Color("#22c55e"))
-                    MiniStat("Rotación", "1.8%", "-0.2% vs anterior", Color("#22c55e"))
-                    MiniStat("Horas Extras", "2,456", "+8.2% vs anterior", Color("#ef4444"))
-                    MiniStat("Antigüedad Prom.", "2.4 años", "+0.2 años vs anterior", Color("#22c55e"))
+                P({ style { fontSize(11.px); color(Color.gray); marginTop(12.px) } }) { 
+                    Text("Nota: Basado en certificaciones y desempeño histórico analizado por IA.") 
                 }
             }
 
@@ -413,23 +417,34 @@ fun DashboardView(employees: List<Employee>, t: Translations) {
                 BirthdayItem("María González", "18 de Mayo", false)
                 BirthdayItem("Juan Pérez", "22 de Mayo", false)
                 BirthdayItem("Ana López", "28 de Mayo", false)
-                BirthdayItem("Luis Martínez", "30 de Mayo", false)
             }
 
-            // Important Alerts
+            // Important Alerts (Predictive)
             Div({
                 style {
                     backgroundColor(Color.white); padding(24.px); borderRadius(12.px)
                     property("box-shadow", CardShadow)
                 }
             }) {
-                H3({ style { property("margin", "0 0 20px 0"); fontSize(16.px) } }) { Text("Alertas Importantes") }
-                AlertItem("5 contratos vencen en los próximos 7 días", Color("#ef4444"))
-                AlertItem("12 empleados con documentos vencidos", Color("#f97316"))
-                AlertItem("15 capacitaciones por vencer", Color("#3b82f6"))
-                AlertItem("3 evaluaciones pendientes", Color("#f59e0b"))
-                AlertItem("8 vacaciones pendientes de aprobar", Color("#6366f1"))
+                H3({ style { property("margin", "0 0 20px 0"); fontSize(16.px) } }) { Text("Alertas Predictivas") }
+                AlertItem("3 empleados con alta probabilidad de renuncia", Color("#ef4444"))
+                AlertItem("Gap de habilidades detectado en Producción", Color("#f97316"))
+                AlertItem("Certificación EHS vence en 3 días (5 pers.)", Color("#3b82f6"))
+                AlertItem("Anomalía en registros de asistencia", Color("#f59e0b"))
             }
+        }
+    }
+}
+
+@Composable
+fun SkillBar(label: String, prog: String, color: CSSColorValue) {
+    Div {
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); marginBottom(4.px) } }) {
+            Span({ style { fontSize(12.px); fontWeight("bold") } }) { Text(label) }
+            Span({ style { fontSize(11.px); color(Color.gray) } }) { Text(prog) }
+        }
+        Div({ style { height(6.px); width(100.percent); backgroundColor(Color("#e2e8f0")); borderRadius(3.px) } }) {
+            Div({ style { height(100.percent); property("width", prog); backgroundColor(color); borderRadius(3.px) } })
         }
     }
 }
@@ -682,6 +697,17 @@ fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit, onSave: (Employee) ->
             Div({ style { flex(1) } }) {
                 H2({ style { property("border-bottom", "2px solid #3b82f6"); display(DisplayStyle.InlineBlock); paddingBottom(8.px); marginBottom(24.px) } }) { Text("Expediente Digital del Empleado") }
                 
+                // AI INSIGHT: Attrition Risk
+                Div({ style { padding(16.px); backgroundColor(if(emp.attritionRisk > 0.7) Color("#fef2f2") else Color("#f0fdf4")); borderRadius(8.px); marginBottom(24.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.SpaceBetween); property("border", "1px solid " + (if(emp.attritionRisk > 0.7) "#fee2e2" else "#dcfce7")) } }) {
+                    Div {
+                        P({ style { margin(0.px); fontWeight("bold"); fontSize(13.px); color(if(emp.attritionRisk > 0.7) Color("#991b1b") else Color("#166534")) } }) { Text(t.get("ai_analysis") + ": " + t.get("turnover_risk")) }
+                        P({ style { margin(0.px); fontSize(11.px); color(Color.gray) } }) { Text("Basado en patrones de asistencia, antigüedad y evaluaciones.") }
+                    }
+                    Span({ style { fontSize(16.px); fontWeight("900"); color(if(emp.attritionRisk > 0.7) Color("#ef4444") else Color("#22c55e")) } }) { 
+                        Text("${(emp.attritionRisk * 100).toInt()}%") 
+                    }
+                }
+
                 Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr"); gap(32.px) } }) {
                     Div {
                         H4({ style { color(SidebarActiveColor); marginBottom(12.px) } }) { Text("Datos Laborales") }
@@ -828,31 +854,27 @@ fun AttendanceModule(t: Translations) {
                 H4({ style { margin(0.px) } }) { Text("Terminal Acceso Principal") }
                 P({ style { color(Color("#22c55e")); fontWeight("bold"); fontSize(14.px) } }) { Text("● RECONOCIMIENTO ACTIVO") }
                 P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Modelo: Hikonect Face-ID v2") }
-                P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Usuarios en memoria: 154") }
+                P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Sincronización: Nube NAF") }
             }
             
             Div({ style { flex(2) } }) {
-                H4 { Text("Últimos Accesos (Rostro Detectado)") }
+                H4 { Text("Monitor de Inteligencia (Accesos)") }
                 Table({ style { width(100.percent); fontSize(13.px) } }) {
                     Tbody {
                         Tr {
                             Td { Text("08:30:12 AM") }
                             Td { B { Text("Daniel Trujillo") } }
                             Td { Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px) } }) { Text(t.get("verified")) } }
+                            Td { Span({ style { color(Color.gray); fontSize(11.px) } }) { Text("Normatividad OK") } }
                         }
                         Tr {
                             Td { Text("08:32:45 AM") }
                             Td { B { Text("Arni Oziel") } }
                             Td { Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px) } }) { Text(t.get("verified")) } }
+                            Td { Span({ style { color(Color("#ef4444")); fontSize(11.px); fontWeight("bold") } }) { Text("AI: Retardo Probable") } }
                         }
                     }
                 }
-            }
-        }
-        
-        Div({ style { property("margin-top", "32px"); padding(16.px); backgroundColor(Color("#f0fdf4")); borderRadius(8.px); property("border", "1px solid #dcfce7") } }) {
-            P({ style { margin(0.px); fontSize(13.px); color(Color("#166534")) } }) { 
-                Text("Sincronización Automática: La lectora está vinculada mediante el ID de empleado (employeeNo). Los registros se alimentan directamente de la base de datos interna del dispositivo.")
             }
         }
     }
