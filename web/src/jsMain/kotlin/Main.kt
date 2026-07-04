@@ -102,14 +102,11 @@ fun Sidebar(active: Module, onSelect: (Module) -> Unit) {
             flexDirection(FlexDirection.Column)
         }
     }) {
-        Div({ style { padding(32.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(12.px) } }) {
-            // Logo NAF
-            Div({ style { width(36.px); height(36.px); backgroundColor(SidebarActiveColor); borderRadius(4.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
-                Text("N")
-            }
-            H2({ style { margin(0.px); fontSize(20.px); letterSpacing(1.px) } }) { 
-                Span({ style { fontWeight("bold"); property("font-style", "italic") } }) { Text("NAF ") }
-                Span({ style { fontWeight("lighter"); color(Color("#94a3b8")) } }) { Text("CONNECT") }
+        Div({ style { padding(32.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
+            // LOGO NAF CONNECT (Versión Sidebar)
+            H2({ style { margin(0.px); fontSize(22.px); fontFamily("Inter", "sans-serif"); color(Color.white) } }) { 
+                Span({ style { fontWeight("900"); property("font-style", "italic") } }) { Text("NAF") }
+                Span({ style { fontWeight("300"); color(Color("#94a3b8")); marginLeft(6.px); property("font-style", "normal") } }) { Text("CONNECT") }
             }
         }
 
@@ -467,32 +464,32 @@ fun LoginScreen(onLogin: (String, String) -> Unit) {
     var u by remember { mutableStateOf("") }
     var p by remember { mutableStateOf("") }
     Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); height(100.vh); backgroundColor(SidebarColor) } }) {
-        Div({ style { backgroundColor(Color.white); padding(48.px); borderRadius(24.px); width(360.px); property("box-shadow", "0 25px 50px -12px rgba(0, 0, 0, 0.5)") } }) {
-            Div({ style { textAlign("center"); marginBottom(32.px) } }) {
-                Div({ style { width(48.px); height(48.px); backgroundColor(SidebarActiveColor); borderRadius(8.px); property("display", "inline-flex"); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); color(Color.white); fontWeight("bold"); fontSize(24.px); marginBottom(16.px) } }) { Text("N") }
-                H1({ style { color(SidebarColor); margin(0.px); fontSize(26.px); letterSpacing(1.px) } }) { 
-                    Span({ style { fontWeight("bold"); property("font-style", "italic") } }) { Text("NAF ") }
-                    Span({ style { fontWeight("lighter"); color(Color("#64728b")) } }) { Text("CONNECT") }
+        Div({ style { backgroundColor(Color.white); padding(48.px); borderRadius(24.px); width(400.px); property("box-shadow", "0 25px 50px -12px rgba(0, 0, 0, 0.5)") } }) {
+            Div({ style { textAlign("center"); marginBottom(40.px) } }) {
+                // LOGO NAF CONNECT (Réplica exacta del logo proporcionado)
+                H1({ style { margin(0.px); fontSize(42.px); fontFamily("Inter", "sans-serif"); letterSpacing((-1).px) } }) { 
+                    Span({ style { fontWeight("900"); property("font-style", "italic"); color(Color("#0f172a")) } }) { Text("NAF") }
+                    Span({ style { fontWeight("300"); color(Color("#475569")); marginLeft(8.px); property("font-style", "normal") } }) { Text("CONNECT") }
                 }
-                P({ style { color(Color("#64728b")); margin(0.px); fontSize(14.px) } }) { Text("Portal de Gestión de Talento") }
+                P({ style { color(Color("#64728b")); marginTop(4.px); fontSize(14.px); letterSpacing(2.px); fontWeight("500") } }) { Text("PORTAL DE GESTIÓN") }
             }
             
-            Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")) } }) { Text("CORREO ELECTRÓNICO") }
-            Input(InputType.Text) { placeholder("usuario@dominio.com"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none") }; onInput { u = it.value } }
+            Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")); letterSpacing(0.5.px) } }) { Text("CORREO ELECTRÓNICO") }
+            Input(InputType.Text) { placeholder("usuario@dominio.com"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none"); backgroundColor(Color("#f8fafc")) }; onInput { u = it.value } }
             
-            Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")) } }) { Text("CONTRASEÑA") }
-            Input(InputType.Password) { placeholder("••••••••"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none") }; onInput { p = it.value } }
+            Label(attrs = { style { fontSize(12.px); fontWeight("600"); color(Color("#475569")); letterSpacing(0.5.px) } }) { Text("CONTRASEÑA") }
+            Input(InputType.Password) { placeholder("••••••••"); style { width(100.percent); padding(12.px); property("margin", "8px 0 20px 0"); borderRadius(8.px); property("border", "1px solid #e2e8f0"); property("box-sizing", "border-box"); property("outline", "none"); backgroundColor(Color("#f8fafc")) }; onInput { p = it.value } }
             
             Button({ 
                 style { 
-                    width(100.percent); padding(14.px); backgroundColor(SidebarActiveColor); color(Color.white); 
+                    width(100.percent); padding(16.px); backgroundColor(Color("#0f172a")); color(Color.white); 
                     property("border", "none"); borderRadius(8.px); cursor("pointer"); property("margin-top", "12.px"); 
-                    fontWeight("bold"); fontSize(14.px); property("transition", "background 0.2s") 
+                    fontWeight("bold"); fontSize(14.px); property("transition", "all 0.2s") 
                 }
                 onClick { onLogin(u, p) } 
-            }) { Text("ACCEDER AL SISTEMA") }
+            }) { Text("INICIAR SESIÓN") }
             
-            P({ style { textAlign("center"); marginTop(24.px); fontSize(11.px); color(Color("#94a3b8")) } }) { Text("Uso exclusivo para personal autorizado NAF CONNECT") }
+            P({ style { textAlign("center"); marginTop(32.px); fontSize(11.px); color(Color("#94a3b8")) } }) { Text("© 2024 NAF CONNECT • SISTEMA INDUSTRIAL") }
         }
     }
 }
