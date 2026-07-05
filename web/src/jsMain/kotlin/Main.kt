@@ -291,6 +291,7 @@ fun main() {
                             setBody(mapOf("username" to u, "password" to p))
                         }
                         if (resp.status == HttpStatusCode.OK) {
+                            // ... (resto del código de asignación de roles igual)
                             val (role, name) = when(u) {
                                 "d.trujillo@brancoindustries.com" -> UserRole.ADMIN to "Daniel Trujillo"
                                 "arni.oziel@brancoindustries.com" -> UserRole.RH to "Arni Oziel"
@@ -310,11 +311,10 @@ fun main() {
                             employees = client.get("$BACKEND_URL/api/employees").body()
                             isLoggedIn = true
                         } else {
-                            window.alert("Error de autenticación: Usuario o contraseña incorrectos.")
+                            window.alert("El servidor respondió con error ${resp.status}. Es probable que el Space de Hugging Face no tenga este usuario registrado o esté corriendo la App de Inspección de Vehículos en lugar de RHNAF.")
                         }
                     } catch (e: Exception) { 
-                        console.log(e)
-                        window.alert("No se pudo conectar con el servidor en: $BACKEND_URL\nVerifica que el Space de Hugging Face esté corriendo.")
+                        window.alert("Error de conexión: No se pudo alcanzar el servidor en $BACKEND_URL")
                     }
                 }
             }
