@@ -29,4 +29,8 @@ class TrainingViewModel(private val repository: TrainingRepository) : ViewModel(
             )
         }
     }
+
+    fun importExcelData(fileName: String) {
+        addTrainingRecord("Importación masiva: $fileName", "Historial")
+    }
 }

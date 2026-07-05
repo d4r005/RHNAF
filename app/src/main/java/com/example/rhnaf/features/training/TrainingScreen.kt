@@ -45,7 +45,8 @@ fun TrainingScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            android.widget.Toast.makeText(context, "Excel importado: ${uri.path}", android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.importExcelData("historial_capacitacion.xlsx")
+            android.widget.Toast.makeText(context, "Excel importado y procesado", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 

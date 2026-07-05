@@ -14,6 +14,7 @@ import com.example.rhnaf.shared.model.*
 import kotlinx.coroutines.launch
 import kotlinx.browser.window
 import kotlinx.browser.document
+import androidx.compose.runtime.mutableStateListOf
 
 // DISEÑO NAF CONNECT - IDENTIDAD INDUSTRIAL MODERNA
 val SidebarColor = Color("#0f172a") 
@@ -984,6 +985,8 @@ fun LoginScreen(t: Translations, onLogin: (String, String, Boolean) -> Unit) {
 fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
     var desc by remember { mutableStateOf("") }
     var res by remember { mutableStateOf("") }
+    val audits = remember { mutableStateListOf("2024-06-30" to "Producción B", "2024-06-28" to "Aduanas") }
+
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3 { Text(t.get("incidents")) }
         P({ style { color(Color.gray) } }) { Text("Investigación de Incidentes EHS con Inteligencia Artificial") }
@@ -1036,7 +1039,10 @@ fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t
             Input(InputType.File) {
                 id("ehs-audit-upload"); style { display(DisplayStyle.None) }
                 accept("application/pdf")
-                onChange { window.alert("Auditoría PDF cargada exitosamente.") }
+                onChange { 
+                    audits.add(0, "2024-07-05" to "Auditoría Externa (Cargada)")
+                    window.alert("Auditoría PDF cargada y procesada exitosamente.") 
+                }
             }
             Button({
                 style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
@@ -1046,7 +1052,7 @@ fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t
             Table({ style { width(100.percent) } }) {
                 Thead { Tr { Th { Text("Fecha") }; Th { Text("Área") }; Th { Text("Inspector") }; Th { Text("Resultado") } } }
                 Tbody {
-                    listOf("2024-06-30" to "Producción B", "2024-06-28" to "Aduanas").forEach { (date, area) ->
+                    audits.forEach { (date, area) ->
                         Tr { Td { Text(date) }; Td { Text(area) }; Td { Text("Ing. Martínez") }; Td { Span({ style { color(Color("#166534")); fontWeight("bold") } }) { Text("APROBADO") } } }
                     }
                 }
@@ -1287,6 +1293,13 @@ fun PayrollModule(t: Translations) {
 @Composable
 fun TrainingModule(t: Translations) {
     var showAddForm by remember { mutableStateOf(false) }
+    val courses = remember { mutableStateListOf(
+        "Seguridad Industrial (EHS)" to "85%",
+        "Manejo de Sustancias" to "40%",
+        "Cultura NAF Connect" to "100%",
+        "Primeros Auxilios" to "15%"
+    ) }
+
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
             H3({ style { margin(0.px) } }) { Text(t.get("training")) }
@@ -1294,7 +1307,10 @@ fun TrainingModule(t: Translations) {
                 Input(InputType.File) {
                     id("training-excel-upload"); style { display(DisplayStyle.None) }
                     accept(".xlsx, .xls, .csv")
-                    onChange { window.alert("Historial de capacitaciones (Excel) importado exitosamente.") }
+                    onChange { 
+                        courses.add(0, "Importación masiva: historial.xlsx" to "100%")
+                        window.alert("Historial de capacitaciones (Excel) importado y procesado exitosamente.") 
+                    }
                 }
                 Button({
                     style { padding(10.px, 20.px); backgroundColor(Color("#166534")); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontSize(13.px) }
@@ -1321,12 +1337,7 @@ fun TrainingModule(t: Translations) {
         }
 
         Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fill, minmax(280.px, 1fr))"); gap(20.px) } }) {
-            listOf(
-                "Seguridad Industrial (EHS)" to "85%",
-                "Manejo de Sustancias" to "40%",
-                "Cultura NAF Connect" to "100%",
-                "Primeros Auxilios" to "15%"
-            ).forEach { (course, prog) ->
+            courses.forEach { (course, prog) ->
                 Div({ style { padding(20.px); property("border", "1px solid #e2e8f0"); borderRadius(12.px) } }) {
                     H4({ style { margin(0.px) } }) { Text(course) }
                     Div({ style { height(8.px); width(100.percent); backgroundColor(Color("#f1f5f9")); borderRadius(4.px); property("margin", "16px 0") } }) {

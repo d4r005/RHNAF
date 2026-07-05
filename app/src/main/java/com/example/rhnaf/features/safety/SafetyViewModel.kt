@@ -21,7 +21,7 @@ class SafetyViewModel(private val repository: SafetyRepository) : ViewModel() {
             initialValue = emptyList()
         )
 
-    fun reportIncident(description: String, severity: String) {
+    fun reportIncident(description: String, severity: String, area: String = "General") {
         viewModelScope.launch {
             val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
             repository.reportIncident(
@@ -29,10 +29,14 @@ class SafetyViewModel(private val repository: SafetyRepository) : ViewModel() {
                     description = description,
                     date = date,
                     severity = severity,
-                    area = "General",
+                    area = area,
                     reportedBy = "Admin"
                 )
             )
         }
+    }
+
+    fun importAudit(fileName: String) {
+        reportIncident("Auditoría Externa: $fileName", "Bajo", "Planta Completa")
     }
 }

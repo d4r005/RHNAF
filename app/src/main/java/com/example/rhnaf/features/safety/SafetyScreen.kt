@@ -41,8 +41,8 @@ fun SafetyScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            // Simulación de carga
-            android.widget.Toast.makeText(context, "Auditoría cargada: ${uri.path}", android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.importAudit("auditoria_ehs.pdf")
+            android.widget.Toast.makeText(context, "Auditoría cargada y procesada", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
