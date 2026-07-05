@@ -1034,7 +1034,7 @@ fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t
             H4 { Text(t.get("safety_audits")) }
         Div({ style { display(DisplayStyle.Flex); gap(12.px); marginBottom(16.px) } }) {
             Input(InputType.File) {
-                id("ehs-audit-upload"); style { display(DisplayStyle.none) }
+                id("ehs-audit-upload"); style { display(DisplayStyle.None) }
                 accept("application/pdf")
                 onChange { window.alert("Auditoría PDF cargada exitosamente.") }
             }
@@ -1290,9 +1290,9 @@ fun TrainingModule(t: Translations) {
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
             H3({ style { margin(0.px) } }) { Text(t.get("training")) }
-            Div({ style { display(DisplayStyle.Flex); gap(12.dp); alignItems(AlignItems.Center) } }) {
+            Div({ style { display(DisplayStyle.Flex); gap(12.px); alignItems(AlignItems.Center) } }) {
                 Input(InputType.File) {
-                    id("training-excel-upload"); style { display(DisplayStyle.none) }
+                    id("training-excel-upload"); style { display(DisplayStyle.None) }
                     accept(".xlsx, .xls, .csv")
                     onChange { window.alert("Historial de capacitaciones (Excel) importado exitosamente.") }
                 }
