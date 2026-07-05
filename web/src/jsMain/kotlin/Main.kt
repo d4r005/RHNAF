@@ -1308,8 +1308,18 @@ fun TrainingModule(t: Translations) {
                     id("training-excel-upload"); style { display(DisplayStyle.None) }
                     accept(".xlsx, .xls, .csv")
                     onChange { 
-                        courses.add(0, "Importación masiva: historial.xlsx" to "100%")
-                        window.alert("Historial de capacitaciones (Excel) importado y procesado exitosamente.") 
+                        courses.clear()
+                        val plan2026 = listOf(
+                            "Seguridad en equipos industriales motorizados" to "100%",
+                            "Reconocimiento de peligros y Riesgos" to "100%",
+                            "Preparación y respuesta de emergencias" to "100%",
+                            "Comunicación de peligros (SGA) / Sustancias Químicas" to "100%",
+                            "Trabajos en caliente / Estrés por calor" to "100%",
+                            "Equipo de Protección Personal (EPP)" to "100%",
+                            "Seguridad Eléctrica" to "0%"
+                        )
+                        courses.addAll(plan2026)
+                        window.alert("Plan de Capacitación 2026 (North America Flooring) importado exitosamente.")
                     }
                 }
                 Button({
