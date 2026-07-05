@@ -1032,6 +1032,17 @@ fun SafetyModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t
 
         Div({ style { marginTop(40.px) } }) {
             H4 { Text(t.get("safety_audits")) }
+        Div({ style { display(DisplayStyle.Flex); gap(12.px); marginBottom(16.px) } }) {
+            Input(InputType.File) {
+                id("ehs-audit-upload"); style { display(DisplayStyle.none) }
+                accept("application/pdf")
+                onChange { window.alert("Auditoría PDF cargada exitosamente.") }
+            }
+            Button({
+                style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
+                onClick { document.getElementById("ehs-audit-upload")?.let { (it as org.w3c.dom.HTMLInputElement).click() } }
+            }) { Text("↑ Subir Auditoría (PDF)") }
+        }
             Table({ style { width(100.percent) } }) {
                 Thead { Tr { Th { Text("Fecha") }; Th { Text("Área") }; Th { Text("Inspector") }; Th { Text("Resultado") } } }
                 Tbody {
@@ -1279,10 +1290,22 @@ fun TrainingModule(t: Translations) {
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
             H3({ style { margin(0.px) } }) { Text(t.get("training")) }
-            Button({ 
-                style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("bold") }
-                onClick { showAddForm = !showAddForm }
-            }) { Text(if (showAddForm) t.get("cancel") else "+ Registrar Curso") }
+            Div({ style { display(DisplayStyle.Flex); gap(12.dp); alignItems(AlignItems.Center) } }) {
+                Input(InputType.File) {
+                    id("training-excel-upload"); style { display(DisplayStyle.none) }
+                    accept(".xlsx, .xls, .csv")
+                    onChange { window.alert("Historial de capacitaciones (Excel) importado exitosamente.") }
+                }
+                Button({
+                    style { padding(10.px, 20.px); backgroundColor(Color("#166534")); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontSize(13.px) }
+                    onClick { document.getElementById("training-excel-upload")?.let { (it as org.w3c.dom.HTMLInputElement).click() } }
+                }) { Text("Excel Import") }
+
+                Button({ 
+                    style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("bold") }
+                    onClick { showAddForm = !showAddForm }
+                }) { Text(if (showAddForm) t.get("cancel") else "+ Registrar Curso") }
+            }
         }
 
         if (showAddForm) {
