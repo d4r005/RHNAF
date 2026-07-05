@@ -287,7 +287,7 @@ fun main() {
                         if (resp.status == HttpStatusCode.OK) {
                             val (role, name) = when(u) {
                                 "d.trujillo@brancoindustries.com" -> UserRole.ADMIN to "Dario Robles"
-                                "arni.oziel@brancoindustries.com" -> UserRole.RH to "Arni Oziel"
+                                "arni.oziel@brancoindustries.com" -> UserRole.ADMIN to "Arni Oziel"
                                 "compras@brancoindustries.com" -> UserRole.COMPRAS to "Usuario Compras"
                                 "seguridad@brancoindustries.com" -> UserRole.SEGURIDAD to "Seguridad Planta"
                                 "mantenimiento@brancoindustries.com" -> UserRole.MANTENIMIENTO to "Ing. Mantenimiento"
@@ -1294,43 +1294,36 @@ fun PayrollModule(t: Translations) {
 fun TrainingModule(t: Translations) {
     var showAddForm by remember { mutableStateOf(false) }
     val courses = remember { mutableStateListOf(
-        "Seguridad Industrial (EHS)" to "85%",
-        "Manejo de Sustancias" to "40%",
-        "Cultura NAF Connect" to "100%",
-        "Primeros Auxilios" to "15%"
+        "Seguridad en equipos industriales motorizados" to "100%",
+        "Reconocimiento de peligros y Riesgos" to "100%",
+        "Preparación y respuesta de emergencias" to "100%",
+        "Comunicación de peligros (SGA) / Sustancias Químicas" to "100%",
+        "Trabajos en caliente / Estrés por calor" to "100%",
+        "Equipo de Protección Personal (EPP)" to "100%",
+        "Seguridad Eléctrica" to "0%"
     ) }
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
-            H3({ style { margin(0.px) } }) { Text(t.get("training")) }
+            H2({ style { margin(0.px); fontWeight("bold"); color(Color("#0f172a")) } }) { Text("Capacitación") }
             Div({ style { display(DisplayStyle.Flex); gap(12.px); alignItems(AlignItems.Center) } }) {
                 Input(InputType.File) {
                     id("training-excel-upload"); style { display(DisplayStyle.None) }
                     accept(".xlsx, .xls, .csv")
                     onChange { 
-                        courses.clear()
-                        val plan2026 = listOf(
-                            "Seguridad en equipos industriales motorizados" to "100%",
-                            "Reconocimiento de peligros y Riesgos" to "100%",
-                            "Preparación y respuesta de emergencias" to "100%",
-                            "Comunicación de peligros (SGA) / Sustancias Químicas" to "100%",
-                            "Trabajos en caliente / Estrés por calor" to "100%",
-                            "Equipo de Protección Personal (EPP)" to "100%",
-                            "Seguridad Eléctrica" to "0%"
-                        )
-                        courses.addAll(plan2026)
-                        window.alert("Plan de Capacitación 2026 (North America Flooring) importado exitosamente.")
+                        // Simulación de carga de excel
+                        window.alert("Plan de Capacitación importado exitosamente.")
                     }
                 }
                 Button({
-                    style { padding(10.px, 20.px); backgroundColor(Color("#166534")); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontSize(13.px) }
+                    style { padding(10.px, 20.px); backgroundColor(Color("#166534")); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontSize(14.px); fontWeight("bold") }
                     onClick { document.getElementById("training-excel-upload")?.let { (it as org.w3c.dom.HTMLInputElement).click() } }
                 }) { Text("Excel Import") }
 
                 Button({ 
-                    style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("bold") }
+                    style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("bold"); fontSize(14.px) }
                     onClick { showAddForm = !showAddForm }
-                }) { Text(if (showAddForm) t.get("cancel") else "+ Registrar Curso") }
+                }) { Text("+ Registrar Curso") }
             }
         }
 
@@ -1339,21 +1332,42 @@ fun TrainingModule(t: Translations) {
                 H4 { Text("Nuevo Registro de Capacitación") }
                 Div({ style { display(DisplayStyle.Flex); gap(16.px); flexWrap(FlexWrap.Wrap) } }) {
                     Input(InputType.Text) { placeholder("Nombre del Curso"); style { flex(1); padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
-                    Input(InputType.Date) { style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
-                    Input(InputType.Text) { placeholder("Instructor"); style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
                     Button({ style { padding(10.px, 24.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") } }) { Text("Guardar Registro") }
                 }
             }
         }
 
-        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fill, minmax(280.px, 1fr))"); gap(20.px) } }) {
+        Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); gap(20.px) } }) {
             courses.forEach { (course, prog) ->
-                Div({ style { padding(20.px); property("border", "1px solid #e2e8f0"); borderRadius(12.px) } }) {
-                    H4({ style { margin(0.px) } }) { Text(course) }
-                    Div({ style { height(8.px); width(100.percent); backgroundColor(Color("#f1f5f9")); borderRadius(4.px); property("margin", "16px 0") } }) {
-                        Div({ style { height(100.percent); property("width", prog); backgroundColor(SidebarActiveColor); borderRadius(4.px) } })
+                Div({ 
+                    style { 
+                        padding(24.px); 
+                        backgroundColor(Color.white);
+                        property("border", "1px solid #f1f5f9"); 
+                        borderRadius(16.px);
+                        property("box-shadow", "0 1px 3px 0 rgba(0, 0, 0, 0.1)")
+                    } 
+                }) {
+                    H4({ style { margin(0.px); fontSize(18.px); color(Color("#1e293b")) } }) { Text(course) }
+                    Div({ 
+                        style { 
+                            height(12.px); 
+                            width(100.percent); 
+                            backgroundColor(Color("#f1f5f9")); 
+                            borderRadius(6.px); 
+                            property("margin", "20px 0") 
+                        } 
+                    }) {
+                        Div({ 
+                            style { 
+                                height(100.percent); 
+                                property("width", prog); 
+                                backgroundColor(SidebarActiveColor); 
+                                borderRadius(6.px) 
+                            } 
+                        })
                     }
-                    P({ style { fontSize(12.px); color(Color.gray); margin(0.px); textAlign("right") } }) { Text("Progreso: $prog") }
+                    P({ style { fontSize(14.px); color(Color("#64728b")); margin(0.px); textAlign("right") } }) { Text("Progreso: $prog") }
                 }
             }
         }
