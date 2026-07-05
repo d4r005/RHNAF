@@ -1,5 +1,7 @@
 package com.example.rhnaf.features.safety
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,7 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.HealthAndSafety
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -17,9 +19,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.rhnaf.ui.ViewModelFactory
 import com.example.rhnaf.ui.theme.IndustrialBlue
@@ -33,6 +35,16 @@ fun SafetyScreen(
     viewModel: SafetyViewModel = viewModel(factory = ViewModelFactory)
 ) {
     val incidents by viewModel.allIncidents.collectAsState()
+    val context = LocalContext.current
+
+    val pdfLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            // Simulación de carga
+            android.widget.Toast.makeText(context, "Auditoría cargada: ${uri.path}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Scaffold(
         containerColor = IndustrialLight,
@@ -42,6 +54,11 @@ fun SafetyScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Regresar")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { pdfLauncher.launch("application/pdf") }) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = "Subir Auditoría PDF", tint = IndustrialBlue)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -73,11 +90,39 @@ fun SafetyScreen(
                 SafetyStatCard("Inspecciones Pend.", "2", Color(0xFFF59E0B), Modifier.weight(1f))
             }
 
+            // Nueva sección de Auditorías
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Auditorías EHS", fontWeight = FontWeight.Bold)
+                        Text("Cargar resultados de inspección externa.", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    }
+                    Button(
+                        onClick = { pdfLauncher.launch("application/pdf") },
+                        colors = ButtonDefaults.buttonColors(containerColor = IndustrialBlue),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Subir PDF", fontSize = 12.sp)
+                    }
+                }
+            }
+
             Text(
                 "Bitácora de Incidentes",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
             )
 
             LazyColumn(
@@ -129,7 +174,7 @@ fun IncidentCard(incident: com.example.rhnaf.features.safety.Incident) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .background(severityColor.copy(alpha = 0.1f), CircleShape),
+                    .background(severityColor.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -162,3 +207,5 @@ fun IncidentCard(incident: com.example.rhnaf.features.safety.Incident) {
         }
     }
 }
+
+import androidx.compose.ui.unit.sp

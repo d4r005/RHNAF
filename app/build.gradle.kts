@@ -7,16 +7,21 @@ plugins {
 
 android {
     namespace = "com.example.rhnaf"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
+    compileSdk = 37
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("../release-key.jks")
+            storePassword = "rhnaf2025"
+            keyAlias = "rhnaf-key"
+            keyPassword = "rhnaf2025"
         }
     }
 
     defaultConfig {
         applicationId = "com.example.rhnaf"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
@@ -25,6 +30,7 @@ android {
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             optimization {
                 enable = false
             }
