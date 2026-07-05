@@ -260,6 +260,10 @@ fun isModuleVisible(module: Module, role: UserRole): Boolean {
     }
 }
 
+// CONFIGURACIÓN DE URL DE BACKEND
+// Cambia esta URL por la URL de tu Space de Hugging Face (ej. https://user-name-space-name.hf.space)
+val BACKEND_URL = "https://chuy-rhnaf-industrial.hf.space" 
+
 fun main() {
     val client = HttpClient(Js) {
         install(ContentNegotiation) { json() }
@@ -283,7 +287,7 @@ fun main() {
             LoginScreen(t) { u, p, rememberMe ->
                 scope.launch {
                     try {
-                        val resp = client.post("/api/login") {
+                        val resp = client.post("$BACKEND_URL/api/login") {
                             contentType(ContentType.Application.Json)
                             setBody(mapOf("username" to u, "password" to p))
                         }
@@ -304,7 +308,7 @@ fun main() {
                             } else {
                                 window.localStorage.removeItem("naf_saved_email")
                             }
-                            employees = client.get("/api/employees").body()
+                            employees = client.get("$BACKEND_URL/api/employees").body()
                             isLoggedIn = true
                         }
                     } catch (e: Exception) { console.log(e) }
@@ -340,8 +344,8 @@ fun main() {
                                         onDelete = { id ->
                                             if (userRole == UserRole.ADMIN) {
                                                 scope.launch {
-                                                    client.delete("/api/employee/$id")
-                                                    employees = client.get("/api/employees").body()
+                                                    client.delete("$BACKEND_URL/api/employee/$id")
+                                                    employees = client.get("$BACKEND_URL/api/employees").body()
                                                 }
                                             } else {
                                                 window.alert("Acceso denegado: Solo administradores pueden eliminar.")
@@ -355,16 +359,16 @@ fun main() {
                                         emp = selectedEmployee!!,
                                         onBack = { 
                                             selectedEmployee = null
-                                            scope.launch { employees = client.get("/api/employees").body() }
+                                            scope.launch { employees = client.get("$BACKEND_URL/api/employees").body() }
                                         },
                                         onSave = { updated ->
                                             if (userRole == UserRole.ADMIN || userRole == UserRole.RH) {
                                                 scope.launch {
-                                                    client.post("/api/employee/update") {
+                                                    client.post("$BACKEND_URL/api/employee/update") {
                                                         contentType(ContentType.Application.Json)
                                                         setBody(updated)
                                                     }
-                                                    employees = client.get("/api/employees").body()
+                                                    employees = client.get("$BACKEND_URL/api/employees").body()
                                                     selectedEmployee = null
                                                 }
                                             } else {
@@ -1355,30 +1359,23 @@ fun TrainingDashboard() {
             H4({ style { margin(0.px); marginBottom(20.px); color(Color("#334155")) } }) { Text("Indicador de Meta Institucional") }
             Div({ style { position(Position.Relative); height(200.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
                 // Simulación de Donut Chart con SVG
-                // Usando un círculo simple para representar el 84%
-                TagElement("svg", {
-                    attrs {
-                        attr("width", "180")
-                        attr("height", "180")
-                        attr("viewBox", "0 0 36 36")
-                    }
+                TagElement<org.w3c.dom.Element>("svg", {
+                    attr("width", "180")
+                    attr("height", "180")
+                    attr("viewBox", "0 0 36 36")
                 }) {
-                    TagElement("path", {
-                        attrs {
-                            attr("d", "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831")
-                            attr("fill", "none")
-                            attr("stroke", "#e2e8f0")
-                            attr("stroke-width", "3")
-                        }
+                    TagElement<org.w3c.dom.Element>("path", {
+                        attr("d", "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831")
+                        attr("fill", "none")
+                        attr("stroke", "#e2e8f0")
+                        attr("stroke-width", "3")
                     }) {}
-                    TagElement("path", {
-                        attrs {
-                            attr("d", "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831")
-                            attr("fill", "none")
-                            attr("stroke", "#0284c7")
-                            attr("stroke-width", "3")
-                            attr("stroke-dasharray", "84, 100") // 84% de cumplimiento
-                        }
+                    TagElement<org.w3c.dom.Element>("path", {
+                        attr("d", "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831")
+                        attr("fill", "none")
+                        attr("stroke", "#0284c7")
+                        attr("stroke-width", "3")
+                        attr("stroke-dasharray", "84, 100") 
                     }) {}
                 }
                 Div({ style { position(Position.Absolute); textAlign("center") } }) {
@@ -1401,7 +1398,12 @@ fun TrainingDashboard() {
         }
 
         // CUADRANTE 3: Cronograma Mensual (Stacked Bars)
-        Div({ style { padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(16.px); property("border", "1px solid #e2e8f0"); attrs { colSpan(2) } } }) {
+        Div({ 
+            style { 
+                padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(16.px); property("border", "1px solid #e2e8f0"); 
+                property("grid-column", "span 2")
+            } 
+        }) {
             H4({ style { margin(0.px); marginBottom(20.px); color(Color("#334155")) } }) { Text("Cronograma de Capacitaciones Mensual 2026") }
             Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.FlexEnd); height(200.px); gap(12.px); paddingBottom(20.px); property("border-bottom", "1px solid #e2e8f0") } }) {
                 val meses = listOf("Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic")
@@ -1426,7 +1428,12 @@ fun TrainingDashboard() {
         }
 
         // CUADRANTE 4: Estructura de Datos
-        Div({ style { padding(24.px); backgroundColor(Color("#f1f5f9")); borderRadius(16.px); property("border", "2px dashed #cbd5e1"); attrs { colSpan(2) } } }) {
+        Div({ 
+            style { 
+                padding(24.px); backgroundColor(Color("#f1f5f9")); borderRadius(16.px); property("border", "2px dashed #cbd5e1"); 
+                property("grid-column", "span 2")
+            } 
+        }) {
             H4({ style { color(Color("#1e293b")); margin(0.px); marginBottom(12.px) } }) { Text("PROPUESTA DE MODELO RELACIONAL (BD)") }
             Pre({ 
                 style { 
@@ -1548,7 +1555,7 @@ fun TrainingTableView() {
                 Tr({ style { backgroundColor(Color("#92d050")); color(Color.black); fontWeight("bold") } }) {
                     Td({ style { property("border", "1px solid #333"); padding(5.px); textAlign("left") } }) { Text("TODOS LOS COLABORADORES") }
                     Td({ 
-                        colSpan(30)
+                        attr("colspan", "30")
                         style { property("border", "1px solid #333") } 
                     }) {}
                 }
