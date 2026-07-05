@@ -261,7 +261,7 @@ fun isModuleVisible(module: Module, role: UserRole): Boolean {
 }
 
 // CONFIGURACIÓN DE URL DE BACKEND
-val BACKEND_URL = "https://d4r005-sisp.hf.space"
+val BACKEND_URL = "https://d4r005-rhnaf-industrial.hf.space"
 
 fun main() {
     val client = HttpClient(Js) {
