@@ -261,8 +261,7 @@ fun isModuleVisible(module: Module, role: UserRole): Boolean {
 }
 
 // CONFIGURACIÓN DE URL DE BACKEND
-// Cambia esta URL por la URL de tu Space de Hugging Face (ej. https://user-name-space-name.hf.space)
-val BACKEND_URL = "https://chuy-rhnaf-industrial.hf.space" 
+val BACKEND_URL = "https://d4r005-sisp.hf.space"
 
 fun main() {
     val client = HttpClient(Js) {
