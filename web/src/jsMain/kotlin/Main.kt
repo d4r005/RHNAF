@@ -87,7 +87,8 @@ class Translations(val lang: Language) {
         "energy" to "Gestión Energética",
         "machine_status" to "Estado de Maquinaria",
         "billing" to "Facturación Industrial",
-        "self_service" to "Autoservicio"
+        "self_service" to "Autoservicio",
+        "user_mgmt" to "Gestión de Usuarios"
     )
     private val en = mapOf(
         "dashboard" to "Dashboard",
@@ -156,7 +157,8 @@ class Translations(val lang: Language) {
         "energy" to "Energy Management",
         "machine_status" to "Machine Status",
         "billing" to "Industrial Billing",
-        "self_service" to "Self-Service"
+        "self_service" to "Self-Service",
+        "user_mgmt" to "User Management"
     )
     private val zh = mapOf(
         "dashboard" to "仪表板",
@@ -225,7 +227,8 @@ class Translations(val lang: Language) {
         "energy" to "能源管理",
         "machine_status" to "机器状态",
         "billing" to "工业计费",
-        "self_service" to "自助服务"
+        "self_service" to "自助服务",
+        "user_mgmt" to "用户管理"
     )
 
     fun get(key: String): String {
@@ -240,7 +243,7 @@ class Translations(val lang: Language) {
 enum class Module {
     DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS,
     TALENT_MARKET, SUSTAINABILITY, PULSE_SURVEY, ASSETS, SHIFTS, BENEFITS, WORKFLOWS,
-    WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY, MAINTENANCE, EMPLOYEE_PORTAL, FINANCE, ENERGY
+    WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY, MAINTENANCE, EMPLOYEE_PORTAL, FINANCE, ENERGY, USER_MANAGEMENT
 }
 
 enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO }
@@ -287,7 +290,7 @@ fun main() {
                         if (resp.status == HttpStatusCode.OK) {
                             val (role, name) = when(u) {
                                 "d.trujillo@brancoindustries.com" -> UserRole.ADMIN to "Dario Robles"
-                                "arni.oziel@brancoindustries.com" -> UserRole.ADMIN to "Arni Oziel"
+                                "arni.oziel@brancoindustries.com" -> UserRole.RH to "Arni Oziel"
                                 "compras@brancoindustries.com" -> UserRole.COMPRAS to "Usuario Compras"
                                 "seguridad@brancoindustries.com" -> UserRole.SEGURIDAD to "Seguridad Planta"
                                 "mantenimiento@brancoindustries.com" -> UserRole.MANTENIMIENTO to "Ing. Mantenimiento"
@@ -396,6 +399,7 @@ fun main() {
                             Module.SHIFTS -> ShiftsModule(t)
                             Module.BENEFITS -> BenefitsModule(t)
                             Module.WORKFLOWS -> WorkflowsModule(t)
+                            Module.USER_MANAGEMENT -> UserManagementModule(t)
                             Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
                                 currentLang = it
                                 window.localStorage.setItem("naf_lang", it.name)
@@ -466,6 +470,7 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
             if (isModuleVisible(Module.SUSTAINABILITY, role)) SidebarLink(t.get("esg_metrics"), Module.SUSTAINABILITY, active == Module.SUSTAINABILITY, onSelect)
             if (isModuleVisible(Module.PULSE_SURVEY, role)) SidebarLink(t.get("pulse"), Module.PULSE_SURVEY, active == Module.PULSE_SURVEY, onSelect)
             if (isModuleVisible(Module.WORKFLOWS, role)) SidebarLink(t.get("workflows"), Module.WORKFLOWS, active == Module.WORKFLOWS, onSelect)
+            if (role == UserRole.ADMIN) SidebarLink(t.get("user_mgmt"), Module.USER_MANAGEMENT, active == Module.USER_MANAGEMENT, onSelect)
             SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
         }
 
@@ -1292,82 +1297,297 @@ fun PayrollModule(t: Translations) {
 
 @Composable
 fun TrainingModule(t: Translations) {
-    var showAddForm by remember { mutableStateOf(false) }
-    val courses = remember { mutableStateListOf(
-        "Seguridad en equipos industriales motorizados" to "100%",
-        "Reconocimiento de peligros y Riesgos" to "100%",
-        "Preparación y respuesta de emergencias" to "100%",
-        "Comunicación de peligros (SGA) / Sustancias Químicas" to "100%",
-        "Trabajos en caliente / Estrés por calor" to "100%",
-        "Equipo de Protección Personal (EPP)" to "100%",
-        "Seguridad Eléctrica" to "0%"
-    ) }
+    var viewMode by remember { mutableStateOf("table") } // "table" or "dashboard"
 
-    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
-            H2({ style { margin(0.px); fontWeight("bold"); color(Color("#0f172a")) } }) { Text("Capacitación") }
-            Div({ style { display(DisplayStyle.Flex); gap(12.px); alignItems(AlignItems.Center) } }) {
-                Input(InputType.File) {
-                    id("training-excel-upload"); style { display(DisplayStyle.None) }
-                    accept(".xlsx, .xls, .csv")
-                    onChange { 
-                        // Simulación de carga de excel
-                        window.alert("Plan de Capacitación importado exitosamente.")
-                    }
-                }
+    Div({ 
+        style { 
+            backgroundColor(Color.white); 
+            padding(24.px); 
+            borderRadius(12.px); 
+            fontFamily("Arial", "sans-serif");
+            property("box-shadow", CardShadow)
+        } 
+    }) {
+        // TOP NAV FOR TRAINING
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); marginBottom(20.px); alignItems(AlignItems.Center) } }) {
+            H2({ style { margin(0.px); fontWeight("900") } }) { Text("Gestión de Capacitación 2026") }
+            Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
                 Button({
-                    style { padding(10.px, 20.px); backgroundColor(Color("#166534")); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontSize(14.px); fontWeight("bold") }
-                    onClick { document.getElementById("training-excel-upload")?.let { (it as org.w3c.dom.HTMLInputElement).click() } }
-                }) { Text("Excel Import") }
-
-                Button({ 
-                    style { padding(10.px, 20.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("bold"); fontSize(14.px) }
-                    onClick { showAddForm = !showAddForm }
-                }) { Text("+ Registrar Curso") }
+                    style { 
+                        padding(8.px, 16.px); borderRadius(8.px); cursor("pointer")
+                        backgroundColor(if (viewMode == "dashboard") SidebarActiveColor else Color("#f1f5f9"))
+                        color(if (viewMode == "dashboard") Color.white else Color.black)
+                        property("border", "none")
+                    }
+                    onClick { viewMode = "dashboard" }
+                }) { Text("📊 Dashboard") }
+                Button({
+                    style { 
+                        padding(8.px, 16.px); borderRadius(8.px); cursor("pointer")
+                        backgroundColor(if (viewMode == "table") SidebarActiveColor else Color("#f1f5f9"))
+                        color(if (viewMode == "table") Color.white else Color.black)
+                        property("border", "none")
+                    }
+                    onClick { viewMode = "table" }
+                }) { Text("📋 Plan Anual (Excel)") }
             }
         }
 
-        if (showAddForm) {
-            Div({ style { padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(12.px); marginBottom(32.px); property("border", "1px solid #e2e8f0") } }) {
-                H4 { Text("Nuevo Registro de Capacitación") }
-                Div({ style { display(DisplayStyle.Flex); gap(16.px); flexWrap(FlexWrap.Wrap) } }) {
-                    Input(InputType.Text) { placeholder("Nombre del Curso"); style { flex(1); padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd") } }
-                    Button({ style { padding(10.px, 24.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") } }) { Text("Guardar Registro") }
+        if (viewMode == "dashboard") {
+            TrainingDashboard()
+        } else {
+            TrainingTableView()
+        }
+    }
+}
+
+@Composable
+fun TrainingDashboard() {
+    Div({
+        style {
+            display(DisplayStyle.Grid)
+            property("grid-template-columns", "1fr 1fr")
+            gap(24.px)
+        }
+    }) {
+        // CUADRANTE 1: Meta Institucional (SVG Donut)
+        Div({ style { padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(16.px); textAlign("center"); property("border", "1px solid #e2e8f0") } }) {
+            H4({ style { margin(0.px); marginBottom(20.px); color(Color("#334155")) } }) { Text("Indicador de Meta Institucional") }
+            Div({ style { position(Position.Relative); height(200.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
+                // Simulación de Donut Chart con SVG
+                // Usando un círculo simple para representar el 84%
+                TagElement("svg", {
+                    attrs {
+                        attr("width", "180")
+                        attr("height", "180")
+                        attr("viewBox", "0 0 36 36")
+                    }
+                }) {
+                    TagElement("path", {
+                        attrs {
+                            attr("d", "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831")
+                            attr("fill", "none")
+                            attr("stroke", "#e2e8f0")
+                            attr("stroke-width", "3")
+                        }
+                    }) {}
+                    TagElement("path", {
+                        attrs {
+                            attr("d", "M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831")
+                            attr("fill", "none")
+                            attr("stroke", "#0284c7")
+                            attr("stroke-width", "3")
+                            attr("stroke-dasharray", "84, 100") // 84% de cumplimiento
+                        }
+                    }) {}
+                }
+                Div({ style { position(Position.Absolute); textAlign("center") } }) {
+                    H1({ style { margin(0.px); fontSize(42.px); color(Color("#0284c7")) } }) { Text("84%") }
+                    P({ style { margin(0.px); fontSize(12.px); color(Color("#64748b")) } }) { Text("Meta 2026") }
+                }
+            }
+            P({ style { marginTop(16.px); color(Color("#64748b")) } }) { Text("Plan Anual de Capacitación GH / SST") }
+        }
+
+        // CUADRANTE 2: Fuente de Recursos (Simulación Pie)
+        Div({ style { padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(16.px); property("border", "1px solid #e2e8f0") } }) {
+            H4({ style { margin(0.px); marginBottom(20.px); color(Color("#334155")) } }) { Text("Distribución por Fuente de Recursos") }
+            Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); gap(12.px); padding(10.px) } }) {
+                ResourceItem("Recursos Propios", "45%", Color("#0f172a"))
+                ResourceItem("ARL", "35%", Color("#0284c7"))
+                ResourceItem("EPS", "12%", Color("#38bdf8"))
+                ResourceItem("Otros", "8%", Color("#cbd5e1"))
+            }
+        }
+
+        // CUADRANTE 3: Cronograma Mensual (Stacked Bars)
+        Div({ style { padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(16.px); property("border", "1px solid #e2e8f0"); attrs { colSpan(2) } } }) {
+            H4({ style { margin(0.px); marginBottom(20.px); color(Color("#334155")) } }) { Text("Cronograma de Capacitaciones Mensual 2026") }
+            Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.FlexEnd); height(200.px); gap(12.px); paddingBottom(20.px); property("border-bottom", "1px solid #e2e8f0") } }) {
+                val meses = listOf("Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic")
+                val ejecutadas = listOf(40, 50, 60, 30, 50, 20, 0, 0, 0, 0, 0, 0)
+                val programadas = listOf(20, 10, 20, 40, 20, 50, 60, 40, 70, 50, 60, 30)
+                
+                meses.forEachIndexed { i, mes ->
+                    Div({ style { flex(1); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); alignItems(AlignItems.Center); gap(4.px) } }) {
+                        Div({ style { width(100.percent); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); justifyContent(JustifyContent.FlexEnd); height(150.px) } }) {
+                            // Stacked Bar
+                            Div({ style { width(100.percent); height(programadas[i].px); backgroundColor(Color("#cbd5e1")); borderRadius(4.px, 4.px, 0.px, 0.px) } })
+                            Div({ style { width(100.percent); height(ejecutadas[i].px); backgroundColor(Color("#0284c7")); borderRadius(if(programadas[i]>0) 0.px else 4.px) } })
+                        }
+                        Span({ style { fontSize(10.px); color(Color("#64748b")) } }) { Text(mes) }
+                    }
+                }
+            }
+            Div({ style { display(DisplayStyle.Flex); gap(20.px); marginTop(12.px); justifyContent(JustifyContent.Center) } }) {
+                LegendItem("Ejecutadas", Color("#0284c7"))
+                LegendItem("Pendientes", Color("#cbd5e1"))
+            }
+        }
+
+        // CUADRANTE 4: Estructura de Datos
+        Div({ style { padding(24.px); backgroundColor(Color("#f1f5f9")); borderRadius(16.px); property("border", "2px dashed #cbd5e1"); attrs { colSpan(2) } } }) {
+            H4({ style { color(Color("#1e293b")); margin(0.px); marginBottom(12.px) } }) { Text("PROPUESTA DE MODELO RELACIONAL (BD)") }
+            Pre({ 
+                style { 
+                    fontSize(13.px); color(Color("#334155")); margin(0.px); 
+                    lineHeight("1.6"); whiteSpace("pre-wrap") 
+                } 
+            }) {
+                Text("""📋 Tabla: capacitaciones
+ • id (INT, PK)
+ • actividad (VARCHAR)
+ • tipo (ENUM: 'GH', 'SST')
+ • intensidad_horas (INT)
+ • total_asistentes (INT)
+ • fuente_recurso (VARCHAR)
+ • responsable (VARCHAR)
+ • estatus (VARCHAR)
+ • fecha_programada (DATE)""")
+            }
+        }
+    }
+}
+
+@Composable
+fun ResourceItem(label: String, value: String, color: CSSColorValue) {
+    Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(12.px) } }) {
+        Div({ style { width(12.px); height(12.px); backgroundColor(color); borderRadius(2.px) } })
+        Span({ style { flex(1); fontSize(13.px); fontWeight("bold") } }) { Text(label) }
+        Span({ style { fontSize(13.px); color(Color("#64748b")) } }) { Text(value) }
+    }
+}
+
+@Composable
+fun LegendItem(label: String, color: CSSColorValue) {
+    Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(6.px) } }) {
+        Div({ style { width(10.px); height(10.px); backgroundColor(color); borderRadius(2.px) } })
+        Span({ style { fontSize(11.px); color(Color("#64748b")) } }) { Text(label) }
+    }
+}
+
+@Composable
+fun TrainingTableView() {
+    val months = listOf("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE")
+    val activities = listOf(
+        "Seguridad en equipos industriales motorizados" to 0,
+        "Reconocimiento de peligros y Riesgos" to 1,
+        "Preparación y respuesta de emergencias" to 2,
+        "comunicación de peligros (SGA)/manejo, transporte y almacenamiento de sustancias químicas peligrosas" to 3,
+        "Trabajos en caliente / conciencia estrés por calor" to 4,
+        "Equipo de Protección Personal" to 5,
+        "seguridad eléctrica" to 6,
+        "Ergonomía" to 7
+    )
+
+    Div {
+        // HEADER EXCEL STYLE
+        Div({ style { display(DisplayStyle.Flex); property("border", "2px solid #333"); marginBottom(15.px) } }) {
+            Div({ style { width(250.px); padding(15.px); property("border-right", "2px solid #333"); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
+                H2({ style { margin(0.px); fontSize(18.px); fontWeight("bold"); color(Color("#003366")) } }) { Text("North America Flooring") }
+            }
+            Div({ style { flex(1); textAlign("center"); padding(15.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
+                H1({ style { margin(0.px); fontSize(28.px); fontWeight("bold") } }) { Text("PLAN DE CAPACITACIÓN Y ENTRENAMIENTO 2026") }
+            }
+        }
+
+        // OBJETIVO & META
+        Div({ style { property("border", "2px solid #333"); marginBottom(15.px); fontSize(13.px) } }) {
+            Div({ style { padding(8.px); backgroundColor(Color("#f8f9fa")); property("border-bottom", "2px solid #333") } }) {
+                B { Text("OBJETIVO: ") }
+                Text("Fomentar la participación y formación a los colaboradores y personal vinculado en el Instituto en temas relacionados con el Sistema de Gestión de Seguridad y Salud en el Trabajo.")
+            }
+            Div({ style { display(DisplayStyle.Flex) } }) {
+                Div({ style { flex(4); property("border-right", "2px solid #333") } }) {
+                    Div({ style { backgroundColor(Color("#92d050")); color(Color.black); textAlign("center"); fontWeight("bold"); padding(4.px) } }) { Text("META") }
+                    Div({ style { padding(8.px); textAlign("center"); fontWeight("500") } }) { Text("CUMPLIR CON EL 84 % DE LAS ACTIVIDADES PROGRAMADAS EN EL PLAN DE CAPACITACIÓN DURANTE EL AÑO 2026") }
+                }
+                Div({ style { flex(1) } }) {
+                    Div({ style { backgroundColor(Color("#0070c0")); color(Color.white); textAlign("center"); fontWeight("bold"); padding(4.px) } }) { Text("INDICADOR") }
+                    Div({ style { padding(8.px); textAlign("center"); fontSize(11.px) } }) { Text("(Nº de Capacitaciones Ejecutadas / Nº de Capacitaciones Programadas)") }
                 }
             }
         }
 
-        Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); gap(20.px) } }) {
-            courses.forEach { (course, prog) ->
-                Div({ 
-                    style { 
-                        padding(24.px); 
-                        backgroundColor(Color.white);
-                        property("border", "1px solid #f1f5f9"); 
-                        borderRadius(16.px);
-                        property("box-shadow", "0 1px 3px 0 rgba(0, 0, 0, 0.1)")
-                    } 
-                }) {
-                    H4({ style { margin(0.px); fontSize(18.px); color(Color("#1e293b")) } }) { Text(course) }
-                    Div({ 
-                        style { 
-                            height(12.px); 
-                            width(100.percent); 
-                            backgroundColor(Color("#f1f5f9")); 
-                            borderRadius(6.px); 
-                            property("margin", "20px 0") 
-                        } 
+        // TABLE
+        Table({ 
+            style { 
+                width(100.percent); 
+                property("border-collapse", "collapse"); 
+                fontSize(11.px);
+                textAlign("center")
+            } 
+        }) {
+            Thead {
+                Tr({ style { backgroundColor(Color("#0070c0")); color(Color.white) } }) {
+                    Th({ style { property("border", "1px solid #333"); padding(8.px); width(350.px) } }) { Text("ACTIVIDAD / CAPACITACIÓN") }
+                    Th({ style { property("border", "1px solid #333"); padding(8.px); width(80.px) } }) { Text("TOTAL ASISTENTES") }
+                    Th({ style { property("border", "1px solid #333"); padding(8.px); width(80.px) } }) { Text("INTENSIDAD") }
+                    Th({ style { property("border", "1px solid #333"); padding(8.px); width(100.px) } }) { Text("TIPO DE CAPACITACIÓN") }
+                    
+                    // Cronograma
+                    Th({ 
+                        style { property("border", "1px solid #333"); padding(0.px) } 
                     }) {
-                        Div({ 
-                            style { 
-                                height(100.percent); 
-                                property("width", prog); 
-                                backgroundColor(SidebarActiveColor); 
-                                borderRadius(6.px) 
-                            } 
-                        })
+                        Div({ style { padding(4.px); backgroundColor(Color("#0070c0")); color(Color.white) } }) { Text("CRONOGRAMA") }
+                        Div({ style { display(DisplayStyle.Flex) } }) {
+                            months.forEach { month: String ->
+                                Div({ style { flex(1); property("border-left", "1px solid #333") } }) {
+                                    Div({ style { property("border-bottom", "1px solid #333"); padding(2.px); fontSize(9.px) } }) { Text(month) }
+                                    Div({ style { display(DisplayStyle.Flex) } }) {
+                                        Div({ style { flex(1); property("border-right", "1px solid #333") } }) { Text("P") }
+                                        Div({ style { flex(1) } }) { Text("E") }
+                                    }
+                                }
+                            }
+                        }
                     }
-                    P({ style { fontSize(14.px); color(Color("#64728b")); margin(0.px); textAlign("right") } }) { Text("Progreso: $prog") }
+                    Th({ style { property("border", "1px solid #333"); padding(8.px); width(100.px) } }) { Text("FECHA DE CAPACITACIÓN") }
+                    Th({ style { property("border", "1px solid #333"); padding(8.px); width(150.px) } }) { Text("Responsable(s)") }
+                }
+                Tr({ style { backgroundColor(Color("#92d050")); color(Color.black); fontWeight("bold") } }) {
+                    Td({ style { property("border", "1px solid #333"); padding(5.px); textAlign("left") } }) { Text("TODOS LOS COLABORADORES") }
+                    Td({ 
+                        colSpan(30)
+                        style { property("border", "1px solid #333") } 
+                    }) {}
+                }
+            }
+            Tbody {
+                activities.forEach { (name: String, monthIdx: Int) ->
+                    Tr {
+                        Td({ style { property("border", "1px solid #333"); textAlign("left"); padding(8.px) } }) { Text(name) }
+                        Td({ style { property("border", "1px solid #333") } }) { Text("") }
+                        Td({ style { property("border", "1px solid #333") } }) { Text("1 hora") }
+                        Td({ style { property("border", "1px solid #333") } }) { Text("Presencial") }
+                        
+                        // Meses P/E
+                        val indices = listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
+                        indices.forEach { i: Int ->
+                            val isCurrentMonth = i == monthIdx
+                            Td({ 
+                                style { 
+                                    property("border", "1px solid #333"); 
+                                    width(20.px)
+                                    if (isCurrentMonth) backgroundColor(Color("#ffff00")) 
+                                } 
+                            }) {
+                                if (isCurrentMonth) Text("1")
+                            }
+                            Td({ 
+                                style { 
+                                    property("border", "1px solid #333"); 
+                                    width(20.px)
+                                    if (isCurrentMonth) backgroundColor(Color("#92d050")) 
+                                } 
+                            }) {
+                                if (isCurrentMonth) Text("2")
+                            }
+                        }
+                        
+                        Td({ style { property("border", "1px solid #333") } }) { Text("") }
+                        Td({ style { property("border", "1px solid #333"); textAlign("left"); padding(5.px) } }) { Text("Seguridad Industrial") }
+                    }
                 }
             }
         }
@@ -1809,6 +2029,108 @@ fun EnergyModule(t: Translations) {
             P({ style { color(Color("#94a3b8")) } }) { Text("Pico máximo hoy: 58.2 kW/h a las 11:30 AM") }
             Div({ style { width(100.percent); height(100.px); backgroundColor(Color("#1e293b")); marginTop(20.px); borderRadius(8.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
                 Text("Gráfica de Ondas de Consumo")
+            }
+        }
+    }
+}
+
+data class UserData(val email: String, val role: String, val department: String)
+
+@Composable
+fun UserManagementModule(t: Translations) {
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var department by remember { mutableStateOf("Producción") }
+    val users = remember { mutableStateListOf(
+        UserData("d.trujillo@brancoindustries.com", "ADMIN", "Dirección"),
+        UserData("arni.oziel@brancoindustries.com", "RH", "Recursos Humanos")
+    ) }
+
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3 { Text(t.get("user_mgmt")) }
+        P({ style { color(Color.gray); marginBottom(24.px) } }) { Text("Administración de accesos y roles del sistema.") }
+
+        Div({ style { padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(12.px); marginBottom(32.px); property("border", "1px solid #e2e8f0") } }) {
+            H4 { Text("Crear Nueva Cuenta") }
+            Div({ style { display(DisplayStyle.Flex); gap(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+                Input(InputType.Email) { 
+                    placeholder("Correo electrónico")
+                    value(email)
+                    onInput { email = it.value }
+                    style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd"); flex(1) } 
+                }
+                Input(InputType.Password) { 
+                    placeholder("Contraseña")
+                    value(password)
+                    onInput { password = it.value }
+                    style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd"); flex(1) } 
+                }
+                
+                Div {
+                    Label(attrs = { style { fontSize(11.px); color(Color.gray); display(DisplayStyle.Block) } }) { Text("Departamento / Rol") }
+                    val deps = listOf("Dirección", "Recursos Humanos", "Compras", "Mantenimiento", "Seguridad", "Producción")
+                    // Simulación de Select usando Div y Buttons para evitar problemas de compatibilidad de tipos en KMP Web
+                    Div({ style { display(DisplayStyle.Flex); gap(4.px) } }) {
+                        deps.forEach { dep: String ->
+                            Button({
+                                style { 
+                                    padding(4.px, 8.px); fontSize(11.px); borderRadius(4.px); cursor("pointer")
+                                    if (department == dep) {
+                                        backgroundColor(SidebarActiveColor); color(Color.white)
+                                    } else {
+                                        backgroundColor(Color.white); color(Color.black); property("border", "1px solid #ccc")
+                                    }
+                                }
+                                onClick { department = dep }
+                            }) { Text(dep) }
+                        }
+                    }
+                }
+
+                Button({ 
+                    style { padding(10.px, 24.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
+                    onClick {
+                        if (email.isNotEmpty() && password.isNotEmpty()) {
+                            val role = when(department) {
+                                "Dirección" -> "ADMIN"
+                                "Recursos Humanos" -> "RH"
+                                "Compras" -> "COMPRAS"
+                                "Mantenimiento" -> "MANTENIMIENTO"
+                                "Seguridad" -> "SEGURIDAD"
+                                else -> "EMPLEADO"
+                            }
+                            users.add(UserData(email, role, department))
+                            window.alert("Usuario $email creado con éxito para el departamento $department")
+                            email = ""
+                            password = ""
+                        }
+                    }
+                }) { Text("Crear Usuario") }
+            }
+        }
+
+        Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
+            Thead {
+                Tr {
+                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Email") }
+                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Rol") }
+                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Departamento") }
+                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Estado") }
+                }
+            }
+            Tbody {
+                users.forEach { u: UserData ->
+                    Tr {
+                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(u.email) }
+                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { 
+                            Span({ style { backgroundColor(Color("#e2e8f0")); padding(2.px, 8.px); borderRadius(4.px); fontSize(11.px) } }) { Text(u.role) }
+                        }
+                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(u.department) }
+                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { 
+                            Span({ style { color(Color("#166534")); fontWeight("bold") } }) { Text("ACTIVO") }
+                        }
+                    }
+                }
             }
         }
     }
