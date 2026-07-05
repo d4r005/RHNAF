@@ -292,7 +292,7 @@ fun main() {
                         }
                         if (resp.status == HttpStatusCode.OK) {
                             val (role, name) = when(u) {
-                                "d.trujillo@brancoindustries.com" -> UserRole.ADMIN to "Dario Robles"
+                                "d.trujillo@brancoindustries.com" -> UserRole.ADMIN to "Daniel Trujillo"
                                 "arni.oziel@brancoindustries.com" -> UserRole.RH to "Arni Oziel"
                                 "compras@brancoindustries.com" -> UserRole.COMPRAS to "Usuario Compras"
                                 "seguridad@brancoindustries.com" -> UserRole.SEGURIDAD to "Seguridad Planta"
