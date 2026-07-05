@@ -309,8 +309,13 @@ fun main() {
                             }
                             employees = client.get("$BACKEND_URL/api/employees").body()
                             isLoggedIn = true
+                        } else {
+                            window.alert("Error de autenticación: Usuario o contraseña incorrectos.")
                         }
-                    } catch (e: Exception) { console.log(e) }
+                    } catch (e: Exception) { 
+                        console.log(e)
+                        window.alert("No se pudo conectar con el servidor en: $BACKEND_URL\nVerifica que el Space de Hugging Face esté corriendo.")
+                    }
                 }
             }
         } else {
