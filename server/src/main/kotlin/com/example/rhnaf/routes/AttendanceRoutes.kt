@@ -12,6 +12,8 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.http.*
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.insert
+import com.example.rhnaf.database.DebugLogTable
 
 fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
     route("/api/v1/asistencia") {
@@ -23,9 +25,20 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
 
         // Webhook robusto para Hikvision
         post("/hikvision") {
+            val rawBody = call.receiveText()
+            val clientIp = call.request.local.remoteHost
+            
+            // LOG DE DIAGNÓSTICO: Guardamos CUALQUIER cosa que mande la lectora
+            DatabaseFactory.dbQuery {
+                DebugLogTable.insert {
+                    it[timestamp] = java.time.LocalDateTime.now().toString()
+                    it[rawContent] = rawBody
+                    it[sourceIp] = clientIp
+                }
+            }
+
             try {
-                val rawBody = call.receiveText()
-                println("WEBHOOK HIKVISION: $rawBody")
+                println("WEBHOOK HIKVISION RECIBIDO: $rawBody")
                 
                 // Extracción manual ultra-compatible (funciona con JSON y XML)
                 val idEmpleado = if (rawBody.contains("employeeNoString")) {

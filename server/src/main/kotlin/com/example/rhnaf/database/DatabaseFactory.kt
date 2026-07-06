@@ -17,7 +17,7 @@ object DatabaseFactory {
         val database = Database.connect(createHikariDataSource(jdbcURL, driverClassName))
         
         transaction(database) {
-            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable)
+            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable)
             
             // LIMPIEZA Y CARGA DE PERSONAL COMPLETO (SEGÚN EXCEL)
             if (EmployeeTable.selectAll().empty()) {
