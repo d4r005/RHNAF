@@ -13,6 +13,7 @@ import io.ktor.server.routing.*
 import io.ktor.http.*
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.SortOrder
 import com.example.rhnaf.database.DebugLogTable
 
 fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
@@ -95,6 +96,19 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                 call.respond(logs)
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, mapOf("error" to e.message))
+            }
+        }
+
+        get("/debug") {
+            try {
+                val debug = DatabaseFactory.dbQuery {
+                    DebugLogTable.selectAll().orderBy(DebugLogTable.id, SortOrder.DESC).limit(10).map {
+                        "${it[DebugLogTable.timestamp]} | ${it[DebugLogTable.sourceIp]} | ${it[DebugLogTable.rawContent]}"
+                    }
+                }
+                call.respond(debug)
+            } catch (e: Exception) {
+                call.respond(listOf("Error consultando debug: ${e.message}"))
             }
         }
     }
