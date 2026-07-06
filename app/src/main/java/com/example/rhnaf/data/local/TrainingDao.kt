@@ -14,4 +14,16 @@ interface TrainingDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTraining(training: TrainingEntity)
+
+    @Query("SELECT COUNT(*) FROM training_records")
+    fun getTotalCoursesCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM training_records WHERE progress = 100")
+    fun getCompletedCoursesCount(): Flow<Int>
+
+    @Query("SELECT AVG(progress) FROM training_records")
+    fun getAverageProgress(): Flow<Double?>
+    
+    @Query("SELECT * FROM training_records ORDER BY dueDate DESC LIMIT 5")
+    fun getRecentTrainingActivities(): Flow<List<TrainingEntity>>
 }

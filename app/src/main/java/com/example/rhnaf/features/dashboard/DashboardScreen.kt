@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.rhnaf.ui.theme.IndustrialBlue
 import com.example.rhnaf.ui.theme.IndustrialDark
+import com.example.rhnaf.ui.theme.IndustrialLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

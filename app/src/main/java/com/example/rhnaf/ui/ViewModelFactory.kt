@@ -9,6 +9,7 @@ import com.example.rhnaf.features.employee.EquipmentViewModel
 import com.example.rhnaf.features.safety.SafetyViewModel
 import com.example.rhnaf.features.employee.PerformanceViewModel
 import com.example.rhnaf.features.training.TrainingViewModel
+import com.example.rhnaf.features.training.dashboard.TrainingDashboardViewModel
 import com.example.rhnaf.features.attendance.AttendanceViewModel
 
 val ViewModelFactory = object : ViewModelProvider.Factory {
@@ -27,6 +28,10 @@ val ViewModelFactory = object : ViewModelProvider.Factory {
             }
             modelClass.isAssignableFrom(TrainingViewModel::class.java) -> {
                 TrainingViewModel(application.trainingRepository) as T
+            }
+            modelClass.isAssignableFrom(TrainingDashboardViewModel::class.java) -> {
+                @Suppress("UNCHECKED_CAST")
+                TrainingDashboardViewModel(application.trainingRepository) as T
             }
             modelClass.isAssignableFrom(PerformanceViewModel::class.java) -> {
                 PerformanceViewModel(application.performanceRepository) as T

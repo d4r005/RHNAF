@@ -26,6 +26,9 @@ sealed interface Destination : NavKey {
     data object Training : Destination
 
     @Serializable
+    data object TrainingDashboard : Destination
+
+    @Serializable
     data object Signature : Destination
 
     @Serializable
@@ -57,4 +60,25 @@ sealed interface Destination : NavKey {
 
     @Serializable
     data object SupervisorPortal : Destination
+}
+
+object Destinations {
+    const val TRAINING_DASHBOARD = "training_dashboard"
+    const val TRAINING_SCREEN = "training_screen"
+    const val DASHBOARD = "dashboard"
+    const val EMPLOYEE_LIST = "employee_list"
+    const val ADD_EMPLOYEE = "add_employee"
+    const val ATTENDANCE = "attendance"
+    const val SCANNER = "scanner"
+    const val SIGNATURE = "signature"
+    const val NOTIFICATIONS = "notifications"
+    const val REPORTS = "reports"
+    const val SAFETY = "safety"
+    const val RECRUITMENT = "recruitment"
+    const val PAYROLL = "payroll"
+    const val VACATIONS = "vacations"
+    const val PERFORMANCE = "performance"
+    const val SETTINGS = "settings"
+    const val EMPLOYEE_PORTAL = "employee_portal"
+    const val SUPERVISOR_PORTAL = "supervisor_portal"
 }

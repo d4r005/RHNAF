@@ -12,7 +12,7 @@ import com.example.rhnaf.data.local.entities.TrainingEntity
 import com.example.rhnaf.data.local.entities.PerformanceEntity
 import com.example.rhnaf.data.local.entities.AttendanceLogEntity
 
-@Database(entities = [EmployeeEntity::class, IncidentEntity::class, EquipmentEntity::class, TrainingEntity::class, PerformanceEntity::class, AttendanceLogEntity::class], version = 6, exportSchema = false)
+@Database(entities = [EmployeeEntity::class, IncidentEntity::class, EquipmentEntity::class, TrainingEntity::class, PerformanceEntity::class, AttendanceLogEntity::class], version = 7, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun employeeDao(): EmployeeDao

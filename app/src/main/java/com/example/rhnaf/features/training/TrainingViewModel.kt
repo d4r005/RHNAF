@@ -10,12 +10,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class TrainingViewModel(private val repository: TrainingRepository) : ViewModel() {
+
     val allTraining: StateFlow<List<TrainingEntity>> = repository.getAllTraining()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun addTrainingRecord(courseName: String, type: String) {
         viewModelScope.launch {
@@ -24,7 +21,9 @@ class TrainingViewModel(private val repository: TrainingRepository) : ViewModel(
                     employeeId = "ALL",
                     courseName = courseName,
                     date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date()),
-                    type = type
+                    dueDate = "2026-12-31",
+                    type = type,
+                    progress = 0
                 )
             )
         }
@@ -51,7 +50,10 @@ class TrainingViewModel(private val repository: TrainingRepository) : ViewModel(
                         employeeId = "ALL",
                         courseName = names[i],
                         date = "Plan 2026",
-                        type = types[i]
+                        dueDate = "2026-12-31",
+                        type = types[i],
+                        progress = if (i < 3) 100 else 0,
+                        isCompleted = i < 3
                     )
                 )
             }

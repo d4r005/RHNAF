@@ -9,8 +9,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
-import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.entryProvider
@@ -25,8 +25,11 @@ import com.example.rhnaf.features.dashboard.SupervisorPortalScreen
 import com.example.rhnaf.features.employee.*
 import com.example.rhnaf.features.safety.SafetyScreen
 import com.example.rhnaf.features.training.TrainingScreen
+import com.example.rhnaf.features.training.dashboard.TrainingDashboardScreen
+import com.example.rhnaf.features.training.dashboard.TrainingDashboardViewModel
 import com.example.rhnaf.navigation.Destination
 import com.example.rhnaf.ui.theme.RHNAFTheme
+import com.example.rhnaf.ui.ViewModelFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,7 +57,7 @@ fun RHNAFApp() {
             DashboardScreen(
                 onNavigateToEmployeeList = { backStack.add(Destination.EmployeeList) },
                 onNavigateToAttendance = { backStack.add(Destination.Attendance) },
-                onNavigateToTraining = { backStack.add(Destination.Training) },
+                onNavigateToTraining = { backStack.add(Destination.TrainingDashboard) },
                 onNavigateToSafety = { backStack.add(Destination.Safety) },
                 onNavigateToPortal = { backStack.add(Destination.EmployeePortal) },
                 onNavigateToPayroll = { backStack.add(Destination.Payroll) },
@@ -96,6 +99,15 @@ fun RHNAFApp() {
         entry<Destination.Training> {
             TrainingScreen(
                 onNavigateBack = { backStack.removeLastOrNull() }
+            )
+        }
+        entry<Destination.TrainingDashboard> {
+            val dashboardViewModel: TrainingDashboardViewModel = viewModel(factory = ViewModelFactory)
+            TrainingDashboardScreen(
+                viewModel = dashboardViewModel,
+                onNavigateToCourses = {
+                    backStack.add(Destination.Training)
+                }
             )
         }
         entry<Destination.Safety> {

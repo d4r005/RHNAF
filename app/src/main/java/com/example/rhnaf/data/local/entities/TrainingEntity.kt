@@ -9,7 +9,9 @@ data class TrainingEntity(
     val employeeId: String,
     val courseName: String,
     val date: String,
+    val dueDate: String? = null,
     val type: String, // CTPAT, Safety, Technical
     val isCompleted: Boolean = false,
+    val progress: Int = 0, // 0 to 100
     val score: Int? = null
 )
