@@ -242,7 +242,7 @@ class Translations(val lang: Language) {
 }
 
 enum class Module {
-    DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS,
+    DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, INCIDENTS_PANEL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS,
     TALENT_MARKET, SUSTAINABILITY, PULSE_SURVEY, ASSETS, SHIFTS, BENEFITS, WORKFLOWS,
     WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY, MAINTENANCE, EMPLOYEE_PORTAL, FINANCE, ENERGY, USER_MANAGEMENT
 }
@@ -252,7 +252,7 @@ enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO }
 fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
     return when(role) {
-        UserRole.RH -> module in listOf(Module.DASHBOARD, Module.EMPLOYEES, Module.RECRUITMENT, Module.ATTENDANCE, Module.PAYROLL, Module.TRAINING, Module.PERFORMANCE, Module.VACATIONS, Module.DOCUMENTS, Module.REPORTS, Module.TALENT_MARKET, Module.PULSE_SURVEY, Module.BENEFITS, Module.WORKFLOWS, Module.SETTINGS)
+        UserRole.RH -> module in listOf(Module.DASHBOARD, Module.EMPLOYEES, Module.RECRUITMENT, Module.ATTENDANCE, Module.PAYROLL, Module.INCIDENTS_PANEL, Module.TRAINING, Module.PERFORMANCE, Module.VACATIONS, Module.DOCUMENTS, Module.REPORTS, Module.TALENT_MARKET, Module.PULSE_SURVEY, Module.BENEFITS, Module.WORKFLOWS, Module.SETTINGS)
         UserRole.COMPRAS -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.ASSETS, Module.FINANCE, Module.SETTINGS)
         UserRole.MANTENIMIENTO -> module in listOf(Module.DASHBOARD, Module.MAINTENANCE, Module.ENERGY, Module.ASSETS, Module.SETTINGS)
         UserRole.SEGURIDAD -> module in listOf(Module.DASHBOARD, Module.INCIDENTS, Module.PATRIMONIAL_SECURITY, Module.SETTINGS)
@@ -407,6 +407,7 @@ fun main() {
                                 }
                             }
                             Module.INCIDENTS -> SafetyModule(client, scope, t)
+                            Module.INCIDENTS_PANEL -> IncidentsPanelModule(employees, client, scope, t)
                             Module.PATRIMONIAL_SECURITY -> PatrimonialSecurityModule(t)
                             Module.ATTENDANCE -> AttendanceModule(employees, client, scope, t)
                             Module.RECRUITMENT -> RecruitmentModule(t)
@@ -482,6 +483,7 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
             if (isModuleVisible(Module.RECRUITMENT, role)) SidebarLink(t.get("recruitment"), Module.RECRUITMENT, active == Module.RECRUITMENT, onSelect)
             if (isModuleVisible(Module.ATTENDANCE, role)) SidebarLink(t.get("attendance"), Module.ATTENDANCE, active == Module.ATTENDANCE, onSelect)
             if (isModuleVisible(Module.PAYROLL, role)) SidebarLink(t.get("payroll"), Module.PAYROLL, active == Module.PAYROLL, onSelect)
+            if (isModuleVisible(Module.INCIDENTS_PANEL, role)) SidebarLink("Panel de Incidencias", Module.INCIDENTS_PANEL, active == Module.INCIDENTS_PANEL, onSelect)
             if (isModuleVisible(Module.TRAINING, role)) SidebarLink(t.get("training"), Module.TRAINING, active == Module.TRAINING, onSelect)
             if (isModuleVisible(Module.INCIDENTS, role)) SidebarLink(t.get("incidents"), Module.INCIDENTS, active == Module.INCIDENTS, onSelect)
             if (isModuleVisible(Module.PATRIMONIAL_SECURITY, role)) SidebarLink(t.get("patrimonial"), Module.PATRIMONIAL_SECURITY, active == Module.PATRIMONIAL_SECURITY, onSelect)
@@ -2318,6 +2320,143 @@ fun UserManagementModule(t: Translations) {
                         Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(u.department) }
                         Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { 
                             Span({ style { color(Color("#166534")); fontWeight("bold") } }) { Text("ACTIVO") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun IncidentsPanelModule(employees: List<Employee>, client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
+    var weekNumber by remember { mutableStateOf(27) } // Semana actual demo
+    var year by remember { mutableStateOf(2026) }
+    var incidents by remember { mutableStateOf(mutableMapOf<String, WeeklyIncident>()) }
+    var isSaving by remember { mutableStateOf(false) }
+
+    LaunchedEffect(weekNumber) {
+        try {
+            val resp: List<WeeklyIncident> = client.get("$BACKEND_URL/api/incidents/week/$weekNumber").body()
+            val map = mutableMapOf<String, WeeklyIncident>()
+            resp.forEach { map[it.employeeId] = it }
+            incidents = map
+        } catch (e: Exception) {
+            println("Error cargando incidencias: ${e.message}")
+        }
+    }
+
+    Div({ style { backgroundColor(Color.white); padding(24.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
+            Div {
+                H3({ style { margin(0.px) } }) { Text("Panel de Incidencias Semanales") }
+                P({ style { color(Color.gray); margin(0.px) } }) { Text("Registro de bonos, asistencias y tiempo extra (S$weekNumber - $year)") }
+            }
+            
+            Div({ style { display(DisplayStyle.Flex); gap(12.px); alignItems(AlignItems.Center) } }) {
+                Span { Text("Semana:") }
+                Input(InputType.Number) {
+                    value(weekNumber)
+                    onInput { weekNumber = it.value?.toInt() ?: weekNumber }
+                    style { width(60.px); padding(8.px); borderRadius(6.px); property("border", "1px solid #ddd") }
+                }
+                
+                Button({
+                    style { padding(10.px, 20.px); backgroundColor(Color("#22c55e")); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("bold") }
+                    onClick {
+                        isSaving = true
+                        scope.launch {
+                            try {
+                                incidents.values.forEach { inc ->
+                                    client.post("$BACKEND_URL/api/incidents/save") {
+                                        contentType(ContentType.Application.Json)
+                                        setBody(inc)
+                                    }
+                                }
+                                window.alert("¡Incidencias guardadas con éxito!")
+                            } catch (e: Exception) {
+                                window.alert("Error al guardar: ${e.message}")
+                            } finally {
+                                isSaving = false
+                            }
+                        }
+                    }
+                }) { Text(if(isSaving) "Guardando..." else "💾 Guardar Cambios") }
+
+                Button({
+                    style { padding(10.px, 20.px); backgroundColor(SidebarColor); color(Color.white); property("border", "none"); borderRadius(8.px); cursor("pointer") }
+                    onClick { /* Generar Reporte Mensual */ }
+                }) { Text("📊 Reporte Mensual") }
+            }
+        }
+
+        Div({ style { overflowX("auto") } }) {
+            Table({ style { width(100.percent); property("border-collapse", "collapse"); fontSize(12.px) } }) {
+                Thead {
+                    Tr({ style { backgroundColor(Color("#f8fafc")) } }) {
+                        Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("ID") }
+                        Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Nombre") }
+                        Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Puesto") }
+                        listOf("L", "M", "M", "J", "V", "S", "D").forEach { day ->
+                            Th({ style { padding(10.px); width(30.px); property("border", "1px solid #e2e8f0") } }) { Text(day) }
+                        }
+                        Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Punt.") }
+                        Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Asist.") }
+                        Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("H.E.") }
+                        Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Comida") }
+                        Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Faltas") }
+                        Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Total Bonos") }
+                    }
+                }
+                Tbody {
+                    employees.forEach { emp ->
+                        val inc = incidents[emp.id] ?: WeeklyIncident(emp.id, weekNumber, year, List(7) { "1" })
+                        val absences = inc.attendance.count { it == "0" }
+                        
+                        // AUTO CALCULATIONS
+                        val punctuality = if (absences == 0) 150.0 else 0.0
+                        val attendanceBonus = if (absences == 0) 150.0 else 0.0
+                        val food = 200.0
+                        val total = punctuality + attendanceBonus + food + (inc.extraHours * 50.0) // Demo rate
+
+                        Tr {
+                            Td({ style { padding(10.px); property("border", "1px solid #f1f5f9") } }) { Text(emp.id) }
+                            Td({ style { padding(10.px); property("border", "1px solid #f1f5f9"); fontWeight("bold") } }) { Text("${emp.firstName} ${emp.lastName}") }
+                            Td({ style { padding(10.px); property("border", "1px solid #f1f5f9"); color(Color.gray) } }) { Text(emp.position) }
+                            
+                            // Attendance Cells (L to D)
+                            inc.attendance.forEachIndexed { idx, value ->
+                                Td({ style { padding(0.px); property("border", "1px solid #f1f5f9"); textAlign("center") } }) {
+                                    Input(InputType.Text) {
+                                        value(value)
+                                        style { 
+                                            width(25.px); border(0.px); textAlign("center"); height(30.px)
+                                            backgroundColor(if(value == "0") Color("#fee2e2") else if(value == "V") Color("#fef9c3") else Color.white)
+                                        }
+                                        onInput { newVal ->
+                                            val newList = inc.attendance.toMutableList()
+                                            newList[idx] = newVal.value.uppercase()
+                                            incidents = incidents.toMutableMap().apply { 
+                                                put(emp.id, inc.copy(attendance = newList)) 
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Editable Fields
+                            Td({ style { padding(5.px); property("border", "1px solid #f1f5f9") } }) { Text("$punctuality") }
+                            Td({ style { padding(5.px); property("border", "1px solid #f1f5f9") } }) { Text("$attendanceBonus") }
+                            Td({ style { padding(5.px); property("border", "1px solid #f1f5f9") } }) {
+                                Input(InputType.Number) {
+                                    value(inc.extraHours)
+                                    onInput { incidents = incidents.toMutableMap().apply { put(emp.id, inc.copy(extraHours = it.value?.toDouble() ?: 0.0)) } }
+                                    style { width(45.px); border(0.px) }
+                                }
+                            }
+                            Td({ style { padding(5.px); property("border", "1px solid #f1f5f9") } }) { Text("$food") }
+                            Td({ style { padding(5.px); property("border", "1px solid #f1f5f9"); textAlign("center"); color(if(absences > 0) Color.red else Color.black) } }) { Text("$absences") }
+                            Td({ style { padding(5.px); property("border", "1px solid #f1f5f9"); fontWeight("bold"); color(SidebarActiveColor) } }) { Text("$total") }
                         }
                     }
                 }
