@@ -11,6 +11,7 @@ import io.ktor.client.request.*
 import io.ktor.client.call.*
 import io.ktor.http.*
 import com.example.rhnaf.shared.model.*
+import com.example.rhnaf.domain.model.*
 import kotlinx.coroutines.launch
 import kotlinx.browser.window
 import kotlinx.browser.document
@@ -401,7 +402,7 @@ fun main() {
                             }
                             Module.INCIDENTS -> SafetyModule(client, scope, t)
                             Module.PATRIMONIAL_SECURITY -> PatrimonialSecurityModule(t)
-                            Module.ATTENDANCE -> AttendanceModule(t)
+                            Module.ATTENDANCE -> AttendanceModule(client, scope, t)
                             Module.RECRUITMENT -> RecruitmentModule(t)
                             Module.PAYROLL -> PayrollModule(t)
                             Module.TRAINING -> TrainingModule(t)
@@ -839,6 +840,19 @@ fun exportToCSV(employees: List<Employee>) {
     link.click()
 }
 
+fun exportAttendanceToCSV(logs: List<AttendanceLog>) {
+    val header = "Timestamp,Empleado_ID,Dispositivo_Serial,Modo_Verificacion\n"
+    val rows = logs.joinToString("\n") { 
+        "${it.timestamp},${it.employeeId},${it.deviceSerial},${it.verifyMode}" 
+    }
+    val csvContent = header + rows
+    val blob = org.w3c.dom.url.URL.createObjectURL(org.w3c.files.Blob(arrayOf(csvContent), org.w3c.files.BlobPropertyBag(type = "text/csv")))
+    val link = kotlinx.browser.document.createElement("a") as org.w3c.dom.HTMLAnchorElement
+    link.href = blob
+    link.download = "Reporte_Asistencia_NAF.csv"
+    link.click()
+}
+
 @Composable
 fun EmployeeDigitalFile(emp: Employee, onBack: () -> Unit, onSave: (Employee) -> Unit, userRole: UserRole, t: Translations) {
     var editMode by remember { mutableStateOf(false) }
@@ -1166,10 +1180,64 @@ fun PatrimonialSecurityModule(t: Translations) {
 }
 
 @Composable
-fun AttendanceModule(t: Translations) {
+@Composable
+fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
+    var logs by remember { mutableStateOf(emptyList<AttendanceLog>()) }
+    var isSyncing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            logs = client.get("$BACKEND_URL/api/v1/asistencia/logs").body()
+        } catch (e: Exception) {
+            println("Error al cargar logs: ${e.message}")
+        }
+    }
+
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text(t.get("attendance")) }
-        P({ style { color(Color.gray) } }) { Text(t.get("real_time")) }
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
+            Div {
+                H3({ style { margin(0.px) } }) { Text(t.get("attendance")) }
+                P({ style { color(Color.gray); margin(0.px) } }) { Text(t.get("real_time")) }
+            }
+            
+            Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
+                Button({
+                    style {
+                        padding(10.px, 20.px); backgroundColor(Color("#475569"))
+                        color(Color.white); property("border", "none"); borderRadius(8.px)
+                        cursor("pointer"); fontWeight("bold")
+                    }
+                    onClick { exportAttendanceToCSV(logs) }
+                }) {
+                    Text(t.get("export_csv"))
+                }
+
+                Button({
+                    style {
+                        padding(10.px, 20.px); backgroundColor(if (isSyncing) Color.gray else SidebarActiveColor)
+                        color(Color.white); property("border", "none"); borderRadius(8.px)
+                        cursor("pointer"); fontWeight("bold"); display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(8.px)
+                    }
+                    onClick {
+                        if (!isSyncing) {
+                            isSyncing = true
+                            scope.launch {
+                                try {
+                                    client.post("$BACKEND_URL/api/v1/asistencia/sync")
+                                    logs = client.get("$BACKEND_URL/api/v1/asistencia/logs").body()
+                                    window.alert("Sincronización con Hikvision completada.")
+                                } catch (e: Exception) {
+                                    window.alert("Error al sincronizar: ${e.message}")
+                                } finally {
+                                    isSyncing = false
+                                }
+                            }
+                        }
+                    }
+                }) {
+                    Text(if (isSyncing) "Sincronizando..." else "Sincronizar con Lectora")
+                }
+            }
         
         Div({ style { display(DisplayStyle.Flex); gap(24.px); property("margin-top", "24px") } }) {
             // Estado de la lectora
@@ -1177,24 +1245,34 @@ fun AttendanceModule(t: Translations) {
                 H4({ style { margin(0.px) } }) { Text("Terminal Acceso Principal") }
                 P({ style { color(Color("#22c55e")); fontWeight("bold"); fontSize(14.px) } }) { Text("● RECONOCIMIENTO ACTIVO") }
                 P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Modelo: Hikonect Face-ID v2") }
-                P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Sincronización: Nube NAF") }
+                P({ style { fontSize(12.px); color(Color.gray) } }) { Text("IP: 192.168.1.100") }
+                P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Estado: Conectado a ERP") }
             }
             
             Div({ style { flex(2) } }) {
                 H4 { Text("Monitor de Inteligencia (Accesos)") }
-                Table({ style { width(100.percent); fontSize(13.px) } }) {
-                    Tbody {
+                Table({ style { width(100.percent); fontSize(13.px); property("border-collapse", "collapse") } }) {
+                    Thead {
                         Tr {
-                            Td { Text("08:30:12 AM") }
-                            Td { B { Text("Daniel Trujillo") } }
-                            Td { Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px) } }) { Text(t.get("verified")) } }
-                            Td { Span({ style { color(Color.gray); fontSize(11.px) } }) { Text("Normatividad OK") } }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Hora") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Empleado ID") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Método") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Estado") }
                         }
-                        Tr {
-                            Td { Text("08:32:45 AM") }
-                            Td { B { Text("Arni Oziel") } }
-                            Td { Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px) } }) { Text(t.get("verified")) } }
-                            Td { Span({ style { color(Color("#ef4444")); fontSize(11.px); fontWeight("bold") } }) { Text("AI: Retardo Probable") } }
+                    }
+                    Tbody {
+                        if (logs.isEmpty()) {
+                            Tr { Td({ attrs { colSpan(4) }; style { textAlign("center"); padding(20.px); color(Color.gray) } }) { Text("No hay registros recientes.") } }
+                        }
+                        logs.take(10).forEach { log ->
+                            Tr {
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { Text(log.timestamp.takeLast(8)) }
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { B { Text(log.employeeId) } }
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { Text(log.verifyMode) }
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { 
+                                    Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px); fontSize(11.px) } }) { Text(t.get("verified")) } 
+                                }
+                            }
                         }
                     }
                 }

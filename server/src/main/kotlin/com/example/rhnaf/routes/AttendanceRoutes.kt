@@ -45,6 +45,16 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             }
         }
 
+        post("/sync") {
+            try {
+                // Sincronización manual con la lectora
+                val count = attendanceUseCase.syncWithDevice("192.168.1.100")
+                call.respond(mapOf("status" to "success", "syncedCount" to count))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, mapOf("error" to e.message))
+            }
+        }
+
         // Endpoint para que la App Android y Web consulten los logs
         get("/logs") {
             try {
