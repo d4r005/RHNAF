@@ -16,6 +16,9 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.SortOrder
 import com.example.rhnaf.database.DebugLogTable
 
+import io.ktor.server.plugins.*
+import io.ktor.server.util.*
+
 fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
     route("/api/v1/asistencia") {
         
@@ -27,13 +30,15 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
         // Webhook robusto para Hikvision
         post("/hikvision") {
             val rawBody = call.receiveText()
-            val clientIp = call.request.local.remoteHost
+            val clientIp = call.request.origin.remoteAddress
+            val method = call.request.httpMethod.value
+            val path = call.request.uri
             
-            // LOG DE DIAGNÓSTICO: Guardamos CUALQUIER cosa que mande la lectora
+            // LOG DE DIAGNÓSTICO ULTRA-SENSIBLE
             DatabaseFactory.dbQuery {
                 DebugLogTable.insert {
                     it[timestamp] = java.time.LocalDateTime.now().toString()
-                    it[rawContent] = rawBody
+                    it[rawContent] = "METHOD: $method | PATH: $path | BODY: $rawBody"
                     it[sourceIp] = clientIp
                 }
             }
