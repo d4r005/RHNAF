@@ -262,7 +262,8 @@ fun isModuleVisible(module: Module, role: UserRole): Boolean {
 }
 
 // CONFIGURACIÓN DE URL DE BACKEND
-val BACKEND_URL = "https://d4r005-rhnaf-industrial.hf.space"
+// Usamos rutas relativas para que funcione tanto local como en Hugging Face
+val BACKEND_URL = ""
 
 fun main() {
     val client = HttpClient(Js) {
@@ -1271,8 +1272,17 @@ fun AttendanceModule(employees: List<Employee>, client: HttpClient, scope: kotli
                 H4({ style { margin(0.px) } }) { Text("Terminal Acceso Principal") }
                 P({ style { color(Color("#22c55e")); fontWeight("bold"); fontSize(14.px) } }) { Text("● RECONOCIMIENTO ACTIVO") }
                 P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Modelo: Hikonect Face-ID v2") }
-                P({ style { fontSize(12.px); color(Color.gray) } }) { Text("IP: 10.141.1.230") }
                 P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Estado: Conectado a ERP") }
+                
+                Div({ style { marginTop(16.px); padding(10.px); backgroundColor(Color("#fffbeb")); borderRadius(4.px); property("border", "1px solid #fef3c7") } }) {
+                    B({ style { fontSize(11.px); color(Color("#92400e")) } }) { Text("⚠️ NOTA PARA EL LECTOR:") }
+                    P({ style { fontSize(10.px); margin(4.px, 0.px) } }) { 
+                        Text("Si no aparecen tus registros, verifica que la lectora envíe los datos a:") 
+                    }
+                    Code({ style { fontSize(9.px); property("word-break", "break-all") } }) {
+                        Text("https://d4r005-rhnaf-industrial.hf.space/api/v1/asistencia/hikvision") 
+                    }
+                }
             }
             
             Div({ style { flex(3) } }) {
@@ -2404,6 +2414,8 @@ fun IncidentsPanelModule(employees: List<Employee>, client: HttpClient, scope: k
                         Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Asist.") }
                         Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("H.E.") }
                         Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Comida") }
+                        Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Infonavit") }
+                        Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Desc.") }
                         Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Faltas") }
                         Th({ style { padding(10.px); property("border", "1px solid #e2e8f0") } }) { Text("Total Bonos") }
                     }
@@ -2417,7 +2429,7 @@ fun IncidentsPanelModule(employees: List<Employee>, client: HttpClient, scope: k
                         val punctuality = if (absences == 0) 150.0 else 0.0
                         val attendanceBonus = if (absences == 0) 150.0 else 0.0
                         val food = 200.0
-                        val total = punctuality + attendanceBonus + food + (inc.extraHours * 50.0) // Demo rate
+                        val total = punctuality + attendanceBonus + food + (inc.extraHours * 50.0) - inc.infonavit - inc.otherDiscounts
 
                         Tr {
                             Td({ style { padding(10.px); property("border", "1px solid #f1f5f9") } }) { Text(emp.id) }
@@ -2455,6 +2467,20 @@ fun IncidentsPanelModule(employees: List<Employee>, client: HttpClient, scope: k
                                 }
                             }
                             Td({ style { padding(5.px); property("border", "1px solid #f1f5f9") } }) { Text("$food") }
+                            Td({ style { padding(5.px); property("border", "1px solid #f1f5f9") } }) {
+                                Input(InputType.Number) {
+                                    value(inc.infonavit)
+                                    onInput { incidents = incidents.toMutableMap().apply { put(emp.id, inc.copy(infonavit = it.value?.toDouble() ?: 0.0)) } }
+                                    style { width(45.px); border(0.px) }
+                                }
+                            }
+                            Td({ style { padding(5.px); property("border", "1px solid #f1f5f9") } }) {
+                                Input(InputType.Number) {
+                                    value(inc.otherDiscounts)
+                                    onInput { incidents = incidents.toMutableMap().apply { put(emp.id, inc.copy(otherDiscounts = it.value?.toDouble() ?: 0.0)) } }
+                                    style { width(45.px); border(0.px) }
+                                }
+                            }
                             Td({ style { padding(5.px); property("border", "1px solid #f1f5f9"); textAlign("center"); color(if(absences > 0) Color.red else Color.black) } }) { Text("$absences") }
                             Td({ style { padding(5.px); property("border", "1px solid #f1f5f9"); fontWeight("bold"); color(SidebarActiveColor) } }) { Text("$total") }
                         }

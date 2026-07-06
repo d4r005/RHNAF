@@ -40,7 +40,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                 call.respond(HttpStatusCode.OK, HikvisionResponse(statusString = "OK", statusCode = 1))
                 
             } catch (e: Exception) {
-                application.log.error("Error procesando registro Hikvision", e)
+                call.application.log.error("Error procesando registro Hikvision", e)
                 call.respond(HttpStatusCode.OK, HikvisionResponse(statusString = "Error", statusCode = 0))
             }
         }

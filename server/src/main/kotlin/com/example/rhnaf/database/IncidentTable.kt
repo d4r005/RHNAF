@@ -19,6 +19,8 @@ object IncidentTable : Table("incidents") {
     val observations = text("observations").default("")
     val deductions = double("deductions").default(0.0)
     val pending = double("pending").default(0.0)
+    val infonavit = double("infonavit").default(0.0)
+    val otherDiscounts = double("other_discounts").default(0.0)
     
     override val primaryKey = PrimaryKey(id)
 }

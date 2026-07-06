@@ -18,7 +18,9 @@ data class WeeklyIncident(
     val absences: Int = 0,
     val observations: String = "",
     val deductions: Double = 0.0,
-    val pending: Double = 0.0
+    val pending: Double = 0.0,
+    val infonavit: Double = 0.0,
+    val otherDiscounts: Double = 0.0
 )
 
 @Serializable

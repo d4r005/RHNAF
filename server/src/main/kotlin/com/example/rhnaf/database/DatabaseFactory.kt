@@ -83,6 +83,23 @@ object DatabaseFactory {
                     listOf("1094", "HEIDY NAOMY ROMAN CAMPOS", "Operador General", "08/05/2026"),
                     listOf("1095", "VICTOR ALEXANDRO HERNANDEZ", "Operador General", "08/05/2026"),
                     listOf("1096", "CINTIA CAROLINA SALDAÑA PANTOJA", "Operador General", "13/05/2026"),
+                    listOf("162", "Zhao Yun", "Director", "19/07/2023"),
+                    listOf("164", "Yang Longan", "Técnico Eléctrico", "07/08/2023"),
+                    listOf("165", "Huynh Le Phuoc Thien", "Técnico de Mantenimiento", "26/05/2025"),
+                    listOf("166", "Do Thi Phuong", "Técnico de Calidad", "29/12/2025"),
+                    listOf("167", "Nguyen Van Ngoc", "Técnico de Mantenimiento", "10/08/2023"),
+                    listOf("168", "Nguyen Thanh Hong", "Técnico de Mantenimiento", "07/04/2025"),
+                    listOf("272", "Pham Khac Nhu", "Operador General", "29/12/2025"),
+                    listOf("274", "Wang Zhixiang", "Técnico de Mantenimiento", "14/12/2023"),
+                    listOf("364", "Cen He", "Técnico de Mantenimiento", "21/02/2024"),
+                    listOf("365", "Cao Yanyun", "Comprador", "21/02/2024"),
+                    listOf("366", "Wang Jie", "Técnico de Mantenimiento", "21/04/2025"),
+                    listOf("502", "Wu Yurong", "Técnico de Mantenimiento", "19/05/2025"),
+                    listOf("503", "Zhao Jinsong", "Líder", "26/05/2025"),
+                    listOf("504", "Pan Lihua", "Logística", "22/12/2025"),
+                    listOf("506", "Dong Binbin", "Técnico de Mantenimiento", "22/12/2025"),
+                    listOf("508", "Tran Thi Huyen", "Técnico de Calidad", "21/07/2025"),
+                    listOf("510", "Zhu Ping", "Técnico de Mantenimiento", "11/09/2025"),
                     listOf("10009", "Robles Trujillo Jesus Dario", "Coordinador de EHS", "29/07/2024")
                 )
 

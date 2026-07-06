@@ -45,6 +45,7 @@ fun Application.module() {
     
     routing {
         attendanceRouting(attendanceUseCase)
+
         // Sirve la Web App (Compose HTML) desde una carpeta física
         staticFiles("/", File("static"), index = "index.html")
 
@@ -143,16 +144,23 @@ fun Application.module() {
 
             post("/attendance/biometric") {
                 val data = call.receive<Map<String, String>>()
-                val readerId = data["employeeNo"] ?: data["userId"]
+                val employeeId = data["employeeNo"] ?: data["userId"] ?: "UNKNOWN"
                 val authType = data["authType"] ?: "Face"
+                val deviceSerial = data["deviceSerial"] ?: "MOBILE_APP"
                 
-                // Registro de asistencia por biometría (Rostro)
-                println("Evento Biométrico recibido - ID Lectora: $readerId, Tipo: $authType")
+                // AHORA SÍ GUARDAMOS EN LA DB CENTRAL
+                attendanceUseCase.registerCheckIn(
+                    employeeId = employeeId,
+                    timestamp = java.time.LocalDateTime.now().toString(),
+                    deviceSerial = deviceSerial,
+                    verifyMode = authType
+                )
                 
-                // Aquí se buscaría en la DB al empleado con ese readerId y se insertaría en una tabla de logs
+                println("Registro biométrico guardado: Empleado $employeeId via $authType")
+                
                 call.respond(mapOf(
                     "status" to "success", 
-                    "message" to "Acceso verificado por Rostro",
+                    "message" to "Asistencia registrada correctamente en el ERP",
                     "timestamp" to System.currentTimeMillis()
                 ))
             }
@@ -184,7 +192,9 @@ fun Application.module() {
                             absences = it[IncidentTable.absences],
                             observations = it[IncidentTable.observations],
                             deductions = it[IncidentTable.deductions],
-                            pending = it[IncidentTable.pending]
+                            pending = it[IncidentTable.pending],
+                            infonavit = it[IncidentTable.infonavit],
+                            otherDiscounts = it[IncidentTable.otherDiscounts]
                         )
                     }
                 }
@@ -216,6 +226,8 @@ fun Application.module() {
                             it[observations] = incident.observations
                             it[deductions] = incident.deductions
                             it[pending] = incident.pending
+                            it[infonavit] = incident.infonavit
+                            it[otherDiscounts] = incident.otherDiscounts
                         }
                     } else {
                         IncidentTable.insert {
@@ -234,6 +246,8 @@ fun Application.module() {
                             it[observations] = incident.observations
                             it[deductions] = incident.deductions
                             it[pending] = incident.pending
+                            it[infonavit] = incident.infonavit
+                            it[otherDiscounts] = incident.otherDiscounts
                         }
                     }
                 }
