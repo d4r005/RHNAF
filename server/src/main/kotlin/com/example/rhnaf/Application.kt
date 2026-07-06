@@ -77,6 +77,9 @@ fun Application.module() {
                             department = it[EmployeeTable.department],
                             entryDate = it[EmployeeTable.entryDate],
                             status = it[EmployeeTable.status],
+                            rfc = it[EmployeeTable.rfc],
+                            curp = it[EmployeeTable.curp],
+                            nss = it[EmployeeTable.nss],
                             readerId = it[EmployeeTable.readerId],
                             attritionRisk = it[EmployeeTable.attritionRisk]
                         )
@@ -96,6 +99,9 @@ fun Application.module() {
                         it[department] = emp.department
                         it[entryDate] = emp.entryDate
                         it[status] = emp.status
+                        it[rfc] = emp.rfc
+                        it[curp] = emp.curp
+                        it[nss] = emp.nss
                         it[readerId] = emp.readerId ?: emp.id
                         it[attritionRisk] = emp.attritionRisk
                     }
@@ -113,6 +119,9 @@ fun Application.module() {
                         it[department] = emp.department
                         it[entryDate] = emp.entryDate
                         it[status] = emp.status
+                        it[rfc] = emp.rfc
+                        it[curp] = emp.curp
+                        it[nss] = emp.nss
                         it[readerId] = emp.readerId
                         it[attritionRisk] = emp.attritionRisk
                     }

@@ -727,24 +727,42 @@ fun TopBar(user: String, role: String, avatarUrl: String, t: Translations) {
 }
 
 private fun parseCSV(text: String): List<Employee> {
-    val lines = text.split("\n")
+    val lines = text.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
     if (lines.size <= 1) return emptyList()
     
-    return lines.drop(1)
-        .filter { it.contains(",") }
-        .map { line ->
-            val parts = line.split(",")
+    val firstLine = lines[0]
+    val delimiter = if (firstLine.contains("\t")) "\t" else if (firstLine.contains(";")) ";" else ","
+    
+    return lines.drop(1).mapNotNull { line ->
+        try {
+            val parts = line.split(delimiter)
+            if (parts.size < 2) return@mapNotNull null
+            
+            val id = parts.getOrNull(0)?.trim() ?: ""
+            val fullName = parts.getOrNull(1)?.trim() ?: ""
+            
+            // Intentamos separar nombres de apellidos (Aproximación simple)
+            val nameParts = fullName.split(" ")
+            val fName = if (nameParts.size >= 3) nameParts.drop(2).joinToString(" ") else nameParts.lastOrNull() ?: ""
+            val lName = if (nameParts.size >= 3) nameParts.take(2).joinToString(" ") else nameParts.dropLast(1).joinToString(" ")
+            
             Employee(
-                id = parts.getOrNull(0)?.trim() ?: "",
-                firstName = parts.getOrNull(1)?.trim() ?: "",
-                lastName = parts.getOrNull(2)?.trim() ?: "",
-                position = parts.getOrNull(3)?.trim() ?: "Operativo",
-                department = parts.getOrNull(4)?.trim() ?: "Producción",
-                entryDate = parts.getOrNull(5)?.trim() ?: "2024-01-01",
+                id = id,
+                firstName = fName.ifEmpty { fullName },
+                lastName = lName,
+                rfc = parts.getOrNull(2)?.trim(),
+                curp = parts.getOrNull(3)?.trim(),
+                nss = parts.getOrNull(4)?.trim(),
+                position = parts.getOrNull(6)?.trim() ?: "Operativo",
+                department = "Producción", 
+                entryDate = parts.getOrNull(8)?.trim() ?: parts.getOrNull(7)?.trim() ?: "2024-01-01",
                 status = EmployeeStatus.ACTIVE,
-                readerId = parts.getOrNull(0)?.trim()
+                readerId = id
             )
+        } catch (e: Exception) {
+            null
         }
+    }
 }
 
 @Composable
