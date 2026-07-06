@@ -355,6 +355,21 @@ fun main() {
                                                 window.alert("Acceso denegado: Solo administradores pueden eliminar.")
                                             }
                                         },
+                                        onImport = { importedList ->
+                                            scope.launch {
+                                                importedList.forEach { emp ->
+                                                    try {
+                                                        client.post("$BACKEND_URL/api/employee/add") {
+                                                            contentType(ContentType.Application.Json)
+                                                            setBody(emp)
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        println("Error importando: ${e.message}")
+                                                    }
+                                                }
+                                                employees = client.get("$BACKEND_URL/api/employees").body()
+                                            }
+                                        },
                                         userRole = userRole,
                                         t = t
                                     )
@@ -704,8 +719,29 @@ fun TopBar(user: String, role: String, avatarUrl: String, t: Translations) {
     }
 }
 
+private fun parseCSV(text: String): List<Employee> {
+    val lines = text.split("\n")
+    if (lines.size <= 1) return emptyList()
+    
+    return lines.drop(1)
+        .filter { it.contains(",") }
+        .map { line ->
+            val parts = line.split(",")
+            Employee(
+                id = parts.getOrNull(0)?.trim() ?: "",
+                firstName = parts.getOrNull(1)?.trim() ?: "",
+                lastName = parts.getOrNull(2)?.trim() ?: "",
+                position = parts.getOrNull(3)?.trim() ?: "Operativo",
+                department = parts.getOrNull(4)?.trim() ?: "Producción",
+                entryDate = parts.getOrNull(5)?.trim() ?: "2024-01-01",
+                status = EmployeeStatus.ACTIVE,
+                readerId = parts.getOrNull(0)?.trim()
+            )
+        }
+}
+
 @Composable
-fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit, onDelete: (String) -> Unit, userRole: UserRole, t: Translations) {
+fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit, onDelete: (String) -> Unit, onImport: (List<Employee>) -> Unit, userRole: UserRole, t: Translations) {
     var isImporting by remember { mutableStateOf(false) }
     
     Div({ style { backgroundColor(Color.white); padding(24.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
@@ -716,9 +752,25 @@ fun EmployeeListView(employees: List<Employee>, onSelect: (Employee) -> Unit, on
                     // Importador de CSV
                     Input(InputType.File) {
                     id("csv-upload"); style { property("display", "none") }
-                        onChange { 
-                            isImporting = true
-                            window.setTimeout({ isImporting = false; window.alert("Importación de personal finalizada con éxito.") }, 1500)
+                        onChange { event ->
+                            val input = document.getElementById("csv-upload") as? org.w3c.dom.HTMLInputElement
+                            val file = input?.files?.item(0)
+                            if (file != null) {
+                                isImporting = true
+                                val reader = org.w3c.files.FileReader()
+                                reader.onload = {
+                                    val content = reader.result as String
+                                    val imported = parseCSV(content)
+                                    if (imported.isNotEmpty()) {
+                                        onImport(imported)
+                                        window.alert("Importación finalizada con éxito: ${imported.size} registros procesados.")
+                                    } else {
+                                        window.alert("Error: No se detectaron datos. Asegúrate de que el archivo sea un CSV válido (comas) y tenga encabezados.")
+                                    }
+                                    isImporting = false
+                                }
+                                reader.readAsText(file)
+                            }
                         }
                     }
                     Button({
