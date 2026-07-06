@@ -3,6 +3,10 @@ plugins {
     id("io.ktor.plugin")
 }
 
+kotlin {
+    jvmToolchain(21)
+}
+
 dependencies {
     implementation(project(":shared"))
     implementation("io.ktor:ktor-server-core")

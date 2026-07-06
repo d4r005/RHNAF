@@ -9,7 +9,8 @@ import com.example.rhnaf.shared.model.Employee
 import com.example.rhnaf.shared.model.EmployeeStatus
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.EmployeeTable
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import com.example.rhnaf.service.HuggingFaceService
 import io.ktor.server.request.*
 import io.ktor.server.plugins.cors.routing.*
@@ -45,9 +46,17 @@ fun Application.module() {
                 val username = credentials["username"]
                 val password = credentials["password"]
                 
-                // Login simple para propósitos industriales
-                if (username == "admin" && password == "industrial123") {
-                    call.respond(mapOf("status" to "success", "token" to "mock-jwt-token-rhnaf"))
+                // Login con usuarios y roles (Demo)
+                val validUsers = mapOf(
+                    "d.trujillo@brancoindustries.com" to "Branco2025",
+                    "arni.oziel@brancoindustries.com" to "Branco2025",
+                    "compras@brancoindustries.com" to "Branco2025",
+                    "seguridad@brancoindustries.com" to "Branco2025",
+                    "mantenimiento@brancoindustries.com" to "Branco2025"
+                )
+                
+                if (validUsers[username] == password) {
+                    call.respond(mapOf("status" to "success", "token" to "mock-jwt-token-nafconnect"))
                 } else {
                     call.respond(HttpStatusCode.Unauthorized, mapOf("status" to "error", "message" to "Credenciales incorrectas"))
                 }
@@ -63,11 +72,72 @@ fun Application.module() {
                             position = it[EmployeeTable.position],
                             department = it[EmployeeTable.department],
                             entryDate = it[EmployeeTable.entryDate],
-                            status = it[EmployeeTable.status]
+                            status = it[EmployeeTable.status],
+                            readerId = it[EmployeeTable.readerId],
+                            attritionRisk = it[EmployeeTable.attritionRisk]
                         )
                     }
                 }
                 call.respond(employees)
+            }
+
+            post("/employee/add") {
+                val emp = call.receive<Employee>()
+                DatabaseFactory.dbQuery {
+                    EmployeeTable.insert {
+                        it[id] = emp.id
+                        it[firstName] = emp.firstName
+                        it[lastName] = emp.lastName
+                        it[position] = emp.position
+                        it[department] = emp.department
+                        it[entryDate] = emp.entryDate
+                        it[status] = emp.status
+                        it[readerId] = emp.readerId ?: emp.id
+                        it[attritionRisk] = emp.attritionRisk
+                    }
+                }
+                call.respond(HttpStatusCode.Created, mapOf("status" to "success"))
+            }
+
+            post("/employee/update") {
+                val emp = call.receive<Employee>()
+                DatabaseFactory.dbQuery {
+                    EmployeeTable.update({ EmployeeTable.id eq emp.id }) {
+                        it[firstName] = emp.firstName
+                        it[lastName] = emp.lastName
+                        it[position] = emp.position
+                        it[department] = emp.department
+                        it[entryDate] = emp.entryDate
+                        it[status] = emp.status
+                        it[readerId] = emp.readerId
+                        it[attritionRisk] = emp.attritionRisk
+                    }
+                }
+                call.respond(mapOf("status" to "success"))
+            }
+
+            delete("/employee/{id}") {
+                val id = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
+                DatabaseFactory.dbQuery {
+                    EmployeeTable.deleteWhere { EmployeeTable.id eq id }
+                }
+                call.respond(mapOf("status" to "success"))
+            }
+
+            post("/attendance/biometric") {
+                val data = call.receive<Map<String, String>>()
+                val readerId = data["employeeNo"] ?: data["userId"]
+                val authType = data["authType"] ?: "Face"
+                
+                // Registro de asistencia por biometría (Rostro)
+                println("Evento Biométrico recibido - ID Lectora: $readerId, Tipo: $authType")
+                
+                // Aquí se buscaría en la DB al empleado con ese readerId y se insertaría en una tabla de logs
+                call.respond(mapOf(
+                    "status" to "success", 
+                    "message" to "Acceso verificado por Rostro",
+                    "timestamp" to System.currentTimeMillis()
+                ))
             }
             
             post("/safety/analyze") {

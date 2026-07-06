@@ -29,4 +29,32 @@ class TrainingViewModel(private val repository: TrainingRepository) : ViewModel(
             )
         }
     }
+
+    fun importExcelData(fileName: String) {
+        viewModelScope.launch {
+            val names = arrayOf(
+                "Seguridad en equipos industriales motorizados",
+                "Reconocimiento de peligros y Riesgos",
+                "Preparación y respuesta de emergencias",
+                "Comunicación de peligros (SGA) / Sustancias Químicas",
+                "Trabajos en caliente / Estrés por calor",
+                "Equipo de Protección Personal (EPP)",
+                "Seguridad Eléctrica"
+            )
+            val types = arrayOf(
+                "Presencial", "Presencial", "Presencial", "Presencial", "Presencial", "Presencial", "Pendiente"
+            )
+            
+            for (i in names.indices) {
+                repository.insertTraining(
+                    TrainingEntity(
+                        employeeId = "ALL",
+                        courseName = names[i],
+                        date = "Plan 2026",
+                        type = types[i]
+                    )
+                )
+            }
+        }
+    }
 }

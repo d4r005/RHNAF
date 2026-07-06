@@ -9,6 +9,15 @@ android {
     namespace = "com.example.rhnaf"
     compileSdk = 37
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../release-key.jks")
+            storePassword = "rhnaf2025"
+            keyAlias = "rhnaf-key"
+            keyPassword = "rhnaf2025"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.example.rhnaf"
         minSdk = 24
@@ -21,6 +30,7 @@ android {
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             optimization {
                 enable = false
             }

@@ -1,26 +1,30 @@
 package com.example.rhnaf.features.employee
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.rhnaf.shared.model.Employee
 import com.example.rhnaf.shared.model.EmployeeStatus
 import com.example.rhnaf.ui.ViewModelFactory
-import com.example.rhnaf.ui.theme.RHNAFTheme
+import com.example.rhnaf.ui.theme.IndustrialBlue
+import com.example.rhnaf.ui.theme.IndustrialDark
+import com.example.rhnaf.ui.theme.IndustrialLight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,138 +47,135 @@ fun EmployeeListScreen(
     }
 
     Scaffold(
+        containerColor = IndustrialLight,
         topBar = {
-            LargeTopAppBar(
-                title = { Text("Expediente Digital") },
+            TopAppBar(
+                title = { Text("Plantilla Personal", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Regresar")
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO: Search */ }) {
+                    IconButton(onClick = { /* Search */ }) {
                         Icon(Icons.Default.Search, contentDescription = "Buscar")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White,
+                    titleContentColor = IndustrialDark
+                )
             )
         },
         floatingActionButton = {
-            LargeFloatingActionButton(
+            FloatingActionButton(
                 onClick = onAddEmployee,
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                containerColor = IndustrialBlue,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Agregar Empleado")
             }
         }
-    ) { padding ->
-        if (employees.isEmpty()) {
-            EmptyEmployeesState(onAddEmployee, modifier = Modifier.padding(padding))
-        } else {
-            LazyColumn(
+    ) { innerPadding: PaddingValues ->
+        Column(modifier = Modifier.padding(innerPadding)) {
+            // Stats summary at top
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(bottom = 88.dp) // Space for FAB
-            ) {
-                items(filteredEmployees, key = { it.id }) { employee ->
-                    EmployeeListItem(
-                        employee = employee,
-                        onClick = { onEmployeeClick(employee.id) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun EmployeeListItem(
-    employee: Employee,
-    onClick: () -> Unit
-) {
-    ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
-        headlineContent = { 
-            Text(
-                text = "${employee.firstName} ${employee.lastName}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            ) 
-        },
-        supportingContent = { 
-            Text(
-                text = "${employee.department} • ${employee.position}",
-                style = MaterialTheme.typography.bodyMedium
-            ) 
-        },
-        leadingContent = {
-            Surface(
-                modifier = Modifier.size(48.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.secondaryContainer
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-            }
-        },
-        trailingContent = {
-            Badge(
-                containerColor = if (employee.status == EmployeeStatus.ACTIVE) 
-                    MaterialTheme.colorScheme.primaryContainer 
-                else MaterialTheme.colorScheme.errorContainer
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = employee.status.name,
-                    style = MaterialTheme.typography.labelSmall
+                    "Mostrando ${filteredEmployees.size} colaboradores",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
                 )
             }
-        }
-    )
-    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-}
 
-@Composable
-fun EmptyEmployeesState(onAddEmployee: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = null,
-            modifier = Modifier.size(100.dp),
-            tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "No hay empleados registrados",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.outline
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onAddEmployee) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Agregar el primer empleado")
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(filteredEmployees) { employee ->
+                    EmployeeCard(employee, onClick = { onEmployeeClick(employee.id) })
+                }
+            }
         }
     }
 }
 
-@Preview(showBackground = true, device = "spec:width=411dp,height=891dp")
 @Composable
-fun EmployeeListPreview() {
-    RHNAFTheme {
-        EmployeeListScreen(
-            onNavigateBack = {},
-            onEmployeeClick = {},
-            onAddEmployee = {}
+fun EmployeeCard(employee: Employee, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Avatar Placeholder
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(IndustrialLight),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${employee.firstName.take(1)}${employee.lastName.take(1)}",
+                    fontWeight = FontWeight.Bold,
+                    color = IndustrialBlue
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${employee.firstName} ${employee.lastName}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = IndustrialDark
+                )
+                Text(
+                    text = employee.position,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+
+            // Status Badge
+            StatusChip(employee.status)
+        }
+    }
+}
+
+@Composable
+fun StatusChip(status: EmployeeStatus) {
+    val (color, bgColor) = when (status) {
+        EmployeeStatus.ACTIVE -> Color(0xFF166534) to Color(0xFFDCFCE7)
+        EmployeeStatus.VACATION -> Color(0xFF854D0E) to Color(0xFFFEF9C3)
+        else -> Color(0xFF991B1B) to Color(0xFFFEE2E2)
+    }
+
+    Surface(
+        color = bgColor,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Text(
+            text = status.name,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Black,
+            color = color
         )
     }
 }

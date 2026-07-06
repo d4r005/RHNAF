@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("multiplatform")
-    id("com.android.library")
+    alias(libs.plugins.android.library)
     kotlin("plugin.serialization")
 }
 
@@ -38,7 +38,7 @@ kotlin {
 
 android {
     namespace = "com.example.rhnaf.shared"
-    compileSdk = 35
+    compileSdk = 37
     defaultConfig {
         minSdk = 24
     }
