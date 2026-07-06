@@ -21,18 +21,9 @@ class AttendanceUseCase {
         // En un entorno real, aquí usaríamos Ktor Client para llamar a la ISAPI de Hikvision
         // Ejemplo: GET http://admin:password@$deviceIp/ISAPI/AccessControl/AcsEvent?format=json
         
-        // Simulamos la recuperación de eventos recientes con formato de fecha correcto
-        val now = java.time.LocalDateTime.now()
-        val mockEvents = listOf(
-            "162" to now.minusMinutes(5).toString(),
-            "163" to now.minusMinutes(10).toString(),
-            "164" to now.minusMinutes(15).toString()
-        ) 
+        // Eliminamos los datos de prueba (mock) para mostrar solo información verídica
+        // que la lectora envíe vía Push a este servidor.
         
-        mockEvents.forEach { (id, time) ->
-            registerCheckIn(id, time, "DS-K1T341-SYNC", "Face")
-        }
-        
-        return mockEvents.size
+        return 0 // Retornamos 0 ya que la sincronización manual vía IP local no es posible desde la nube
     }
 }
