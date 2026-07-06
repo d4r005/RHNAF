@@ -19,14 +19,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.rhnaf.data.local.entities.AttendanceLogEntity
-import com.example.rhnaf.data.local.entities.AttendanceType
 import com.example.rhnaf.ui.ViewModelFactory
 import com.google.accompanist.permissions.*
 import com.google.android.gms.location.LocationServices
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -45,15 +44,25 @@ fun ScannerScreen(
         )
     )
 
+    val state by viewModel.uiState.collectAsState()
     var scanResult by remember { mutableStateOf<String?>(null) }
     var showDialog by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf("") }
     var isSuccess by remember { mutableStateOf(false) }
-    var attendanceType by remember { mutableStateOf(AttendanceType.CLOCK_IN) }
 
+    // Al montar la pantalla pedimos permisos si no los hay
     LaunchedEffect(Unit) {
-        cameraPermissionState.launchPermissionRequest()
-        locationPermissionState.launchMultiplePermissionRequest()
+        if (!cameraPermissionState.status.isGranted) cameraPermissionState.launchPermissionRequest()
+        if (!locationPermissionState.allPermissionsGranted) locationPermissionState.launchMultiplePermissionRequest()
+    }
+
+    // Mostramos el mensaje del ViewModel en el diálogo
+    LaunchedEffect(state.message) {
+        if (state.message != null) {
+            dialogMessage = state.message!!
+            isSuccess = state.message!!.contains("éxito", ignoreCase = true)
+            showDialog = true
+        }
     }
 
     Scaffold(
@@ -74,16 +83,23 @@ fun ScannerScreen(
                     onBarcodeDetected = { barcode ->
                         if (scanResult == null) {
                             scanResult = barcode
-                            handleAttendance(context, barcode, attendanceType, viewModel) { success, message ->
-                                isSuccess = success
-                                dialogMessage = message
-                                showDialog = true
+                            viewModel.onEmployeeIdChanged(barcode)
+                            
+                            validateLocation(context) { location ->
+                                if (location != null) {
+                                    viewModel.registerCheck()
+                                } else {
+                                    dialogMessage = "No se pudo validar tu ubicación."
+                                    isSuccess = false
+                                    showDialog = true
+                                    scanResult = null 
+                                }
                             }
                         }
                     }
                 )
                 
-                // Controls
+                // Overlay de información
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -91,39 +107,29 @@ fun ScannerScreen(
                     verticalArrangement = Arrangement.Bottom,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    SingleChoiceSegmentedButtonRow {
-                        SegmentedButton(
-                            selected = attendanceType == AttendanceType.CLOCK_IN,
-                            onClick = { attendanceType = AttendanceType.CLOCK_IN },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                    if (state.isLoading) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    } else {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                            shape = MaterialTheme.shapes.medium
                         ) {
-                            Text("Entrada")
+                            Text(
+                                text = if (state.targetEmployeeId.isEmpty()) 
+                                    "Escanee su código QR" 
+                                else "Procesando ID: ${state.targetEmployeeId}",
+                                modifier = Modifier.padding(16.dp),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
                         }
-                        SegmentedButton(
-                            selected = attendanceType == AttendanceType.CLOCK_OUT,
-                            onClick = { attendanceType = AttendanceType.CLOCK_OUT },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                        ) {
-                            Text("Salida")
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Text(
-                            "Escanee su QR para ${if (attendanceType == AttendanceType.CLOCK_IN) "ENTRADA" else "SALIDA"}",
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
                     }
                 }
             }
         } else {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Se requieren permisos de cámara y ubicación")
+                    Text("Se requieren permisos para continuar", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(16.dp))
                     Button(onClick = {
                         cameraPermissionState.launchPermissionRequest()
                         locationPermissionState.launchMultiplePermissionRequest()
@@ -140,12 +146,14 @@ fun ScannerScreen(
             onDismissRequest = { 
                 showDialog = false
                 scanResult = null
+                viewModel.clearMessage()
             },
             title = { Text(if (isSuccess) "Éxito" else "Error") },
             text = { Text(dialogMessage) },
             confirmButton = {
                 TextButton(onClick = { 
                     showDialog = false
+                    viewModel.clearMessage()
                     if (isSuccess) onNavigateBack() else scanResult = null
                 }) {
                     Text("Aceptar")
@@ -221,37 +229,14 @@ fun processImageProxy(imageProxy: ImageProxy, onBarcodeDetected: (String) -> Uni
 }
 
 @SuppressLint("MissingPermission")
-fun handleAttendance(
+fun validateLocation(
     context: Context,
-    employeeId: String,
-    viewModel: AttendanceViewModel,
-    onResult: (Boolean, String) -> Unit
+    onResult: (Location?) -> Unit
 ) {
     val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
     fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
-        if (location != null) {
-            val factoryLat = 25.6866 // Mock factory lat
-            val factoryLng = -100.3161 // Mock factory lng
-            val distance = FloatArray(1)
-            Location.distanceBetween(location.latitude, location.longitude, factoryLat, factoryLng, distance)
-            
-            if (distance[0] < 500) { // 500 meters
-                val log = AttendanceLogEntity(
-                    employeeId = employeeId,
-                    timestamp = System.currentTimeMillis(),
-                    latitude = location.latitude,
-                    longitude = location.longitude,
-                    type = AttendanceType.CLOCK_IN // In a real app, logic for IN vs OUT
-                )
-                viewModel.logAttendance(log)
-                onResult(true, "Asistencia registrada correctamente. Distancia: ${distance[0].toInt()}m")
-            } else {
-                onResult(false, "Fuera de rango. Distancia: ${distance[0].toInt()}m. Debe estar a menos de 500m.")
-            }
-        } else {
-            onResult(false, "No se pudo obtener la ubicación actual.")
-        }
+        onResult(location)
     }.addOnFailureListener {
-        onResult(false, "Error al obtener ubicación: ${it.message}")
+        onResult(null)
     }
 }

@@ -20,6 +20,9 @@ sealed interface Destination : NavKey {
     data object Attendance : Destination
 
     @Serializable
+    data object AttendanceScreen : Destination
+
+    @Serializable
     data object Scanner : Destination
 
     @Serializable
@@ -69,6 +72,7 @@ object Destinations {
     const val EMPLOYEE_LIST = "employee_list"
     const val ADD_EMPLOYEE = "add_employee"
     const val ATTENDANCE = "attendance"
+    const val ATTENDANCE_SCREEN = "attendance_screen"
     const val SCANNER = "scanner"
     const val SIGNATURE = "signature"
     const val NOTIFICATIONS = "notifications"

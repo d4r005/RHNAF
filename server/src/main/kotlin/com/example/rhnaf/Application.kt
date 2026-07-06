@@ -12,6 +12,8 @@ import com.example.rhnaf.database.EmployeeTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import com.example.rhnaf.service.HuggingFaceService
+import com.example.rhnaf.service.AttendanceUseCase
+import com.example.rhnaf.routes.attendanceRouting
 import io.ktor.server.request.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.http.*
@@ -26,6 +28,7 @@ fun Application.module() {
     
     val hfApiKey = environment.config.propertyOrNull("huggingface.api_key")?.getString() ?: ""
     val hfService = HuggingFaceService(hfApiKey)
+    val attendanceUseCase = AttendanceUseCase()
 
     install(CORS) {
         anyHost()
@@ -37,6 +40,7 @@ fun Application.module() {
     }
     
     routing {
+        attendanceRouting(attendanceUseCase)
         // Sirve la Web App (Compose HTML) desde una carpeta física
         staticFiles("/", File("static"), index = "index.html")
 

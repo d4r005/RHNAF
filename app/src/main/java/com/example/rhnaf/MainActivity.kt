@@ -56,7 +56,7 @@ fun RHNAFApp() {
         entry<Destination.Dashboard> {
             DashboardScreen(
                 onNavigateToEmployeeList = { backStack.add(Destination.EmployeeList) },
-                onNavigateToAttendance = { backStack.add(Destination.Attendance) },
+                onNavigateToAttendance = { backStack.add(Destination.AttendanceScreen) },
                 onNavigateToTraining = { backStack.add(Destination.TrainingDashboard) },
                 onNavigateToSafety = { backStack.add(Destination.Safety) },
                 onNavigateToPortal = { backStack.add(Destination.EmployeePortal) },
@@ -85,10 +85,9 @@ fun RHNAFApp() {
                 onNavigateBack = { backStack.removeLastOrNull() }
             )
         }
-        entry<Destination.Attendance> {
+        entry<Destination.AttendanceScreen> {
             AttendanceScreen(
-                onNavigateBack = { backStack.removeLastOrNull() },
-                onNavigateToScanner = { backStack.add(Destination.Scanner) }
+                viewModel = viewModel(factory = ViewModelFactory)
             )
         }
         entry<Destination.Scanner> {
@@ -102,9 +101,8 @@ fun RHNAFApp() {
             )
         }
         entry<Destination.TrainingDashboard> {
-            val dashboardViewModel: TrainingDashboardViewModel = viewModel(factory = ViewModelFactory)
             TrainingDashboardScreen(
-                viewModel = dashboardViewModel,
+                viewModel = viewModel(factory = ViewModelFactory),
                 onNavigateToCourses = {
                     backStack.add(Destination.Training)
                 }
