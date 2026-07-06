@@ -20,59 +20,62 @@ import io.ktor.server.plugins.*
 import io.ktor.server.util.*
 
 fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
-    route("/api/v1/asistencia") {
-        
-        // Endpoint de prueba para verificar conexión desde un navegador
-        get("/hikvision") {
-            call.respondText("Servidor NAF CONNECT listo para recibir datos de Hikvision vía POST")
-        }
-
-        // Webhook robusto para Hikvision
-        post("/hikvision") {
+    // RUTA DE NIVEL RAÍZ PARA MÁXIMA COMPATIBILIDAD CON LECTORAS
+    route("/hikvision") {
+        post {
             val rawBody = call.receiveText()
             val clientIp = call.request.origin.remoteAddress
-            val method = call.request.httpMethod.value
-            val path = call.request.uri
             
-            // LOG DE DIAGNÓSTICO ULTRA-SENSIBLE
             DatabaseFactory.dbQuery {
                 DebugLogTable.insert {
                     it[timestamp] = java.time.LocalDateTime.now().toString()
-                    it[rawContent] = "METHOD: $method | PATH: $path | BODY: $rawBody"
+                    it[rawContent] = "RAIZ-POST | BODY: $rawBody"
                     it[sourceIp] = clientIp
                 }
             }
+            
+            // Extraer ID si es posible
+            val idEmpleado = if (rawBody.contains("employeeNoString")) {
+                rawBody.substringAfter("employeeNoString\":\"").substringBefore("\"")
+            } else if (rawBody.contains("<employeeNo>")) {
+                rawBody.substringAfter("<employeeNo>").substringBefore("</employeeNo>")
+            } else "UNKNOWN"
 
+            if (idEmpleado != "UNKNOWN") {
+                attendanceUseCase.registerCheckIn(idEmpleado, java.time.LocalDateTime.now().toString(), "HIK-ROOT", "Face")
+            }
+            
+            call.respondText("{\"statusString\":\"OK\",\"statusCode\":1}", contentType = io.ktor.http.ContentType.Application.Json)
+        }
+        
+        get {
+            call.respondText("Radar NAF activo en puerto raíz. Esperando datos POST de la lectora.")
+        }
+    }
+
+    route("/api/v1/asistencia") {
+        // Loguear visitas al debug para probar que el radar funciona
+        get("/debug") {
             try {
-                println("WEBHOOK HIKVISION RECIBIDO: $rawBody")
-                
-                // Extracción manual ultra-compatible (funciona con JSON y XML)
-                val idEmpleado = if (rawBody.contains("employeeNoString")) {
-                    rawBody.substringAfter("employeeNoString\":\"").substringBefore("\"")
-                } else if (rawBody.contains("<employeeNo>")) {
-                    rawBody.substringAfter("<employeeNo>").substringBefore("</employeeNo>")
-                } else {
-                    // Fallback al parseo automático si los anteriores fallan
-                    "UNKNOWN"
+                DatabaseFactory.dbQuery {
+                    DebugLogTable.insert {
+                        it[timestamp] = java.time.LocalDateTime.now().toString()
+                        it[rawContent] = "PÁGINA DEBUG VISITADA DESDE NAVEGADOR"
+                        it[sourceIp] = call.request.origin.remoteAddress
+                    }
                 }
-
-                if (idEmpleado != "UNKNOWN" && idEmpleado.isNotEmpty()) {
-                    attendanceUseCase.registerCheckIn(
-                        employeeId = idEmpleado, 
-                        timestamp = java.time.LocalDateTime.now().toString(),
-                        deviceSerial = "HIK-WEBHOOK",
-                        verifyMode = "Face"
-                    )
-                    println("✅ Asistencia registrada para empleado: $idEmpleado")
+                val debug = DatabaseFactory.dbQuery {
+                    DebugLogTable.selectAll().orderBy(DebugLogTable.id, SortOrder.DESC).limit(20).map {
+                        "${it[DebugLogTable.timestamp]} | ${it[DebugLogTable.sourceIp]} | ${it[DebugLogTable.rawContent]}"
+                    }
                 }
-                
-                // Respuesta obligatoria para Hikvision
-                call.respondText("{\"statusString\":\"OK\",\"statusCode\":1}", contentType = io.ktor.http.ContentType.Application.Json)
+                call.respond(debug)
             } catch (e: Exception) {
-                println("❌ Error en Webhook: ${e.message}")
-                call.respond(HttpStatusCode.OK)
+                call.respond(listOf("Error: ${e.message}"))
             }
         }
+        
+        // ... (resto de rutas de logs se mantienen igual)
 
         post("/sync") {
             try {
