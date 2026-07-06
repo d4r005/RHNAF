@@ -43,6 +43,7 @@ moshiKotlinCodegen = "1.15.2"
 datastorePreferences = "1.1.7"
 material = "1.6.1"
 kotlinxDatetime = "0.6.1"
+barcodeScanning = "17.3.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -94,6 +95,7 @@ moshi-kotlin-codegen = { group = "com.squareup.moshi", name = "moshi-kotlin-code
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "kotlinxDatetime" }
+google-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "barcodeScanning" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

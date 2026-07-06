@@ -9,6 +9,7 @@ import com.example.rhnaf.features.employee.EquipmentViewModel
 import com.example.rhnaf.features.safety.SafetyViewModel
 import com.example.rhnaf.features.employee.PerformanceViewModel
 import com.example.rhnaf.features.training.TrainingViewModel
+import com.example.rhnaf.features.attendance.AttendanceViewModel
 
 val ViewModelFactory = object : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
@@ -29,6 +30,9 @@ val ViewModelFactory = object : ViewModelProvider.Factory {
             }
             modelClass.isAssignableFrom(PerformanceViewModel::class.java) -> {
                 PerformanceViewModel(application.performanceRepository) as T
+            }
+            modelClass.isAssignableFrom(AttendanceViewModel::class.java) -> {
+                AttendanceViewModel(application.attendanceRepository) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
