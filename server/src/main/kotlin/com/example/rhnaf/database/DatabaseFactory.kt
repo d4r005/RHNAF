@@ -17,7 +17,7 @@ object DatabaseFactory {
         val database = Database.connect(createHikariDataSource(jdbcURL, driverClassName))
         
         transaction(database) {
-            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable)
+            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable)
             
             // Carga de Personal NAF CONNECT desde la lista proporcionada
             if (EmployeeTable.selectAll().empty()) {

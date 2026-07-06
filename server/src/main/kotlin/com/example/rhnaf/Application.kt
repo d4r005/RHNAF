@@ -21,6 +21,10 @@ import io.ktor.http.content.*
 import io.ktor.server.http.content.*
 import java.io.File
 
+import com.example.rhnaf.database.IncidentTable
+import com.example.rhnaf.shared.model.WeeklyIncident
+import com.example.rhnaf.shared.model.AttendanceReport
+
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
 fun Application.module() {
@@ -158,6 +162,82 @@ fun Application.module() {
                 val desc = params["description"] ?: ""
                 val analysis = hfService.analyzeIncident(desc)
                 call.respond(mapOf("analysis" to analysis))
+            }
+
+            // PANEL DE INCIDENCIAS
+            get("/incidents/week/{week}") {
+                val week = call.parameters["week"]?.toIntOrNull() ?: 1
+                val incidents = DatabaseFactory.dbQuery {
+                    IncidentTable.selectAll().where { IncidentTable.weekNumber eq week }.map {
+                        WeeklyIncident(
+                            employeeId = it[IncidentTable.employeeId],
+                            weekNumber = it[IncidentTable.weekNumber],
+                            year = it[IncidentTable.year],
+                            attendance = it[IncidentTable.attendance].split(","),
+                            punctualityBonus = it[IncidentTable.punctualityBonus],
+                            attendanceBonus = it[IncidentTable.attendanceBonus],
+                            sundayPremium = it[IncidentTable.sundayPremium],
+                            extraHours = it[IncidentTable.extraHours],
+                            foodAllowance = it[IncidentTable.foodAllowance],
+                            weekendBonus = it[IncidentTable.weekendBonus],
+                            perfectAttendance = it[IncidentTable.perfectAttendance],
+                            absences = it[IncidentTable.absences],
+                            observations = it[IncidentTable.observations],
+                            deductions = it[IncidentTable.deductions],
+                            pending = it[IncidentTable.pending]
+                        )
+                    }
+                }
+                call.respond(incidents)
+            }
+
+            post("/incidents/save") {
+                val incident = call.receive<WeeklyIncident>()
+                DatabaseFactory.dbQuery {
+                    val exists = IncidentTable.selectAll().where {
+                        (IncidentTable.employeeId eq incident.employeeId) and 
+                        (IncidentTable.weekNumber eq incident.weekNumber) 
+                    }.count() > 0
+
+                    if (exists) {
+                        IncidentTable.update({ 
+                            (IncidentTable.employeeId eq incident.employeeId) and 
+                            (IncidentTable.weekNumber eq incident.weekNumber) 
+                        }) {
+                            it[attendance] = incident.attendance.joinToString(",")
+                            it[punctualityBonus] = incident.punctualityBonus
+                            it[attendanceBonus] = incident.attendanceBonus
+                            it[sundayPremium] = incident.sundayPremium
+                            it[extraHours] = incident.extraHours
+                            it[foodAllowance] = incident.foodAllowance
+                            it[weekendBonus] = incident.weekendBonus
+                            it[perfectAttendance] = incident.perfectAttendance
+                            it[absences] = incident.absences
+                            it[observations] = incident.observations
+                            it[deductions] = incident.deductions
+                            it[pending] = incident.pending
+                        }
+                    } else {
+                        IncidentTable.insert {
+                            it[employeeId] = incident.employeeId
+                            it[weekNumber] = incident.weekNumber
+                            it[year] = incident.year
+                            it[attendance] = incident.attendance.joinToString(",")
+                            it[punctualityBonus] = incident.punctualityBonus
+                            it[attendanceBonus] = incident.attendanceBonus
+                            it[sundayPremium] = incident.sundayPremium
+                            it[extraHours] = incident.extraHours
+                            it[foodAllowance] = incident.foodAllowance
+                            it[weekendBonus] = incident.weekendBonus
+                            it[perfectAttendance] = incident.perfectAttendance
+                            it[absences] = incident.absences
+                            it[observations] = incident.observations
+                            it[deductions] = incident.deductions
+                            it[pending] = incident.pending
+                        }
+                    }
+                }
+                call.respond(mapOf("status" to "success"))
             }
 
             post("/employee/ocr") {
