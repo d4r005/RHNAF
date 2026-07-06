@@ -2463,7 +2463,7 @@ fun IncidentsPanelModule(employees: List<Employee>, client: HttpClient, scope: k
                                 Input(InputType.Number) {
                                     value(inc.extraHours)
                                     onInput { incidents = incidents.toMutableMap().apply { put(emp.id, inc.copy(extraHours = it.value?.toDouble() ?: 0.0)) } }
-                                    style { width(45.px); border(0.px) }
+                                    style { width(45.px); border(0.px); backgroundColor(Color("#f8fafc")) }
                                 }
                             }
                             Td({ style { padding(5.px); property("border", "1px solid #f1f5f9") } }) { Text("$food") }
@@ -2471,14 +2471,14 @@ fun IncidentsPanelModule(employees: List<Employee>, client: HttpClient, scope: k
                                 Input(InputType.Number) {
                                     value(inc.infonavit)
                                     onInput { incidents = incidents.toMutableMap().apply { put(emp.id, inc.copy(infonavit = it.value?.toDouble() ?: 0.0)) } }
-                                    style { width(45.px); border(0.px) }
+                                    style { width(55.px); border(0.px); backgroundColor(Color("#fff1f2")); color(Color.red) }
                                 }
                             }
                             Td({ style { padding(5.px); property("border", "1px solid #f1f5f9") } }) {
                                 Input(InputType.Number) {
                                     value(inc.otherDiscounts)
                                     onInput { incidents = incidents.toMutableMap().apply { put(emp.id, inc.copy(otherDiscounts = it.value?.toDouble() ?: 0.0)) } }
-                                    style { width(45.px); border(0.px) }
+                                    style { width(55.px); border(0.px); backgroundColor(Color("#fff1f2")); color(Color.red) }
                                 }
                             }
                             Td({ style { padding(5.px); property("border", "1px solid #f1f5f9"); textAlign("center"); color(if(absences > 0) Color.red else Color.black) } }) { Text("$absences") }
