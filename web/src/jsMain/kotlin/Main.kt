@@ -1180,7 +1180,6 @@ fun PatrimonialSecurityModule(t: Translations) {
 }
 
 @Composable
-@Composable
 fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
     var logs by remember { mutableStateOf(emptyList<AttendanceLog>()) }
     var isSyncing by remember { mutableStateOf(false) }
@@ -1238,6 +1237,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                     Text(if (isSyncing) "Sincronizando..." else "Sincronizar con Lectora")
                 }
             }
+        }
         
         Div({ style { display(DisplayStyle.Flex); gap(24.px); property("margin-top", "24px") } }) {
             // Estado de la lectora
@@ -1262,7 +1262,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                     }
                     Tbody {
                         if (logs.isEmpty()) {
-                            Tr { Td({ attrs { colSpan(4) }; style { textAlign("center"); padding(20.px); color(Color.gray) } }) { Text("No hay registros recientes.") } }
+                            Tr { Td({ attr("colspan", "4"); style { textAlign("center"); padding(20.px); color(Color.gray) } }) { Text("No hay registros recientes.") } }
                         }
                         logs.take(10).forEach { log ->
                             Tr {
