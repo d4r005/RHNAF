@@ -294,7 +294,7 @@ fun main() {
                         if (resp.status == HttpStatusCode.OK) {
                             // ... (resto del código de asignación de roles igual)
                             val (role, name) = when(u) {
-                                "d.trujillo@brancoindustries.com" -> UserRole.ADMIN to "Daniel Trujillo"
+                                "d.trujillo@brancoindustries.com" -> UserRole.ADMIN to "Dario Robles"
                                 "arni.oziel@brancoindustries.com" -> UserRole.RH to "Arni Oziel"
                                 "compras@brancoindustries.com" -> UserRole.COMPRAS to "Usuario Compras"
                                 "seguridad@brancoindustries.com" -> UserRole.SEGURIDAD to "Seguridad Planta"
@@ -302,8 +302,14 @@ fun main() {
                                 else -> UserRole.EMPLEADO to "Colaborador"
                             }
                             userRole = role
-                            userName = name
-                            window.localStorage.setItem("naf_user_name", userName)
+                            
+                            // Solo sobreescribimos el nombre si no hay uno guardado previamente
+                            val savedName = window.localStorage.getItem("naf_user_name")
+                            if (savedName == null || savedName == "Daniel Trujillo") {
+                                userName = name
+                                window.localStorage.setItem("naf_user_name", name)
+                            }
+
                             if (rememberMe) {
                                 window.localStorage.setItem("naf_saved_email", u)
                             } else {
@@ -402,7 +408,7 @@ fun main() {
                             }
                             Module.INCIDENTS -> SafetyModule(client, scope, t)
                             Module.PATRIMONIAL_SECURITY -> PatrimonialSecurityModule(t)
-                            Module.ATTENDANCE -> AttendanceModule(client, scope, t)
+                            Module.ATTENDANCE -> AttendanceModule(employees, client, scope, t)
                             Module.RECRUITMENT -> RecruitmentModule(t)
                             Module.PAYROLL -> PayrollModule(t)
                             Module.TRAINING -> TrainingModule(t)
@@ -1180,7 +1186,7 @@ fun PatrimonialSecurityModule(t: Translations) {
 }
 
 @Composable
-fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
+fun AttendanceModule(employees: List<Employee>, client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
     var logs by remember { mutableStateOf(emptyList<AttendanceLog>()) }
     var isSyncing by remember { mutableStateOf(false) }
 
@@ -1245,29 +1251,54 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                 H4({ style { margin(0.px) } }) { Text("Terminal Acceso Principal") }
                 P({ style { color(Color("#22c55e")); fontWeight("bold"); fontSize(14.px) } }) { Text("● RECONOCIMIENTO ACTIVO") }
                 P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Modelo: Hikonect Face-ID v2") }
-                P({ style { fontSize(12.px); color(Color.gray) } }) { Text("IP: 192.168.1.100") }
+                P({ style { fontSize(12.px); color(Color.gray) } }) { Text("IP: 10.141.1.230") }
                 P({ style { fontSize(12.px); color(Color.gray) } }) { Text("Estado: Conectado a ERP") }
             }
             
-            Div({ style { flex(2) } }) {
+            Div({ style { flex(3) } }) {
                 H4 { Text("Monitor de Inteligencia (Accesos)") }
                 Table({ style { width(100.percent); fontSize(13.px); property("border-collapse", "collapse") } }) {
                     Thead {
                         Tr {
                             Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Hora") }
-                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Empleado ID") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Foto") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Colaborador") }
                             Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Método") }
                             Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Estado") }
                         }
                     }
                     Tbody {
                         if (logs.isEmpty()) {
-                            Tr { Td({ attr("colspan", "4"); style { textAlign("center"); padding(20.px); color(Color.gray) } }) { Text("No hay registros recientes.") } }
+                            Tr { Td({ attr("colspan", "5"); style { textAlign("center"); padding(20.px); color(Color.gray) } }) { Text("No hay registros recientes.") } }
                         }
-                        logs.take(10).forEach { log ->
+                        logs.sortedByDescending { it.timestamp }.take(15).forEach { log ->
+                            val emp = employees.find { it.id == log.employeeId || it.readerId == log.employeeId }
+                            
+                            val displayTime = try {
+                                if (log.timestamp.contains("T")) {
+                                    log.timestamp.substringAfter("T").take(8)
+                                } else if (log.timestamp.all { it.isDigit() }) {
+                                    // Es un timestamp numérico (ms)
+                                    val date = kotlin.js.Date(log.timestamp.toDouble())
+                                    "${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}"
+                                } else {
+                                    log.timestamp.takeLast(8)
+                                }
+                            } catch (e: Exception) {
+                                log.timestamp
+                            }
+                            
                             Tr {
-                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { Text(log.timestamp.takeLast(8)) }
-                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { B { Text(log.employeeId) } }
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { Text(displayTime) }
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) {
+                                    val photo = emp?.photoUrl ?: "https://api.dicebear.com/7.x/avataaars/svg?seed=${log.employeeId}"
+                                    Img(src = photo) {
+                                        style { width(32.px); height(32.px); borderRadius(50.percent); backgroundColor(Color("#eee")) }
+                                    }
+                                }
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { 
+                                    B { Text(emp?.let { "${it.firstName} ${it.lastName}" } ?: "ID: ${log.employeeId}") } 
+                                }
                                 Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { Text(log.verifyMode) }
                                 Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { 
                                     Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px); fontSize(11.px) } }) { Text(t.get("verified")) } 

@@ -47,8 +47,8 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
 
         post("/sync") {
             try {
-                // Sincronización manual con la lectora
-                val count = attendanceUseCase.syncWithDevice("192.168.1.100")
+                // Sincronización manual con la lectora Hikvision
+                val count = attendanceUseCase.syncWithDevice("10.141.1.230")
                 call.respond(mapOf("status" to "success", "syncedCount" to count))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, mapOf("error" to e.message))
