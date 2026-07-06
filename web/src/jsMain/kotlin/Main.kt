@@ -262,8 +262,8 @@ fun isModuleVisible(module: Module, role: UserRole): Boolean {
 }
 
 // CONFIGURACIÓN DE URL DE BACKEND
-// Usamos rutas relativas para que funcione tanto local como en Hugging Face
-val BACKEND_URL = ""
+// Apuntamos directamente al servidor de Hugging Face para que funcione desde nafconnect.pages.dev
+val BACKEND_URL = "https://d4r005-rhnaf-industrial.hf.space"
 
 fun main() {
     val client = HttpClient(Js) {
