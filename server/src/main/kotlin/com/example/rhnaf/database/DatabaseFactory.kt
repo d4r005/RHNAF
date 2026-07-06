@@ -19,57 +19,84 @@ object DatabaseFactory {
         transaction(database) {
             SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable)
             
-            // Carga de Personal NAF CONNECT desde la lista proporcionada
+            // LIMPIEZA Y CARGA DE PERSONAL COMPLETO (SEGÚN EXCEL)
             if (EmployeeTable.selectAll().empty()) {
-                val personal = listOf(
-                    listOf("114", "Canizales Julian Carlos", "CAJC861013HCLNLN02", "Almacenista", "24/01/2023"),
-                    listOf("162", "Zhao Yun", "ZAKY811214HNENXN07", "Director", "19/07/2023"),
-                    listOf("163", "Cruz Del Angel Gregorio", "CUAG030102HVZRNRA7", "Líder de producción", "03/08/2023"),
-                    listOf("164", "Yang Longan", "YAXL651116HNENXN06", "Técnico Eléctrico", "07/08/2023"),
-                    listOf("165", "Huynh Le Phuoc Thien", "HUXP940316HNEYXN05", "Técnico de Mantenimiento", "26/05/2023"),
-                    listOf("166", "Do Thi Phuong", "DOXT840206MNEXN01", "Técnico de Calidad", "29/12/2025"),
-                    listOf("167", "Nguyen Van Ngoc", "NUXN961126HNEGXG04", "Técnico de Mantenimiento", "10/08/2023"),
-                    listOf("168", "Nguyen Thanh Hong", "NUXT890527HNEGXH00", "Técnico de Mantenimiento", "07/04/2025"),
-                    listOf("171", "Canizales Hernandez Carlos Jose", "CAHC050805HNLNRRA3", "Operador General", "21/08/2023"),
-                    listOf("184", "Cordova Amaro Flor Michel", "COAF960224MNLRML00", "Operador General", "14/09/2023"),
-                    listOf("206", "Hernandez Moreno Miguel Angel", "HEMM851216HTSRRG09", "Operador General", "28/09/2023"),
-                    listOf("220", "Hernandez Ciriaco Adelaida", "HECA770311MNGRRD01", "Operador General", "25/10/2023"),
-                    listOf("221", "Diaz Oviedo Eduardo", "DIDE840124MHGZVD01", "Líder de producción", "25/10/2023"),
-                    listOf("225", "Martinez Peralta Ismael", "MAPI890617HDCRRS03", "Operador General", "27/01/2026"),
-                    listOf("272", "Pham Khac Nhu", "PAKH840619HNENXN03", "Operador General", "29/01/2026"),
-                    listOf("274", "Wang Zhixiang", "WAZX911111HNENXH00", "Técnico de Mantenimiento", "14/12/2023"),
-                    listOf("334", "Gregorio Aguilar Elidet", "GEAE930917MVZRGL04", "Inspector de Calidad", "08/02/2024"),
-                    listOf("341", "Medrano Rodriguez Juan Francisco", "MERF780623HNLNDR02", "Operador General", "02/12/2024"),
-                    listOf("343", "Alvarado Lara Josefina Marleny", "AALJ760406MNLLRS08", "Operador General", "10/02/2024"),
-                    listOf("350", "Lopez Castillo Paola Yamileth", "LOCP000918MNLPLA02", "Operador General", "13/02/2024"),
-                    listOf("355", "Morales Diaz Perla Joshelin", "MODP040727MTSPLA01", "Operador General", "22/02/2024"),
-                    listOf("364", "Cen He", "CEHE811225HNENXH09", "Técnico de Mantenimiento", "21/02/2024"),
-                    listOf("365", "Cao Yanyun", "CAYA761205HNENXX04", "Comprador", "21/02/2024"),
-                    listOf("366", "Wang Jie", "WAXJ880104HNENXX06", "Técnico de Mantenimiento", "21/04/2025"),
-                    listOf("378", "Vazquez Madrigal Salvador", "VAMS971022HVZLDL09", "Operador General", "04/03/2024"),
-                    listOf("395", "Herrera Martinez Amanda Sorely", "HEMA050125MNLRRM00", "Operador General", "04/03/2024"),
-                    listOf("417", "Corpus Salas Yarely Vanessa", "COSY050212MNLRRA00", "Operador General", "28/03/2024"),
-                    listOf("447", "Moreno Moreno Benito", "MOMB920915MCRRND2", "Inspector de Calidad", "27/06/2024"),
-                    listOf("450", "Gonzalez De La O Abraham", "GODA840222MGRNXB02", "Operador General", "18/07/2024"),
-                    listOf("460", "Gonzalez Cobos Mariana", "GOCM940119MVZNBR05", "Operador General", "18/07/2024"),
-                    listOf("466", "Arreola Emiliano Martin Ignacio", "AEEM911205MNLRMN06", "Operador General", "15/01/2026"),
-                    listOf("10021", "Cortes Cavazos Andrea Georgina", "COCA940423MNLRVN08", "Auxiliar de Import-Export", "17/03/2026"),
-                    listOf("10022", "Valenzuela Carrizales Jonathan Fernando", "VACJ011113HNLLRNAS", "Auxiliar de compras", "23/03/2026"),
-                    listOf("10010", "Salazar Rios Arni Oziel", "SARA960801MNLLRS01", "Auxiliar de recursos humanos", "09/02/2026"),
-                    listOf("10009", "Robles Trujillo Jesus Dario", "ROTJ920320HNLBRS04", "Coordinador de EHS", "29/07/2024")
+                val fullStaff = listOf(
+                    listOf("114", "Canizales Julian Carlos", "Almacenista", "24/01/2023"),
+                    listOf("163", "Cruz Del Angel Gregorio", "Líder de producción", "03/08/2023"),
+                    listOf("171", "Canizales Hernandez Carlos Jose", "Operador General", "21/08/2023"),
+                    listOf("184", "Cordova Amaro Flor Michel", "Operador General", "14/09/2023"),
+                    listOf("206", "Hernandez Moreno Miguel Angel", "Operador General", "28/09/2023"),
+                    listOf("220", "Hernandez Ciriaco Adelaida", "Operador General", "25/10/2023"),
+                    listOf("221", "Diaz Oviedo Eduardo", "Líder de producción", "25/10/2023"),
+                    listOf("334", "Gregorio Aguilar Elidet", "Inspector de Calidad", "08/02/2024"),
+                    listOf("341", "Medrano Rodriguez Juan Francisco", "Operador General", "02/12/2024"),
+                    listOf("343", "Alvarado Lara Josefina Marleny", "Operador General", "10/02/2024"),
+                    listOf("350", "Lopez Castillo Paola Yamileth", "Operador General", "13/02/2024"),
+                    listOf("355", "Morales Diaz Perla Joshelin", "Operador General", "22/02/2024"),
+                    listOf("378", "Vazquez Madrigal Salvador", "Operador General", "04/03/2024"),
+                    listOf("395", "Herrera Martinez Amanda Sorely", "Operador General", "04/03/2024"),
+                    listOf("417", "Corpus Salas Yarely Vanessa", "Operador General", "28/03/2024"),
+                    listOf("447", "Moreno Moreno Benito", "Inspector de Calidad", "27/06/2024"),
+                    listOf("450", "Gonzalez De La O Abraham", "Operador General", "18/07/2024"),
+                    listOf("460", "Gonzalez Cobos Mariana", "Operador General", "18/07/2024"),
+                    listOf("472", "Hernandez Hernandez Amadita", "Operador General", "12/07/2024"),
+                    listOf("475", "Marin Ramirez Miguel Angel", "Operador General", "13/11/2023"),
+                    listOf("478", "Lopez Mascareñas Senui Arani", "Operador General", "21/08/2024"),
+                    listOf("479", "Barragan Hernandez Gabriela Guadalupe", "Operador General", "28/08/2024"),
+                    listOf("490", "Hernandez Borjon Gema Citlaly", "Operador General", "12/02/2026"),
+                    listOf("498", "Antonio Gregorio Oliveth", "Operador General", "03/04/2025"),
+                    listOf("987", "Sauceda Llanas Cynthia Esmeralda", "Almacenista", "11/06/2024"),
+                    listOf("988", "Ramirez Aguirre Yahir", "Montacarguista", "08/01/2026"),
+                    listOf("997", "HERNANDEZ ANTONIO MARIO", "Operador General", "13/01/2026"),
+                    listOf("1007", "ZAPATA LOPEZ EVELIN ODALYS", "Operador General", "29/01/2026"),
+                    listOf("1009", "HERNANDEZ SERVANTES CRISTINA", "Operador General", "03/02/2026"),
+                    listOf("1011", "AGUIRRE HERNANDEZ ARACELI", "Operador General", "03/02/2026"),
+                    listOf("1023", "Garcia Guerra Alfredo", "Operador General", "19/02/2026"),
+                    listOf("1029", "Palomo Castillo Lucero Berenice", "Operador General", "03/02/2026"),
+                    listOf("1032", "Santiago Domingo Anastacio", "Operador General", "04/03/2026"),
+                    listOf("1042", "Garcia Serrato Ashly Aily", "Operador General", "04/03/2026"),
+                    listOf("1044", "Martinez Garcia Yesenia", "Operador General", "22/02/2026"),
+                    listOf("1045", "Armenta Resendiz Mauricio", "Operador General", "04/03/2026"),
+                    listOf("1047", "Duarte Orozco Miguel Angel", "Inspector de Calidad", "04/03/2026"),
+                    listOf("1048", "Monroy Palacios Diana Guadalupe", "Operador General", "04/03/2026"),
+                    listOf("1049", "del Angel Reyna Elizabeth", "Operador General", "04/03/2026"),
+                    listOf("1050", "Sanchez Rivero Janett", "Montacarguista", "07/03/2026"),
+                    listOf("1051", "Genaro Fernandez Priscilla", "Operador General", "12/03/2026"),
+                    listOf("1054", "Torres Barbosa Karla Yadira", "Operador General", "12/03/2026"),
+                    listOf("1055", "Reyna Hernandez Brenda Alejandra", "Operador General", "12/03/2026"),
+                    listOf("1057", "Diaz Alarcon David", "Operador General", "12/03/2026"),
+                    listOf("1060", "Hernandez Hernandez Sandra Concepcion", "Operador General", "19/03/2026"),
+                    listOf("1064", "Suarez Romero Roberto Jose", "Operador General", "26/03/2026"),
+                    listOf("1067", "Guemes Garcia Fabiola", "Operador General", "25/03/2026"),
+                    listOf("1073", "Rodriguez Lopez Maria Guadalupe", "Operador General", "14/04/2026"),
+                    listOf("1074", "Huerta Mendoza Jose Ramiro", "Operador General", "15/04/2026"),
+                    listOf("1077", "De Leon Herrera Margarita", "Operador General", "13/04/2026"),
+                    listOf("1082", "DUARTE MONRROY YANETH ALEXANDRA", "Operador General", "23/04/2026"),
+                    listOf("1085", "Acosta Juarez Erik Gamaliel", "Operador General", "23/04/2026"),
+                    listOf("1087", "Lopez Gonzalez Josue Efrain", "Operador General", "27/04/2026"),
+                    listOf("1088", "Hernandez Martinez Vanessa", "Operador General", "27/04/2026"),
+                    listOf("1089", "Adolfo Angel Castillo Martinez", "Operador General", "04/05/2026"),
+                    listOf("1090", "LUZ MARIA ORTEGA RUIZ", "Operador General", "04/05/2026"),
+                    listOf("1091", "JESUS ALBERTO LOPEZ MASCAREÑAS", "Montacarguista", "08/05/2026"),
+                    listOf("1093", "ELDINA DROUAILLET ALEJANDRO", "Operador General", "08/05/2026"),
+                    listOf("1094", "HEIDY NAOMY ROMAN CAMPOS", "Operador General", "08/05/2026"),
+                    listOf("1095", "VICTOR ALEXANDRO HERNANDEZ", "Operador General", "08/05/2026"),
+                    listOf("1096", "CINTIA CAROLINA SALDAÑA PANTOJA", "Operador General", "13/05/2026"),
+                    listOf("10009", "Robles Trujillo Jesus Dario", "Coordinador de EHS", "29/07/2024")
                 )
 
-                personal.forEach { p ->
+                fullStaff.forEach { s ->
                     EmployeeTable.insert {
-                        it[id] = p[0]
-                        val names = p[1].split(" ")
+                        it[id] = s[0]
+                        val names = s[1].split(" ")
                         it[firstName] = names.lastOrNull() ?: ""
                         it[lastName] = names.dropLast(1).joinToString(" ")
-                        it[position] = p[3]
+                        it[position] = s[2]
                         it[department] = "General"
-                        it[entryDate] = p[4]
+                        it[entryDate] = s[3]
                         it[status] = EmployeeStatus.ACTIVE
-                        it[readerId] = p[0] // Usamos el # Emp como ID de lectora
+                        it[readerId] = s[0]
                     }
                 }
             }
