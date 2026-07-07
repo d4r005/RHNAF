@@ -24,7 +24,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
     // cuando además mandan una foto adjunta en el mismo POST).
     suspend fun extractEventJson(call: ApplicationCall): Pair<String, String> {
         val contentType = call.request.contentType()
-        val clientIp = call.request.origin.remoteAddress
+        val clientIp = call.request.origin.remoteHost
 
         if (contentType.match(ContentType.MultiPart.FormData)) {
             var jsonPart = ""
