@@ -143,8 +143,18 @@ object DatabaseFactory {
     // espera el driver, separando usuario y password.
     private fun parsePostgresUrl(raw: String): Triple<String, String, String> {
         val cleaned = raw.removePrefix("postgres://").removePrefix("postgresql://")
-        val (credentials, hostPart) = cleaned.split("@", limit = 2)
-        val (user, password) = credentials.split(":", limit = 2)
+        val atParts = cleaned.split("@", limit = 2)
+        require(atParts.size == 2) {
+            "DATABASE_URL invalida: se esperaba el formato completo " +
+            "postgresql://usuario:password@host:puerto/basededatos, pero se recibio: " +
+            "'${raw.take(15)}...' (posiblemente solo se guardo la password, sin el resto de la cadena)"
+        }
+        val (credentials, hostPart) = atParts
+        val credParts = credentials.split(":", limit = 2)
+        require(credParts.size == 2) {
+            "DATABASE_URL invalida: falta 'usuario:password' antes del @"
+        }
+        val (user, password) = credParts
         // hostPart puede traer ?sslmode=require etc, lo dejamos pasar tal cual
         val jdbcUrl = "jdbc:postgresql://$hostPart" + if (!hostPart.contains("?")) "?sslmode=require" else ""
         return Triple(jdbcUrl, user, password)
