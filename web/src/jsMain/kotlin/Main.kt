@@ -9,6 +9,7 @@ import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.client.request.*
 import io.ktor.client.call.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import com.example.rhnaf.shared.model.*
 import com.example.rhnaf.domain.model.*
@@ -1249,9 +1250,11 @@ fun AttendanceModule(employees: List<Employee>, client: HttpClient, scope: kotli
                             isSyncing = true
                             scope.launch {
                                 try {
-                                    client.post("$BACKEND_URL/api/v1/asistencia/sync")
+                                    val syncResponse: String = client.post("$BACKEND_URL/api/v1/asistencia/sync").bodyAsText()
                                     logs = client.get("$BACKEND_URL/api/v1/asistencia/logs").body()
-                                    window.alert("Sincronización con Hikvision completada.")
+                                    // El servidor en la nube no puede jalar directo de la lectora (red local),
+                                    // asi que mostramos el mensaje real que explica como configurar el push.
+                                    window.alert(syncResponse)
                                 } catch (e: Exception) {
                                     window.alert("Error al sincronizar: ${e.message}")
                                 } finally {

@@ -132,5 +132,30 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             }
             call.respond(logs)
         }
+
+        // El servidor vive en la nube (Hugging Face) y la lectora Hikvision vive
+        // en la red LOCAL de la planta (10.141.1.230) -> desde aqui es IMPOSIBLE
+        // alcanzarla por IP directamente (no hay ruta de red). Por eso este endpoint
+        // NO hace un "pull" magico a la lectora: solo informa el estado real y
+        // deja claro que la sincronizacion real se logra de una de estas dos formas:
+        //   1) Tiempo real: configurar en la propia lectora (menu de Linkage/ISAPI)
+        //      que haga PUSH de sus eventos a esta URL -> /api/v1/asistencia/hikvision
+        //   2) Historico: correr attendance_sync.py desde una PC en la red de planta
+        post("/sync") {
+            val result = attendanceUseCase.syncWithDevice("10.141.1.230")
+            call.respond(
+                mapOf(
+                    "synced" to result,
+                    "message" to (
+                        "El servidor esta en la nube y la lectora esta en la red local de la planta, " +
+                        "por lo que no se puede jalar (pull) directo por IP. Para recibir asistencias reales: " +
+                        "1) configura en la lectora el envio (push) de eventos hacia " +
+                        "https://d4r005-rhnaf-industrial.hf.space/api/v1/asistencia/hikvision, o " +
+                        "2) corre attendance_sync.py desde una computadora conectada a la red de la planta " +
+                        "para subir el historico."
+                    )
+                )
+            )
+        }
     }
 }
