@@ -1250,11 +1250,11 @@ fun AttendanceModule(employees: List<Employee>, client: HttpClient, scope: kotli
                             isSyncing = true
                             scope.launch {
                                 try {
-                                    val syncResponse: String = client.post("$BACKEND_URL/api/v1/asistencia/sync").bodyAsText()
+                                    val syncResult: SyncResult = client.post("$BACKEND_URL/api/v1/asistencia/sync").body()
                                     logs = client.get("$BACKEND_URL/api/v1/asistencia/logs").body()
                                     // El servidor en la nube no puede jalar directo de la lectora (red local),
                                     // asi que mostramos el mensaje real que explica como configurar el push.
-                                    window.alert(syncResponse)
+                                    window.alert(syncResult.message)
                                 } catch (e: Exception) {
                                     window.alert("Error al sincronizar: ${e.message}")
                                 } finally {

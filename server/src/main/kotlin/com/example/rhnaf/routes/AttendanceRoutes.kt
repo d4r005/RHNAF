@@ -5,6 +5,7 @@ import com.example.rhnaf.database.AttendanceLogTable
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.DebugLogTable
 import com.example.rhnaf.domain.model.AttendanceLog
+import com.example.rhnaf.domain.model.SyncResult
 import com.example.rhnaf.service.AttendanceUseCase
 import io.ktor.http.*
 import io.ktor.http.content.*
@@ -12,10 +13,12 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.*
 
 private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
 
 fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
 
@@ -144,9 +147,9 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
         post("/sync") {
             val result = attendanceUseCase.syncWithDevice("10.141.1.230")
             call.respond(
-                mapOf(
-                    "synced" to result,
-                    "message" to (
+                SyncResult(
+                    synced = result,
+                    message = (
                         "El servidor esta en la nube y la lectora esta en la red local de la planta, " +
                         "por lo que no se puede jalar (pull) directo por IP. Para recibir asistencias reales: " +
                         "1) configura en la lectora el envio (push) de eventos hacia " +
