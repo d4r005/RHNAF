@@ -12,13 +12,31 @@ import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransacti
 
 object DatabaseFactory {
     fun init() {
-        val driverClassName = "org.h2.Driver"
-        val jdbcURL = "jdbc:h2:file:./build/db"
-        val database = Database.connect(createHikariDataSource(jdbcURL, driverClassName))
-        
+        // --------------------------------------------------------------
+        // Persistencia real: si existe DATABASE_URL (Postgres, ej. Neon/
+        // Supabase) la usamos — así los datos NO se pierden en cada
+        // redeploy del contenedor en Hugging Face. Si no está configurada,
+        // caemos a H2 en archivo local SOLO para desarrollo.
+        //
+        // Formato esperado de DATABASE_URL:
+        //   postgres://usuario:password@host:5432/nombre_db
+        // (el formato típico que dan Neon/Supabase/Render). Lo convertimos
+        // al formato jdbc:postgresql:// que espera el driver.
+        // --------------------------------------------------------------
+        val rawDatabaseUrl = System.getenv("DATABASE_URL")
+
+        val database = if (!rawDatabaseUrl.isNullOrBlank()) {
+            val (jdbcUrl, user, password) = parsePostgresUrl(rawDatabaseUrl)
+            println("[DatabaseFactory] Usando Postgres persistente en ${jdbcUrl.substringBefore("?")}")
+            Database.connect(createHikariDataSource(jdbcUrl, "org.postgresql.Driver", user, password))
+        } else {
+            println("[DatabaseFactory] ADVERTENCIA: DATABASE_URL no configurada, usando H2 local (./build/db). Esto se BORRA en cada redeploy.")
+            Database.connect(createHikariDataSource("jdbc:h2:file:./build/db", "org.h2.Driver"))
+        }
+
         transaction(database) {
             SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable)
-            
+
             // LIMPIEZA Y CARGA DE PERSONAL COMPLETO (SEGÚN EXCEL)
             if (EmployeeTable.selectAll().empty()) {
                 val fullStaff = listOf(
@@ -120,12 +138,28 @@ object DatabaseFactory {
         }
     }
 
+    // Convierte una URL estilo postgres://user:pass@host:port/dbname
+    // (formato de Neon/Supabase/Render) al formato jdbc:postgresql://... que
+    // espera el driver, separando usuario y password.
+    private fun parsePostgresUrl(raw: String): Triple<String, String, String> {
+        val cleaned = raw.removePrefix("postgres://").removePrefix("postgresql://")
+        val (credentials, hostPart) = cleaned.split("@", limit = 2)
+        val (user, password) = credentials.split(":", limit = 2)
+        // hostPart puede traer ?sslmode=require etc, lo dejamos pasar tal cual
+        val jdbcUrl = "jdbc:postgresql://$hostPart" + if (!hostPart.contains("?")) "?sslmode=require" else ""
+        return Triple(jdbcUrl, user, password)
+    }
+
     private fun createHikariDataSource(
         url: String,
-        driver: String
+        driver: String,
+        user: String? = null,
+        password: String? = null
     ) = HikariDataSource(HikariConfig().apply {
         driverClassName = driver
         jdbcUrl = url
+        if (user != null) username = user
+        if (password != null) this.password = password
         maximumPoolSize = 3
         isAutoCommit = false
         transactionIsolation = "TRANSACTION_REPEATABLE_READ"

@@ -1,24 +1,53 @@
 package com.example.rhnaf.routes
 
+import com.example.rhnaf.api.HikvisionEventRequest
 import com.example.rhnaf.database.AttendanceLogTable
 import com.example.rhnaf.database.DatabaseFactory
+import com.example.rhnaf.database.DebugLogTable
 import com.example.rhnaf.domain.model.AttendanceLog
 import com.example.rhnaf.service.AttendanceUseCase
-import com.example.rhnaf.database.DebugLogTable
+import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.http.*
-import io.ktor.server.plugins.*
+import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.*
 
+private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
 fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
-    
-    suspend fun handleHikvisionRequest(call: ApplicationCall) {
-        val rawBody = call.receiveText()
+
+    // Extrae el JSON del evento sin importar si viene como body plano
+    // o como multipart/form-data (formato típico de las lectoras Hikvision
+    // cuando además mandan una foto adjunta en el mismo POST).
+    suspend fun extractEventJson(call: ApplicationCall): Pair<String, String> {
+        val contentType = call.request.contentType()
         val clientIp = call.request.origin.remoteAddress
-        
+
+        if (contentType.match(ContentType.MultiPart.FormData)) {
+            var jsonPart = ""
+            val multipart = call.receiveMultipart()
+            multipart.forEachPart { part ->
+                if (part is PartData.FormItem &&
+                    (part.name == "event_log" || part.name == "param" || part.value.contains("employeeNoString"))
+                ) {
+                    jsonPart = part.value
+                }
+                part.dispose()
+            }
+            return jsonPart to clientIp
+        }
+
+        // Fallback: body plano (JSON o XML)
+        return call.receiveText() to clientIp
+    }
+
+    suspend fun handleHikvisionRequest(call: ApplicationCall) {
+        val (rawBody, clientIp) = extractEventJson(call)
+
+        // Guardamos SIEMPRE el crudo para poder diagnosticar qué manda la lectora
         DatabaseFactory.dbQuery {
             DebugLogTable.insert {
                 it[timestamp] = java.time.LocalDateTime.now().toString()
@@ -26,17 +55,49 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                 it[sourceIp] = clientIp
             }
         }
-        
-        val idEmpleado = if (rawBody.contains("employeeNoString")) {
-            rawBody.substringAfter("employeeNoString\":\"").substringBefore("\"")
-        } else if (rawBody.contains("<employeeNo>")) {
-            rawBody.substringAfter("<employeeNo>").substringBefore("</employeeNo>")
-        } else "UNKNOWN"
 
-        if (idEmpleado != "UNKNOWN" && idEmpleado.isNotEmpty()) {
-            attendanceUseCase.registerCheckIn(idEmpleado, java.time.LocalDateTime.now().toString(), "HIK-WEB", "Face")
+        var employeeNo: String? = null
+        var deviceId = "HIK-WEB"
+        var verifyMode = "Face"
+
+        // 1) Intentamos deserializar el JSON estructurado (formato ISAPI estándar)
+        runCatching {
+            val event = lenientJson.decodeFromString<HikvisionEventRequest>(rawBody)
+            employeeNo = event.AccessControllerEvent.employeeNoString
+            deviceId = event.deviceID
+            verifyMode = event.AccessControllerEvent.currentVerifyMode
         }
-        
+
+        // 2) Si falla, caemos al parsing manual (JSON suelto o XML), como red de seguridad
+        if (employeeNo.isNullOrBlank()) {
+            employeeNo = when {
+                rawBody.contains("employeeNoString") ->
+                    rawBody.substringAfter("employeeNoString\"").substringAfter(":").substringAfter("\"").substringBefore("\"")
+                rawBody.contains("<employeeNo>") ->
+                    rawBody.substringAfter("<employeeNo>").substringBefore("</employeeNo>")
+                else -> null
+            }
+        }
+
+        if (!employeeNo.isNullOrBlank()) {
+            attendanceUseCase.registerCheckIn(
+                employeeId = employeeNo!!,
+                timestamp = java.time.LocalDateTime.now().toString(),
+                deviceSerial = deviceId,
+                verifyMode = verifyMode
+            )
+        } else {
+            // Deja rastro de los eventos que no se pudieron mapear a un empleado
+            DatabaseFactory.dbQuery {
+                DebugLogTable.insert {
+                    it[timestamp] = java.time.LocalDateTime.now().toString()
+                    it[rawContent] = "HIK-POST SIN employeeNo RECONOCIDO | BODY: $rawBody"
+                    it[sourceIp] = clientIp
+                }
+            }
+        }
+
+        // Hikvision espera SIEMPRE 200 OK con este formato, o reintenta/deja de mandar eventos
         call.respondText("{\"statusString\":\"OK\",\"statusCode\":1}", contentType = ContentType.Application.Json)
     }
 
@@ -49,42 +110,27 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
         post("/hikvision") { handleHikvisionRequest(call) }
 
         get("/debug") {
-            try {
-                DatabaseFactory.dbQuery {
-                    DebugLogTable.insert {
-                        it[timestamp] = java.time.LocalDateTime.now().toString()
-                        it[rawContent] = "DEBUG PAGE VISIT"
-                        it[sourceIp] = call.request.origin.remoteAddress
-                    }
+            val debug = DatabaseFactory.dbQuery {
+                DebugLogTable.selectAll().orderBy(DebugLogTable.id, SortOrder.DESC).limit(20).map {
+                    "${it[DebugLogTable.timestamp]} | ${it[DebugLogTable.sourceIp]} | ${it[DebugLogTable.rawContent]}"
                 }
-                val debug = DatabaseFactory.dbQuery {
-                    DebugLogTable.selectAll().orderBy(DebugLogTable.id, SortOrder.DESC).limit(20).map {
-                        "${it[DebugLogTable.timestamp]} | ${it[DebugLogTable.sourceIp]} | ${it[DebugLogTable.rawContent]}"
-                    }
-                }
-                call.respond(debug)
-            } catch (e: Exception) {
-                call.respond(listOf("Error: ${e.message}"))
             }
+            call.respond(debug)
         }
 
         get("/logs") {
-            try {
-                val logs = DatabaseFactory.dbQuery {
-                    AttendanceLogTable.selectAll().map {
-                        AttendanceLog(
-                            id = it[AttendanceLogTable.id].toString(),
-                            employeeId = it[AttendanceLogTable.employeeId],
-                            timestamp = it[AttendanceLogTable.timestamp],
-                            deviceSerial = it[AttendanceLogTable.deviceSerial],
-                            verifyMode = it[AttendanceLogTable.verifyMode]
-                        )
-                    }
+            val logs = DatabaseFactory.dbQuery {
+                AttendanceLogTable.selectAll().orderBy(AttendanceLogTable.id, SortOrder.DESC).map {
+                    AttendanceLog(
+                        id = it[AttendanceLogTable.id].toString(),
+                        employeeId = it[AttendanceLogTable.employeeId],
+                        timestamp = it[AttendanceLogTable.timestamp],
+                        deviceSerial = it[AttendanceLogTable.deviceSerial],
+                        verifyMode = it[AttendanceLogTable.verifyMode]
+                    )
                 }
-                call.respond(logs)
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, mapOf("error" to e.message))
             }
+            call.respond(logs)
         }
     }
 }

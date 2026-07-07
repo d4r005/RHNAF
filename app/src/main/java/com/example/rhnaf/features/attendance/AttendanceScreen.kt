@@ -15,8 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.rhnaf.data.local.entities.AttendanceLogEntity
-import com.example.rhnaf.data.local.entities.AttendanceType
+import com.example.rhnaf.domain.model.AttendanceLog
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -74,7 +73,7 @@ fun AttendanceScreen(
                         modifier = Modifier.size(48.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
-                    
+
                     Text(
                         text = "Registro de Checada Diario",
                         style = MaterialTheme.typography.titleMedium,
@@ -112,27 +111,41 @@ fun AttendanceScreen(
 
             HorizontalDivider()
 
-            // Historial de Registros Recientes en Planta
-            Text(
-                text = "Últimos Movimientos del Turno",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
+            // Historial REAL de la planta: viene del servidor central, así que
+            // incluye tanto las checadas de la lectora facial como las manuales
+            // de cualquier persona usando la app — no solo las de este celular.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Últimos Movimientos en Planta",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                IconButton(onClick = { viewModel.refreshRemoteLogsNow() }) {
+                    Icon(Icons.Default.Fingerprint, contentDescription = "Actualizar")
+                }
+            }
 
-            if (state.logs.isEmpty()) {
+            if (state.remoteLogs.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxWidth().height(200.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No hay registros el día de hoy.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "No hay registros aún, o no se pudo conectar al servidor.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    state.logs.forEach { log ->
-                        AttendanceLogItem(log)
+                    state.remoteLogs.take(50).forEach { log ->
+                        RemoteAttendanceLogItem(log)
                     }
                 }
             }
@@ -141,10 +154,8 @@ fun AttendanceScreen(
 }
 
 @Composable
-fun AttendanceLogItem(log: AttendanceLogEntity) {
-    val sdf = SimpleDateFormat("HH:mm:ss dd/MM/yyyy", Locale.getDefault())
-    val formattedDate = sdf.format(Date(log.timestamp))
-    val logTypeStr = if (log.type == AttendanceType.CLOCK_IN) "ENTRADA" else "SALIDA"
+fun RemoteAttendanceLogItem(log: AttendanceLog) {
+    val formattedDate = formatServerTimestamp(log.timestamp)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -166,19 +177,39 @@ fun AttendanceLogItem(log: AttendanceLogEntity) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Text(
+                    text = "${log.deviceSerial} · ${log.verifyMode}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            
+
             AssistChip(
                 onClick = { },
-                label = { Text(logTypeStr) },
+                label = { Text(log.verifyMode.uppercase(Locale.getDefault())) },
                 leadingIcon = {
                     Icon(
-                        imageVector = if (log.type == AttendanceType.CLOCK_IN) Icons.AutoMirrored.Filled.Login else Icons.AutoMirrored.Filled.Logout,
+                        imageVector = Icons.AutoMirrored.Filled.Login,
                         contentDescription = null,
-                        tint = if (log.type == AttendanceType.CLOCK_IN) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             )
         }
+    }
+}
+
+// El servidor manda el timestamp como texto (LocalDateTime.toString() o millis
+// del "APP-MANUAL"). Intentamos varios formatos comunes y, si ninguno aplica,
+// mostramos el texto crudo tal cual llegó.
+private fun formatServerTimestamp(raw: String): String {
+    raw.toLongOrNull()?.let {
+        return SimpleDateFormat("HH:mm:ss dd/MM/yyyy", Locale.getDefault()).format(Date(it))
+    }
+    return try {
+        val parsed = java.time.LocalDateTime.parse(raw)
+        parsed.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy"))
+    } catch (e: Exception) {
+        raw
     }
 }
