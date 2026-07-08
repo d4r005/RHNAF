@@ -35,7 +35,7 @@ object DatabaseFactory {
         }
 
         transaction(database) {
-            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable)
+            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable)
 
             // LIMPIEZA Y CARGA DE PERSONAL COMPLETO (SEGÚN EXCEL)
             if (EmployeeTable.selectAll().empty()) {

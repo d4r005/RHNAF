@@ -248,13 +248,15 @@ enum class Module {
     WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY, MAINTENANCE, EMPLOYEE_PORTAL, FINANCE, ENERGY, USER_MANAGEMENT
 }
 
-enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO }
+enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, ALMACEN, IMPORT_EXPORT }
 
 fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
     return when(role) {
         UserRole.RH -> module in listOf(Module.DASHBOARD, Module.EMPLOYEES, Module.RECRUITMENT, Module.ATTENDANCE, Module.PAYROLL, Module.INCIDENTS_PANEL, Module.TRAINING, Module.PERFORMANCE, Module.VACATIONS, Module.DOCUMENTS, Module.REPORTS, Module.TALENT_MARKET, Module.PULSE_SURVEY, Module.BENEFITS, Module.WORKFLOWS, Module.SETTINGS)
         UserRole.COMPRAS -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.ASSETS, Module.FINANCE, Module.SETTINGS)
+        UserRole.ALMACEN -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SETTINGS)
+        UserRole.IMPORT_EXPORT -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.SETTINGS)
         UserRole.MANTENIMIENTO -> module in listOf(Module.DASHBOARD, Module.MAINTENANCE, Module.ENERGY, Module.ASSETS, Module.SETTINGS)
         UserRole.SEGURIDAD -> module in listOf(Module.DASHBOARD, Module.INCIDENTS, Module.PATRIMONIAL_SECURITY, Module.SETTINGS)
         UserRole.EMPLEADO -> module in listOf(Module.DASHBOARD, Module.EMPLOYEE_PORTAL, Module.SETTINGS)
@@ -301,6 +303,8 @@ fun main() {
                                 "compras@brancoindustries.com" -> UserRole.COMPRAS to "Usuario Compras"
                                 "seguridad@brancoindustries.com" -> UserRole.SEGURIDAD to "Seguridad Planta"
                                 "mantenimiento@brancoindustries.com" -> UserRole.MANTENIMIENTO to "Ing. Mantenimiento"
+                                "almacen@brancoindustries.com" -> UserRole.ALMACEN to "Personal de Almacén"
+                                "importexport@brancoindustries.com" -> UserRole.IMPORT_EXPORT to "Personal de Import/Export"
                                 else -> UserRole.EMPLEADO to "Colaborador"
                             }
                             userRole = role
@@ -420,8 +424,8 @@ fun main() {
                             Module.DOCUMENTS -> DocumentsModule(t)
                             Module.REPORTS -> ReportsModule(t)
                             Module.TALENT_MARKET -> TalentMarketModule(t)
-                            Module.WAREHOUSE -> WarehouseModule(t)
-                            Module.IMPORT_EXPORT -> ImportExportModule(t)
+                            Module.WAREHOUSE -> WarehouseModule(client, scope, t, userRole)
+                            Module.IMPORT_EXPORT -> ImportExportModule(client, scope, t, userRole)
                             Module.MAINTENANCE -> MaintenanceModule(t)
                             Module.EMPLOYEE_PORTAL -> EmployeePortalModule(t)
                             Module.FINANCE -> FinanceModule(t)
@@ -2147,31 +2151,136 @@ fun WorkflowsModule(t: Translations) {
 }
 
 @Composable
-fun WarehouseModule(t: Translations) {
-    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text(t.get("warehouse")) }
-        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr 1fr"); gap(24.px); marginBottom(32.px) } }) {
-            StatCard(t.get("stock"), "15,240 SKU", "98% Precisión", SidebarActiveColor)
-            StatCard(t.get("suppliers"), "42 Activos", "3 en espera", Color("#10b981"))
-            StatCard("Órdenes Compra", "12", "Pendientes", Color("#f59e0b"))
+fun WarehouseModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations, userRole: UserRole) {
+    val canEdit = userRole == UserRole.ADMIN || userRole == UserRole.ALMACEN
+    WarehouseDataView(client, scope, t, canEdit, t.get("warehouse"))
+}
+
+@Composable
+fun ImportExportModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations, userRole: UserRole) {
+    val canEdit = userRole == UserRole.ADMIN
+    WarehouseDataView(client, scope, t, canEdit, t.get("import_export"))
+}
+
+enum class WarehouseTab { INVENTARIO, ENTRADAS, ENVIOS, RESUMEN }
+
+@Composable
+fun WarehouseDataView(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations, canEdit: Boolean, titulo: String) {
+    var tab by remember { mutableStateOf(WarehouseTab.INVENTARIO) }
+    var inventario by remember { mutableStateOf(emptyList<WarehouseInventoryItem>()) }
+    var entradas by remember { mutableStateOf(emptyList<WarehouseIncomingLog>()) }
+    var envios by remember { mutableStateOf(emptyList<Shipment>()) }
+    var resumen by remember { mutableStateOf(emptyList<ShipmentSummary>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+
+    LaunchedEffect(refreshKey) {
+        isLoading = true
+        try {
+            inventario = client.get("$BACKEND_URL/api/v1/almacen/inventario").body()
+            entradas = client.get("$BACKEND_URL/api/v1/almacen/entradas").body()
+            envios = client.get("$BACKEND_URL/api/v1/almacen/envios").body()
+            resumen = client.get("$BACKEND_URL/api/v1/almacen/envios-resumen").body()
+        } catch (e: Exception) {
+            println("Error cargando datos de almacén: ${e.message}")
+        } finally {
+            isLoading = false
         }
-        
-        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); marginBottom(16.px) } }) {
-            H4 { Text("Últimos Movimientos de Inventario") }
-            Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px) } }) {
-                Text("+ Registro de Entrada/Salida")
+    }
+
+    fun refresh() { refreshKey++ }
+
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(16.px) } }) {
+            H3({ style { margin(0.px) } }) { Text(titulo) }
+            if (!canEdit) {
+                Span({ style { color(Color.gray); fontSize(13.px) } }) { Text("Solo lectura") }
             }
         }
-        
-        Table({ style { width(100.percent) } }) {
-            Thead { Tr { Th { Text("SKU") }; Th { Text("Producto") }; Th { Text("Cantidad") }; Th { Text("Ubicación") } } }
-            Tbody {
-                listOf("M-701" to "Acero Inox Grade A", "P-202" to "Válvula Industrial 4\"", "E-105" to "Cable Cobre 100m").forEach { (sku, prod) ->
-                    Tr {
-                        Td { Text(sku) }
-                        Td { Text(prod) }
-                        Td { Text("500") }
-                        Td { Text("Pasillo B-12") }
+
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "1fr 1fr 1fr"); gap(24.px); marginBottom(24.px) } }) {
+            StatCard("Existencia (Almacén)", inventario.size.toString(), "Registros por ubicación", SidebarActiveColor)
+            StatCard("Entradas Registradas", entradas.size.toString(), "Con fecha de llegada", Color("#10b981"))
+            StatCard("Envíos Registrados", envios.size.toString(), "Salidas de planta", Color("#f59e0b"))
+        }
+
+        Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); property("border-bottom", "1px solid #e2e8f0"); paddingBottom(8.px) } }) {
+            listOf(
+                WarehouseTab.INVENTARIO to "Inventario",
+                WarehouseTab.ENTRADAS to "Entradas",
+                WarehouseTab.ENVIOS to "Envíos",
+                WarehouseTab.RESUMEN to "Resumen Envíos"
+            ).forEach { (tb, label) ->
+                Button({
+                    style {
+                        padding(8.px, 16.px); borderRadius(6.px); property("border", "none"); cursor("pointer")
+                        backgroundColor(if (tab == tb) SidebarActiveColor else Color("#f1f5f9"))
+                        color(if (tab == tb) Color.white else Color("#334155"))
+                        fontWeight("bold")
+                    }
+                    onClick { tab = tb }
+                }) { Text(label) }
+            }
+        }
+
+        if (isLoading) {
+            P { Text("Cargando...") }
+        } else {
+            when (tab) {
+                WarehouseTab.INVENTARIO -> InventarioTab(client, scope, canEdit, inventario, ::refresh)
+                WarehouseTab.ENTRADAS -> EntradasTab(client, scope, canEdit, entradas, ::refresh)
+                WarehouseTab.ENVIOS -> EnviosTab(client, scope, canEdit, envios, ::refresh)
+                WarehouseTab.RESUMEN -> ResumenTab(client, scope, canEdit, resumen, ::refresh)
+            }
+        }
+    }
+}
+
+@Composable
+fun InventarioTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canEdit: Boolean, items: List<WarehouseInventoryItem>, onChange: () -> Unit) {
+    var lugar by remember { mutableStateOf("") }
+    var po by remember { mutableStateOf("") }
+    var modelo by remember { mutableStateOf("") }
+    var cantidad by remember { mutableStateOf("") }
+
+    if (canEdit) {
+        Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px) } }) {
+            Input(InputType.Text) { placeholder("Lugar"); value(lugar); onInput { lugar = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+            Input(InputType.Text) { placeholder("PO#"); value(po); onInput { po = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+            Input(InputType.Text) { placeholder("Modelo"); value(modelo); onInput { modelo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+            Input(InputType.Text) { placeholder("Cantidad"); value(cantidad); onInput { cantidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+            Button({
+                style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                onClick {
+                    if (lugar.isNotBlank()) {
+                        scope.launch {
+                            client.post("$BACKEND_URL/api/v1/almacen/inventario") {
+                                contentType(ContentType.Application.Json)
+                                setBody(WarehouseInventoryItem(lugar = lugar, po = po, modelo = modelo, cantidad = cantidad))
+                            }
+                            lugar = ""; po = ""; modelo = ""; cantidad = ""
+                            onChange()
+                        }
+                    }
+                }
+            }) { Text("+ Agregar") }
+        }
+    }
+
+    Table({ style { width(100.percent) } }) {
+        Thead { Tr { Th { Text("Lugar") }; Th { Text("PO#") }; Th { Text("Modelo") }; Th { Text("Cantidad") }; Th { Text("Falta") }; Th { Text("Existencia") }; if (canEdit) Th { Text("") } } }
+        Tbody {
+            items.forEach { item ->
+                Tr {
+                    Td { Text(item.lugar) }; Td { Text(item.po) }; Td { Text(item.modelo) }
+                    Td { Text(item.cantidad) }; Td { Text(item.falta) }; Td { Text(item.existencia) }
+                    if (canEdit) {
+                        Td {
+                            Button({
+                                style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
+                                onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/almacen/inventario/${item.id}"); onChange() } }
+                            }) { Text("Eliminar") }
+                        }
                     }
                 }
             }
@@ -2180,33 +2289,98 @@ fun WarehouseModule(t: Translations) {
 }
 
 @Composable
-fun ImportExportModule(t: Translations) {
-    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3 { Text(t.get("import_export")) }
-        P({ style { color(Color.gray); marginBottom(24.px) } }) { Text(t.get("customs")) }
-        
-        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "2fr 1fr"); gap(24.px) } }) {
-            Div {
-                H4 { Text("Embarques en Tránsito") }
-                listOf("Contenedor MSC-901 (China)" to "En Aduana", "Carga Aérea DHL-402 (Alemania)" to "En Ruta", "Camión Laredo-102 (USA)" to "Descargando").forEach { (ship, status) ->
-                    Div({ style { padding(16.px); backgroundColor(Color("#f1f5f9")); borderRadius(8.px); marginBottom(12.px); display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween) } }) {
-                        Text(ship)
-                        Span({ style { fontWeight("bold"); color(if(status == "En Aduana") Color("#ef4444") else SidebarActiveColor) } }) { Text(status) }
+fun EntradasTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canEdit: Boolean, items: List<WarehouseIncomingLog>, onChange: () -> Unit) {
+    Table({ style { width(100.percent) } }) {
+        Thead { Tr { Th { Text("Fecha") }; Th { Text("PO#") }; Th { Text("Modelo") }; Th { Text("Cantidad") }; Th { Text("Ubicación") }; if (canEdit) Th { Text("") } } }
+        Tbody {
+            items.sortedByDescending { it.fecha }.forEach { item ->
+                Tr {
+                    Td { Text(item.fecha) }; Td { Text(item.po) }; Td { Text(item.modelo) }; Td { Text(item.cantidad) }; Td { Text(item.ubicacion) }
+                    if (canEdit) {
+                        Td {
+                            Button({
+                                style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
+                                onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/almacen/entradas/${item.id}"); onChange() } }
+                            }) { Text("Eliminar") }
+                        }
                     }
-                }
-            }
-            Div({ style { padding(20.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px) } }) {
-                H4 { Text("Documentación Pendiente") }
-                listOf("Certificados de Origen", "Facturas Comerciales", "Listas de Empaque").forEach { doc ->
-                    Div({ style { padding(8.px, 0.px); property("border-bottom", "1px solid #e2e8f0") } }) {
-                        Text("● $doc")
-                    }
-                }
-                Button({ style { marginTop(16.px); width(100.percent); padding(8.px); backgroundColor(Color("#0f172a")); color(Color.white); property("border", "none"); borderRadius(6.px) } }) {
-                    Text("Revisar Compliance")
                 }
             }
         }
+    }
+}
+
+@Composable
+fun EnviosTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canEdit: Boolean, items: List<Shipment>, onChange: () -> Unit) {
+    var filtroCliente by remember { mutableStateOf("") }
+    val clientes = items.map { it.cliente }.distinct().sorted()
+
+    Div({ style { marginBottom(12.px) } }) {
+        Select({
+            style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") }
+            onChange { e -> filtroCliente = (e.target as org.w3c.dom.HTMLSelectElement).value }
+        }) {
+            Option("") { Text("Todos los clientes") }
+            clientes.forEach { c -> Option(c) { Text(c) } }
+        }
+    }
+
+    val filtrados = if (filtroCliente.isBlank()) items else items.filter { it.cliente == filtroCliente }
+
+    Table({ style { width(100.percent) } }) {
+        Thead {
+            Tr {
+                Th { Text("Cliente") }; Th { Text("Fecha carga") }; Th { Text("PO/Contenedor") }; Th { Text("SKU") }
+                Th { Text("Sello") }; Th { Text("Placa") }; Th { Text("Cant. M2") }; Th { Text("Gabinetes") }
+                Th { Text("Conductor") }; Th { Text("Hora inicio") }; Th { Text("Hora fin") }; Th { Text("Operador") }; Th { Text("Inspector") }
+                if (canEdit) Th { Text("") }
+            }
+        }
+        Tbody {
+            filtrados.sortedByDescending { it.fechaCarga }.take(300).forEach { item ->
+                Tr {
+                    Td { Text(item.cliente) }; Td { Text(item.fechaCarga) }; Td { Text(item.poContenedor) }; Td { Text(item.sku) }
+                    Td { Text(item.numeroSello) }; Td { Text(item.placa) }; Td { Text(item.cantidad) }; Td { Text(item.gabinetes) }
+                    Td { Text(item.conductor) }; Td { Text(item.horaInicio) }; Td { Text(item.horaFin) }; Td { Text(item.operador) }; Td { Text(item.inspector) }
+                    if (canEdit) {
+                        Td {
+                            Button({
+                                style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
+                                onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/almacen/envios/${item.id}"); onChange() } }
+                            }) { Text("Eliminar") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (filtrados.size > 300) {
+        P({ style { color(Color.gray); marginTop(8.px) } }) { Text("Mostrando los 300 más recientes de ${filtrados.size} registros.") }
+    }
+}
+
+@Composable
+fun ResumenTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canEdit: Boolean, items: List<ShipmentSummary>, onChange: () -> Unit) {
+    Table({ style { width(100.percent) } }) {
+        Thead { Tr { Th { Text("Cliente") }; Th { Text("PO#") }; Th { Text("Modelo") }; Th { Text("Cantidad") }; Th { Text("Fecha") }; if (canEdit) Th { Text("") } } }
+        Tbody {
+            items.sortedByDescending { it.fecha }.take(300).forEach { item ->
+                Tr {
+                    Td { Text(item.cliente) }; Td { Text(item.po) }; Td { Text(item.modelo) }; Td { Text(item.cantidad) }; Td { Text(item.fecha) }
+                    if (canEdit) {
+                        Td {
+                            Button({
+                                style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
+                                onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/almacen/envios-resumen/${item.id}"); onChange() } }
+                            }) { Text("Eliminar") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (items.size > 300) {
+        P({ style { color(Color.gray); marginTop(8.px) } }) { Text("Mostrando los 300 más recientes de ${items.size} registros.") }
     }
 }
 
