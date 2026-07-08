@@ -248,7 +248,7 @@ enum class Module {
     WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY, MAINTENANCE, EMPLOYEE_PORTAL, FINANCE, ENERGY, USER_MANAGEMENT
 }
 
-enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, ALMACEN, IMPORT_EXPORT }
+enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, ALMACEN, IMPORT_EXPORT, FINANZAS }
 
 fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
@@ -257,6 +257,7 @@ fun isModuleVisible(module: Module, role: UserRole): Boolean {
         UserRole.COMPRAS -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.ASSETS, Module.FINANCE, Module.SETTINGS)
         UserRole.ALMACEN -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SETTINGS)
         UserRole.IMPORT_EXPORT -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.SETTINGS)
+        UserRole.FINANZAS -> module in listOf(Module.DASHBOARD, Module.FINANCE, Module.PAYROLL, Module.SETTINGS)
         UserRole.MANTENIMIENTO -> module in listOf(Module.DASHBOARD, Module.MAINTENANCE, Module.ENERGY, Module.ASSETS, Module.SETTINGS)
         UserRole.SEGURIDAD -> module in listOf(Module.DASHBOARD, Module.INCIDENTS, Module.PATRIMONIAL_SECURITY, Module.SETTINGS)
         UserRole.EMPLEADO -> module in listOf(Module.DASHBOARD, Module.EMPLOYEE_PORTAL, Module.SETTINGS)
@@ -305,6 +306,7 @@ fun main() {
                                 "mantenimiento@brancoindustries.com" -> UserRole.MANTENIMIENTO to "Ing. Mantenimiento"
                                 "almacen@brancoindustries.com" -> UserRole.ALMACEN to "Personal de Almacén"
                                 "importexport@brancoindustries.com" -> UserRole.IMPORT_EXPORT to "Personal de Import/Export"
+                                "finanzas@brancoindustries.com" -> UserRole.FINANZAS to "Control Financiero"
                                 else -> UserRole.EMPLEADO to "Colaborador"
                             }
                             userRole = role

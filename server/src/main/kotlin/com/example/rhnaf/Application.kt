@@ -63,22 +63,23 @@ fun Application.module() {
         route("/api") {
             post("/login") {
                 val credentials = call.receive<Map<String, String>>()
-                val username = credentials["username"]
-                val password = credentials["password"]
+                val username = credentials["username"] ?: ""
+                val password = credentials["password"] ?: ""
                 
-                // Login con usuarios y roles (Demo)
-                val validUsers = mapOf(
-                    "d.trujillo@brancoindustries.com" to "Branco2025",
-                    "arni.oziel@brancoindustries.com" to "Branco2025",
-                    "compras@brancoindustries.com" to "Branco2025",
-                    "seguridad@brancoindustries.com" to "Branco2025",
-                    "mantenimiento@brancoindustries.com" to "Branco2025",
-                    "almacen@brancoindustries.com" to "Branco2025",
-                    "importexport@brancoindustries.com" to "Branco2025"
-                )
+                val user = DatabaseFactory.dbQuery {
+                    com.example.rhnaf.database.UserTable.selectAll().where { 
+                        (com.example.rhnaf.database.UserTable.email eq username) and 
+                        (com.example.rhnaf.database.UserTable.password eq password) 
+                    }.singleOrNull()
+                }
                 
-                if (validUsers[username] == password) {
-                    call.respond(mapOf("status" to "success", "token" to "mock-jwt-token-nafconnect"))
+                if (user != null) {
+                    call.respond(mapOf(
+                        "status" to "success", 
+                        "token" to "mock-jwt-token-nafconnect",
+                        "role" to user[com.example.rhnaf.database.UserTable.role],
+                        "name" to user[com.example.rhnaf.database.UserTable.name]
+                    ))
                 } else {
                     call.respond(HttpStatusCode.Unauthorized, mapOf("status" to "error", "message" to "Credenciales incorrectas"))
                 }

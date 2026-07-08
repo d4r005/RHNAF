@@ -35,7 +35,26 @@ object DatabaseFactory {
         }
 
         transaction(database) {
-            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable)
+            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable)
+
+            // CARGA DE USUARIOS DEL SISTEMA (ADMIN/OPERACIONES)
+            if (UserTable.selectAll().empty()) {
+                val systemUsers = listOf(
+                    listOf("d.trujillo@brancoindustries.com", "Branco2025", "ADMIN", "Dario Robles"),
+                    listOf("arni.oziel@brancoindustries.com", "Branco2025", "RH", "Arni Oziel"),
+                    listOf("almacen@brancoindustries.com", "Branco2025", "COMPRAS", "Almacen Central"),
+                    listOf("importexport@brancoindustries.com", "Branco2025", "COMPRAS", "Import & Export"),
+                    listOf("finanzas@brancoindustries.com", "Branco2025", "ADMIN", "Finanzas")
+                )
+                systemUsers.forEach { u ->
+                    UserTable.insert {
+                        it[email] = u[0]
+                        it[password] = u[1]
+                        it[role] = u[2]
+                        it[name] = u[3]
+                    }
+                }
+            }
 
             // LIMPIEZA Y CARGA DE PERSONAL COMPLETO (SEGÚN EXCEL)
             if (EmployeeTable.selectAll().empty()) {
