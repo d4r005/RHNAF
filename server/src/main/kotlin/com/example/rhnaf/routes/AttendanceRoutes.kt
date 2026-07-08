@@ -152,12 +152,21 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
         }
 
         if (!employeeNo.isNullOrBlank()) {
-            attendanceUseCase.registerCheckIn(
+            val saved = attendanceUseCase.registerCheckIn(
                 employeeId = employeeNo!!,
                 timestamp = java.time.LocalDateTime.now().toString(),
                 deviceSerial = deviceId,
                 verifyMode = verifyMode
             )
+            if (!saved) {
+                DatabaseFactory.dbQuery {
+                    DebugLogTable.insert {
+                        it[timestamp] = java.time.LocalDateTime.now().toString()
+                        it[rawContent] = "HIK-POST RECHAZADO (ya tiene Check-in y Check-out hoy) | employeeNo=$employeeNo"
+                        it[sourceIp] = clientIp
+                    }
+                }
+            }
         } else {
             // Deja rastro de los eventos que no se pudieron mapear a un empleado
             DatabaseFactory.dbQuery {
@@ -230,6 +239,13 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             )
         }
 
+        // Limpieza retroactiva: aplica la regla de 1 Check-in + 1 Check-out por dia
+        // a los datos que ya estaban guardados antes de que existiera esta regla.
+        post("/normalize") {
+            val deleted = attendanceUseCase.normalizeDailyLimits()
+            call.respond(mapOf("registros_eliminados" to deleted.toString(), "mensaje" to "Se dejaron solo 1 Check-in y 1 Check-out por empleado por dia."))
+        }
+
         // Importación manual: sube el CSV que exporta el software de asistencia
         // de la lectora (mismo formato de "checadas"). Ruta de respaldo mientras
         // se resuelve el push/pull automático en tiempo real.
@@ -251,9 +267,13 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             }
 
             val employeeIds = rows.map { it.employeeId }.distinct()
+            // Procesamos en orden cronológico por empleado para que la primera checada del
+            // día quede como Check-in y la segunda como Check-out (regla de 1 + 1 por día).
+            val sortedRows = rows.sortedWith(compareBy({ it.employeeId }, { it.timestamp }))
 
             var imported = 0
             var duplicates = 0
+            var cappedByDailyLimit = 0
 
             DatabaseFactory.dbQuery {
                 // Traemos de una sola vez las combinaciones (empleado, timestamp) ya existentes
@@ -265,19 +285,44 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                     .map { "${it[AttendanceLogTable.employeeId]}|${it[AttendanceLogTable.timestamp]}" }
                     .toHashSet()
 
-                for (row in rows) {
+                // Conteo actual de checadas por (empleado, día) ya guardadas, para respetar
+                // el límite de 1 Check-in + 1 Check-out aunque se importe en varias tandas.
+                val dayCounts = HashMap<String, Int>()
+                AttendanceLogTable
+                    .select(AttendanceLogTable.employeeId, AttendanceLogTable.timestamp)
+                    .where { AttendanceLogTable.employeeId inList employeeIds }
+                    .forEach {
+                        val day = it[AttendanceLogTable.timestamp].substringBefore("T").substringBefore(" ")
+                        val dayKey = "${it[AttendanceLogTable.employeeId]}|$day"
+                        dayCounts[dayKey] = (dayCounts[dayKey] ?: 0) + 1
+                    }
+
+                for (row in sortedRows) {
                     val key = "${row.employeeId}|${row.timestamp}"
                     if (existingKeys.contains(key)) {
                         duplicates++
                         continue
                     }
+
+                    val day = row.timestamp.substringBefore("T").substringBefore(" ")
+                    val dayKey = "${row.employeeId}|$day"
+                    val countToday = dayCounts[dayKey] ?: 0
+
+                    if (countToday >= 2) {
+                        cappedByDailyLimit++
+                        continue
+                    }
+
+                    val slot = if (countToday == 0) "Check-in" else "Check-out"
+
                     existingKeys.add(key)
+                    dayCounts[dayKey] = countToday + 1
 
                     AttendanceLogTable.insert {
                         it[employeeId] = row.employeeId
                         it[timestamp] = row.timestamp
                         it[deviceSerial] = row.deviceSerial
-                        it[verifyMode] = row.status
+                        it[verifyMode] = slot
                     }
                     imported++
                 }
@@ -289,8 +334,10 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                     imported = imported,
                     skippedDuplicates = duplicates,
                     skippedInvalid = invalidCount,
-                    message = "Importación completa: $imported checadas nuevas guardadas" +
+                    skippedDailyLimit = cappedByDailyLimit,
+                    message = "Importación completa: $imported checadas nuevas guardadas (1 Check-in + 1 Check-out por día)" +
                         (if (duplicates > 0) ", $duplicates ya existían" else "") +
+                        (if (cappedByDailyLimit > 0) ", $cappedByDailyLimit se rechazaron por exceder el límite diario" else "") +
                         (if (invalidCount > 0) ", $invalidCount filas inválidas" else "") + "."
                 )
             )
