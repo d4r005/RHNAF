@@ -42,8 +42,9 @@ object DatabaseFactory {
                 val systemUsers = listOf(
                     listOf("d.trujillo@brancoindustries.com", "Branco2025", "ADMIN", "Dario Robles"),
                     listOf("arni.oziel@brancoindustries.com", "Branco2025", "RH", "Arni Oziel"),
-                    listOf("almacen@brancoindustries.com", "Branco2025", "COMPRAS", "Almacen Central"),
-                    listOf("importexport@brancoindustries.com", "Branco2025", "COMPRAS", "Import & Export"),
+                    listOf("carlos.canizales@brancoindustries.com", "Branco2025", "ALMACEN", "Carlos Canizales"),
+                    listOf("andrea.cortes@brancoindustries.com", "Branco2025", "IMPORT_EXPORT", "Andrea Cortes"),
+                    listOf("liliana.elizabeth@brancoindustries.com", "Branco2025", "IMPORT_EXPORT", "Liliana Elizabeth"),
                     listOf("finanzas@brancoindustries.com", "Branco2025", "ADMIN", "Finanzas")
                 )
                 systemUsers.forEach { u ->
