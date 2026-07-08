@@ -5,6 +5,7 @@ import com.example.rhnaf.database.AttendanceLogTable
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.DebugLogTable
 import com.example.rhnaf.domain.model.AttendanceLog
+import com.example.rhnaf.domain.model.ImportResult
 import com.example.rhnaf.domain.model.SyncResult
 import com.example.rhnaf.service.AttendanceUseCase
 import io.ktor.http.*
@@ -19,6 +20,74 @@ import org.jetbrains.exposed.sql.*
 
 private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
+// Estructura de una fila ya normalizada, lista para insertar
+private data class ImportedAttendanceRow(
+    val employeeId: String,
+    val timestamp: String,
+    val deviceSerial: String,
+    val status: String
+)
+
+/**
+ * Parsea el CSV exportado por el software de asistencia de Hikvision (formato:
+ * Person ID,Name,Department,Time,Attendance Status,Attendance Check Point,
+ * Custom Name,Data Source,Handling Type,Temperature,Abnormal).
+ *
+ * Es tolerante a: el apóstrofe inicial que Excel agrega al Person ID ('114),
+ * distinto orden/mayúsculas de encabezado, líneas vacías, y separa por coma
+ * simple (los valores de este export no traen comas dentro de campos).
+ */
+private fun parseAttendanceCsv(rawText: String): Pair<List<ImportedAttendanceRow>, Int> {
+    val lines = rawText.split("\r\n", "\n").map { it.trim() }.filter { it.isNotBlank() }
+    if (lines.isEmpty()) return emptyList<ImportedAttendanceRow>() to 0
+
+    val header = lines.first().split(",").map { it.trim().lowercase() }
+    fun colIndex(vararg names: String): Int {
+        for (name in names) {
+            val idx = header.indexOf(name)
+            if (idx >= 0) return idx
+        }
+        return -1
+    }
+
+    val idxPersonId = colIndex("person id", "personid")
+    val idxTime = colIndex("time")
+    val idxStatus = colIndex("attendance status", "status")
+    val idxCheckPoint = colIndex("attendance check point", "check point", "device")
+
+    val dataLines = lines.drop(1)
+    var invalidCount = 0
+
+    val rows = dataLines.mapNotNull { line ->
+        val parts = line.split(",")
+        val personId = parts.getOrNull(if (idxPersonId >= 0) idxPersonId else 0)
+            ?.trim()?.trimStart('\'')
+        val time = parts.getOrNull(if (idxTime >= 0) idxTime else 3)?.trim()
+        val status = parts.getOrNull(if (idxStatus >= 0) idxStatus else 4)?.trim() ?: "Check-in"
+        val checkPoint = parts.getOrNull(if (idxCheckPoint >= 0) idxCheckPoint else 5)?.trim()
+            ?.ifBlank { "CSV-IMPORT" } ?: "CSV-IMPORT"
+
+        if (personId.isNullOrBlank() || time.isNullOrBlank()) {
+            invalidCount++
+            return@mapNotNull null
+        }
+
+        // Normalizamos "2026-06-29 06:42:50" -> "2026-06-29T06:42:50" para que
+        // coincida con el formato ISO que ya usa el resto del sistema.
+        val isoTimestamp = if (time.contains(" ") && !time.contains("T")) {
+            time.replace(" ", "T")
+        } else time
+
+        ImportedAttendanceRow(
+            employeeId = personId,
+            timestamp = isoTimestamp,
+            deviceSerial = checkPoint,
+            status = status
+        )
+    }
+
+    return rows to invalidCount
+}
 
 fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
 
@@ -157,6 +226,72 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                         "2) corre attendance_sync.py desde una computadora conectada a la red de la planta " +
                         "para subir el historico."
                     )
+                )
+            )
+        }
+
+        // Importación manual: sube el CSV que exporta el software de asistencia
+        // de la lectora (mismo formato de "checadas"). Ruta de respaldo mientras
+        // se resuelve el push/pull automático en tiempo real.
+        post("/import-csv") {
+            val rawText = call.receiveText()
+            val (rows, invalidCount) = parseAttendanceCsv(rawText)
+
+            if (rows.isEmpty()) {
+                call.respond(
+                    ImportResult(
+                        totalRows = 0,
+                        imported = 0,
+                        skippedDuplicates = 0,
+                        skippedInvalid = invalidCount,
+                        message = "No se encontraron filas válidas. Verifica que el CSV tenga las columnas 'Person ID' y 'Time'."
+                    )
+                )
+                return@post
+            }
+
+            val employeeIds = rows.map { it.employeeId }.distinct()
+
+            var imported = 0
+            var duplicates = 0
+
+            DatabaseFactory.dbQuery {
+                // Traemos de una sola vez las combinaciones (empleado, timestamp) ya existentes
+                // para esos empleados, y así evitar duplicar checadas ya guardadas antes
+                // (por ejemplo si se vuelve a subir un rango de fechas que se traslapa).
+                val existingKeys = AttendanceLogTable
+                    .select(AttendanceLogTable.employeeId, AttendanceLogTable.timestamp)
+                    .where { AttendanceLogTable.employeeId inList employeeIds }
+                    .map { "${it[AttendanceLogTable.employeeId]}|${it[AttendanceLogTable.timestamp]}" }
+                    .toHashSet()
+
+                for (row in rows) {
+                    val key = "${row.employeeId}|${row.timestamp}"
+                    if (existingKeys.contains(key)) {
+                        duplicates++
+                        continue
+                    }
+                    existingKeys.add(key)
+
+                    AttendanceLogTable.insert {
+                        it[employeeId] = row.employeeId
+                        it[timestamp] = row.timestamp
+                        it[deviceSerial] = row.deviceSerial
+                        it[verifyMode] = row.status
+                    }
+                    imported++
+                }
+            }
+
+            call.respond(
+                ImportResult(
+                    totalRows = rows.size + invalidCount,
+                    imported = imported,
+                    skippedDuplicates = duplicates,
+                    skippedInvalid = invalidCount,
+                    message = "Importación completa: $imported checadas nuevas guardadas" +
+                        (if (duplicates > 0) ", $duplicates ya existían" else "") +
+                        (if (invalidCount > 0) ", $invalidCount filas inválidas" else "") + "."
                 )
             )
         }

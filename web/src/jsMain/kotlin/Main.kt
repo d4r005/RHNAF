@@ -1211,6 +1211,7 @@ fun PatrimonialSecurityModule(t: Translations) {
 fun AttendanceModule(employees: List<Employee>, client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
     var logs by remember { mutableStateOf(emptyList<AttendanceLog>()) }
     var isSyncing by remember { mutableStateOf(false) }
+    var isImportingCsv by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         try {
@@ -1228,6 +1229,50 @@ fun AttendanceModule(employees: List<Employee>, client: HttpClient, scope: kotli
             }
             
             Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
+                Input(InputType.File) {
+                    id("attendance-csv-upload"); style { property("display", "none") }
+                    attr("accept", ".csv")
+                    onChange { event ->
+                        val input = document.getElementById("attendance-csv-upload") as? org.w3c.dom.HTMLInputElement
+                        val file = input?.files?.item(0)
+                        if (file != null && !isImportingCsv) {
+                            isImportingCsv = true
+                            val reader = org.w3c.files.FileReader()
+                            reader.onload = {
+                                val csvText = reader.result as String
+                                scope.launch {
+                                    try {
+                                        val result: ImportResult = client.post("$BACKEND_URL/api/v1/asistencia/import-csv") {
+                                            contentType(ContentType.Text.Plain)
+                                            setBody(csvText)
+                                        }.body()
+                                        logs = client.get("$BACKEND_URL/api/v1/asistencia/logs").body()
+                                        window.alert(result.message)
+                                    } catch (e: Exception) {
+                                        window.alert("Error al importar el CSV: ${e.message}")
+                                    } finally {
+                                        isImportingCsv = false
+                                    }
+                                }
+                            }
+                            reader.readAsText(file)
+                        }
+                    }
+                }
+
+                Button({
+                    style {
+                        padding(10.px, 20.px); backgroundColor(if (isImportingCsv) Color.gray else Color("#0f172a"))
+                        color(Color.white); property("border", "none"); borderRadius(8.px)
+                        cursor("pointer"); fontWeight("bold")
+                    }
+                    onClick {
+                        document.getElementById("attendance-csv-upload")?.let { (it as org.w3c.dom.HTMLInputElement).click() }
+                    }
+                }) {
+                    Text(if (isImportingCsv) "Importando..." else "Subir CSV de Checadas")
+                }
+
                 Button({
                     style {
                         padding(10.px, 20.px); backgroundColor(Color("#475569"))
