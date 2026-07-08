@@ -72,7 +72,9 @@ fun Application.module() {
                     "arni.oziel@brancoindustries.com" to "Branco2025",
                     "compras@brancoindustries.com" to "Branco2025",
                     "seguridad@brancoindustries.com" to "Branco2025",
-                    "mantenimiento@brancoindustries.com" to "Branco2025"
+                    "mantenimiento@brancoindustries.com" to "Branco2025",
+                    "almacen@brancoindustries.com" to "Branco2025",
+                    "importexport@brancoindustries.com" to "Branco2025"
                 )
                 
                 if (validUsers[username] == password) {

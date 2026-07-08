@@ -23,9 +23,12 @@ private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
 // Estructura de una fila ya normalizada, lista para insertar
 private data class ImportedAttendanceRow(
     val employeeId: String,
+    val name: String,
+    val department: String,
     val timestamp: String,
     val deviceSerial: String,
-    val status: String
+    val status: String,
+    val customName: String
 )
 
 /**
@@ -51,9 +54,12 @@ private fun parseAttendanceCsv(rawText: String): Pair<List<ImportedAttendanceRow
     }
 
     val idxPersonId = colIndex("person id", "personid")
+    val idxName = colIndex("name")
+    val idxDepartment = colIndex("department")
     val idxTime = colIndex("time")
     val idxStatus = colIndex("attendance status", "status")
     val idxCheckPoint = colIndex("attendance check point", "check point", "device")
+    val idxCustomName = colIndex("custom name", "customname")
 
     val dataLines = lines.drop(1)
     var invalidCount = 0
@@ -62,10 +68,13 @@ private fun parseAttendanceCsv(rawText: String): Pair<List<ImportedAttendanceRow
         val parts = line.split(",")
         val personId = parts.getOrNull(if (idxPersonId >= 0) idxPersonId else 0)
             ?.trim()?.trimStart('\'')
+        val name = (if (idxName >= 0) parts.getOrNull(idxName) else null)?.trim() ?: ""
+        val department = (if (idxDepartment >= 0) parts.getOrNull(idxDepartment) else null)?.trim() ?: ""
         val time = parts.getOrNull(if (idxTime >= 0) idxTime else 3)?.trim()
         val status = parts.getOrNull(if (idxStatus >= 0) idxStatus else 4)?.trim() ?: "Check-in"
         val checkPoint = parts.getOrNull(if (idxCheckPoint >= 0) idxCheckPoint else 5)?.trim()
             ?.ifBlank { "CSV-IMPORT" } ?: "CSV-IMPORT"
+        val customName = (if (idxCustomName >= 0) parts.getOrNull(idxCustomName) else null)?.trim() ?: ""
 
         if (personId.isNullOrBlank() || time.isNullOrBlank()) {
             invalidCount++
@@ -80,9 +89,12 @@ private fun parseAttendanceCsv(rawText: String): Pair<List<ImportedAttendanceRow
 
         ImportedAttendanceRow(
             employeeId = personId,
+            name = name,
+            department = department,
             timestamp = isoTimestamp,
             deviceSerial = checkPoint,
-            status = status
+            status = status,
+            customName = customName
         )
     }
 
@@ -131,6 +143,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
         var employeeNo: String? = null
         var deviceId = "HIK-WEB"
         var verifyMode = "Face"
+        var employeeName = ""
 
         // 1) Intentamos deserializar el JSON estructurado (formato ISAPI estándar)
         runCatching {
@@ -138,6 +151,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             employeeNo = event.AccessControllerEvent.employeeNoString
             deviceId = event.deviceID
             verifyMode = event.AccessControllerEvent.currentVerifyMode
+            employeeName = event.AccessControllerEvent.name ?: ""
         }
 
         // 2) Si falla, caemos al parsing manual (JSON suelto o XML), como red de seguridad
@@ -156,7 +170,8 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                 employeeId = employeeNo!!,
                 timestamp = java.time.LocalDateTime.now().toString(),
                 deviceSerial = deviceId,
-                verifyMode = verifyMode
+                verifyMode = verifyMode,
+                name = employeeName
             )
             if (!saved) {
                 DatabaseFactory.dbQuery {
@@ -205,9 +220,13 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                     AttendanceLog(
                         id = it[AttendanceLogTable.id].toString(),
                         employeeId = it[AttendanceLogTable.employeeId],
+                        name = it[AttendanceLogTable.name],
+                        department = it[AttendanceLogTable.department],
                         timestamp = it[AttendanceLogTable.timestamp],
+                        attendanceStatus = it[AttendanceLogTable.attendanceStatus],
                         deviceSerial = it[AttendanceLogTable.deviceSerial],
-                        verifyMode = it[AttendanceLogTable.verifyMode]
+                        verifyMode = it[AttendanceLogTable.verifyMode],
+                        customName = it[AttendanceLogTable.customName]
                     )
                 }
             }
@@ -320,9 +339,13 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
 
                     AttendanceLogTable.insert {
                         it[employeeId] = row.employeeId
+                        it[name] = row.name
+                        it[department] = row.department
                         it[timestamp] = row.timestamp
                         it[deviceSerial] = row.deviceSerial
-                        it[verifyMode] = slot
+                        it[verifyMode] = "CSV-IMPORT"
+                        it[attendanceStatus] = slot
+                        it[customName] = row.customName
                     }
                     imported++
                 }

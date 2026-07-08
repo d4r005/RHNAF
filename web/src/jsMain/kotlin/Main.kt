@@ -873,9 +873,9 @@ fun exportToCSV(employees: List<Employee>) {
 }
 
 fun exportAttendanceToCSV(logs: List<AttendanceLog>) {
-    val header = "Timestamp,Empleado_ID,Dispositivo_Serial,Modo_Verificacion\n"
-    val rows = logs.joinToString("\n") { 
-        "${it.timestamp},${it.employeeId},${it.deviceSerial},${it.verifyMode}" 
+    val header = "Person ID,Name,Department,Time,Attendance Status,Attendance Check Point,Custom Name\n"
+    val rows = logs.joinToString("\n") {
+        "${it.employeeId},${it.name},${it.department},${it.timestamp},${it.attendanceStatus},${it.deviceSerial},${it.customName}"
     }
     val csvContent = header + rows
     val blob = org.w3c.dom.url.URL.createObjectURL(org.w3c.files.Blob(arrayOf(csvContent), org.w3c.files.BlobPropertyBag(type = "text/csv")))
@@ -883,6 +883,182 @@ fun exportAttendanceToCSV(logs: List<AttendanceLog>) {
     link.href = blob
     link.download = "Reporte_Asistencia_NAF.csv"
     link.click()
+}
+
+fun downloadCSV(filename: String, content: String) {
+    val blob = org.w3c.dom.url.URL.createObjectURL(org.w3c.files.Blob(arrayOf(content), org.w3c.files.BlobPropertyBag(type = "text/csv")))
+    val link = kotlinx.browser.document.createElement("a") as org.w3c.dom.HTMLAnchorElement
+    link.href = blob
+    link.download = filename
+    link.click()
+}
+
+private fun splitCsvLines(text: String): List<List<String>> =
+    text.split("\r\n", "\n").map { it.trim() }.filter { it.isNotBlank() }.map { line -> line.split(",").map { it.trim() } }
+
+private fun csvColIndex(header: List<String>, vararg names: String): Int {
+    val lower = header.map { it.lowercase() }
+    for (name in names) {
+        val idx = lower.indexOf(name)
+        if (idx >= 0) return idx
+    }
+    return -1
+}
+
+fun exportInventarioToCSV(items: List<WarehouseInventoryItem>) {
+    val header = "Lugar,PO#,Modelo,Cantidad,Falta,Existencia\n"
+    val rows = items.joinToString("\n") { "${it.lugar},${it.po},${it.modelo},${it.cantidad},${it.falta},${it.existencia}" }
+    downloadCSV("Inventario_NAF.csv", header + rows)
+}
+
+fun parseInventarioCSV(text: String): List<WarehouseInventoryItem> {
+    val lines = splitCsvLines(text)
+    if (lines.isEmpty()) return emptyList()
+    val header = lines.first()
+    val idxLugar = csvColIndex(header, "lugar"); val idxPo = csvColIndex(header, "po#", "po")
+    val idxModelo = csvColIndex(header, "modelo"); val idxCantidad = csvColIndex(header, "cantidad")
+    val idxFalta = csvColIndex(header, "falta"); val idxExistencia = csvColIndex(header, "existencia")
+    return lines.drop(1).mapNotNull { p ->
+        val lugar = p.getOrNull(if (idxLugar >= 0) idxLugar else 0) ?: return@mapNotNull null
+        if (lugar.isBlank()) return@mapNotNull null
+        WarehouseInventoryItem(
+            lugar = lugar,
+            po = p.getOrNull(if (idxPo >= 0) idxPo else 1) ?: "",
+            modelo = p.getOrNull(if (idxModelo >= 0) idxModelo else 2) ?: "",
+            cantidad = p.getOrNull(if (idxCantidad >= 0) idxCantidad else 3) ?: "",
+            falta = p.getOrNull(if (idxFalta >= 0) idxFalta else 4) ?: "",
+            existencia = p.getOrNull(if (idxExistencia >= 0) idxExistencia else 5) ?: ""
+        )
+    }
+}
+
+fun exportEntradasToCSV(items: List<WarehouseIncomingLog>) {
+    val header = "Fecha,PO#,Modelo,Cantidad,Ubicacion\n"
+    val rows = items.joinToString("\n") { "${it.fecha},${it.po},${it.modelo},${it.cantidad},${it.ubicacion}" }
+    downloadCSV("Entradas_NAF.csv", header + rows)
+}
+
+fun parseEntradasCSV(text: String): List<WarehouseIncomingLog> {
+    val lines = splitCsvLines(text)
+    if (lines.isEmpty()) return emptyList()
+    val header = lines.first()
+    val idxFecha = csvColIndex(header, "fecha"); val idxPo = csvColIndex(header, "po#", "po")
+    val idxModelo = csvColIndex(header, "modelo"); val idxCantidad = csvColIndex(header, "cantidad")
+    val idxUbicacion = csvColIndex(header, "ubicacion", "ubicación")
+    return lines.drop(1).mapNotNull { p ->
+        val fecha = p.getOrNull(if (idxFecha >= 0) idxFecha else 0) ?: return@mapNotNull null
+        if (fecha.isBlank()) return@mapNotNull null
+        WarehouseIncomingLog(
+            fecha = fecha,
+            po = p.getOrNull(if (idxPo >= 0) idxPo else 1) ?: "",
+            modelo = p.getOrNull(if (idxModelo >= 0) idxModelo else 2) ?: "",
+            cantidad = p.getOrNull(if (idxCantidad >= 0) idxCantidad else 3) ?: "",
+            ubicacion = p.getOrNull(if (idxUbicacion >= 0) idxUbicacion else 4) ?: ""
+        )
+    }
+}
+
+fun exportEnviosToCSV(items: List<Shipment>) {
+    val header = "Cliente,Fecha Carga,PO/Contenedor,SKU,Nombre Producto,Sello,Placa,Cantidad,Gabinetes,Conductor,Hora Inicio,Hora Fin,Operador,Inspector\n"
+    val rows = items.joinToString("\n") {
+        "${it.cliente},${it.fechaCarga},${it.poContenedor},${it.sku},${it.nombreProducto},${it.numeroSello},${it.placa},${it.cantidad},${it.gabinetes},${it.conductor},${it.horaInicio},${it.horaFin},${it.operador},${it.inspector}"
+    }
+    downloadCSV("Envios_NAF.csv", header + rows)
+}
+
+fun parseEnviosCSV(text: String): List<Shipment> {
+    val lines = splitCsvLines(text)
+    if (lines.isEmpty()) return emptyList()
+    val header = lines.first()
+    val idxCliente = csvColIndex(header, "cliente"); val idxFecha = csvColIndex(header, "fecha carga", "fecha")
+    val idxPoCont = csvColIndex(header, "po/contenedor", "po", "contenedor"); val idxSku = csvColIndex(header, "sku")
+    val idxNombre = csvColIndex(header, "nombre producto"); val idxSello = csvColIndex(header, "sello")
+    val idxPlaca = csvColIndex(header, "placa"); val idxCantidad = csvColIndex(header, "cantidad")
+    val idxGabinetes = csvColIndex(header, "gabinetes"); val idxConductor = csvColIndex(header, "conductor")
+    val idxHoraIni = csvColIndex(header, "hora inicio"); val idxHoraFin = csvColIndex(header, "hora fin")
+    val idxOperador = csvColIndex(header, "operador"); val idxInspector = csvColIndex(header, "inspector")
+    return lines.drop(1).mapNotNull { p ->
+        val cliente = p.getOrNull(if (idxCliente >= 0) idxCliente else 0) ?: return@mapNotNull null
+        if (cliente.isBlank()) return@mapNotNull null
+        Shipment(
+            cliente = cliente,
+            fechaCarga = p.getOrNull(idxFecha).orEmpty(),
+            poContenedor = p.getOrNull(idxPoCont).orEmpty(),
+            sku = p.getOrNull(idxSku).orEmpty(),
+            nombreProducto = p.getOrNull(idxNombre).orEmpty(),
+            numeroSello = p.getOrNull(idxSello).orEmpty(),
+            placa = p.getOrNull(idxPlaca).orEmpty(),
+            cantidad = p.getOrNull(idxCantidad).orEmpty(),
+            gabinetes = p.getOrNull(idxGabinetes).orEmpty(),
+            conductor = p.getOrNull(idxConductor).orEmpty(),
+            horaInicio = p.getOrNull(idxHoraIni).orEmpty(),
+            horaFin = p.getOrNull(idxHoraFin).orEmpty(),
+            operador = p.getOrNull(idxOperador).orEmpty(),
+            inspector = p.getOrNull(idxInspector).orEmpty()
+        )
+    }
+}
+
+fun exportResumenToCSV(items: List<ShipmentSummary>) {
+    val header = "Cliente,PO#,Modelo,Cantidad,Fecha\n"
+    val rows = items.joinToString("\n") { "${it.cliente},${it.po},${it.modelo},${it.cantidad},${it.fecha}" }
+    downloadCSV("Resumen_Envios_NAF.csv", header + rows)
+}
+
+fun parseResumenCSV(text: String): List<ShipmentSummary> {
+    val lines = splitCsvLines(text)
+    if (lines.isEmpty()) return emptyList()
+    val header = lines.first()
+    val idxCliente = csvColIndex(header, "cliente"); val idxPo = csvColIndex(header, "po#", "po")
+    val idxModelo = csvColIndex(header, "modelo"); val idxCantidad = csvColIndex(header, "cantidad")
+    val idxFecha = csvColIndex(header, "fecha")
+    return lines.drop(1).mapNotNull { p ->
+        val cliente = p.getOrNull(if (idxCliente >= 0) idxCliente else 0) ?: return@mapNotNull null
+        if (cliente.isBlank()) return@mapNotNull null
+        ShipmentSummary(
+            cliente = cliente,
+            po = p.getOrNull(idxPo).orEmpty(),
+            modelo = p.getOrNull(idxModelo).orEmpty(),
+            cantidad = p.getOrNull(idxCantidad).orEmpty(),
+            fecha = p.getOrNull(idxFecha).orEmpty()
+        )
+    }
+}
+
+@Composable
+fun CsvImportExportBar(
+    scope: kotlinx.coroutines.CoroutineScope,
+    inputId: String,
+    onImport: (String) -> Unit,
+    onExport: () -> Unit,
+    allowImport: Boolean = true
+) {
+    if (allowImport) {
+        Input(InputType.File) {
+            id(inputId); style { property("display", "none") }
+            attr("accept", ".csv")
+            onChange { event ->
+                val input = document.getElementById(inputId) as? org.w3c.dom.HTMLInputElement
+                val file = input?.files?.item(0)
+                if (file != null) {
+                    val reader = org.w3c.files.FileReader()
+                    reader.onload = {
+                        onImport(reader.result as String)
+                        input.value = ""
+                    }
+                    reader.readAsText(file)
+                }
+            }
+        }
+        Button({
+            style { padding(8.px, 14.px); backgroundColor(Color("#475569")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(12.px) }
+            onClick { document.getElementById(inputId)?.let { (it as org.w3c.dom.HTMLInputElement).click() } }
+        }) { Text("Importar CSV") }
+    }
+    Button({
+        style { padding(8.px, 14.px); backgroundColor(Color("#0f172a")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(12.px) }
+        onClick { onExport() }
+    }) { Text("Exportar CSV") }
 }
 
 @Composable
@@ -1342,49 +1518,44 @@ fun AttendanceModule(employees: List<Employee>, client: HttpClient, scope: kotli
                 Table({ style { width(100.percent); fontSize(13.px); property("border-collapse", "collapse") } }) {
                     Thead {
                         Tr {
-                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Hora") }
-                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Foto") }
-                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Colaborador") }
-                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Método") }
-                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Estado") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Person ID") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Name") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Department") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Time") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Attendance Status") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Attendance Check Point") }
+                            Th({ style { textAlign("left"); padding(8.px); property("border-bottom", "1px solid #eee") } }) { Text("Custom Name") }
                         }
                     }
                     Tbody {
                         if (logs.isEmpty()) {
-                            Tr { Td({ attr("colspan", "5"); style { textAlign("center"); padding(20.px); color(Color.gray) } }) { Text("No hay registros recientes.") } }
+                            Tr { Td({ attr("colspan", "7"); style { textAlign("center"); padding(20.px); color(Color.gray) } }) { Text("No hay registros recientes.") } }
                         }
                         logs.sortedByDescending { it.timestamp }.take(15).forEach { log ->
                             val emp = employees.find { it.id == log.employeeId || it.readerId == log.employeeId }
-                            
+                            val displayName = log.name.ifBlank { emp?.let { "${it.firstName} ${it.lastName}" } ?: "" }
+                            val displayDept = log.department.ifBlank { emp?.department ?: "" }
+
                             val displayTime = try {
                                 if (log.timestamp.contains("T")) {
-                                    log.timestamp.substringAfter("T").take(8)
-                                } else if (log.timestamp.all { it.isDigit() }) {
-                                    // Es un timestamp numérico (ms)
-                                    val date = kotlin.js.Date(log.timestamp.toDouble())
-                                    "${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}"
+                                    log.timestamp.replace("T", " ")
                                 } else {
-                                    log.timestamp.takeLast(8)
+                                    log.timestamp
                                 }
                             } catch (e: Exception) {
                                 log.timestamp
                             }
-                            
+
                             Tr {
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { Text(log.employeeId) }
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { B { Text(displayName) } }
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { Text(displayDept) }
                                 Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { Text(displayTime) }
                                 Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) {
-                                    val photo = emp?.photoUrl ?: "https://api.dicebear.com/7.x/avataaars/svg?seed=${log.employeeId}"
-                                    Img(src = photo) {
-                                        style { width(32.px); height(32.px); borderRadius(50.percent); backgroundColor(Color("#eee")) }
-                                    }
+                                    Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px); fontSize(11.px) } }) { Text(log.attendanceStatus.ifBlank { "-" }) }
                                 }
-                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { 
-                                    B { Text(emp?.let { "${it.firstName} ${it.lastName}" } ?: "ID: ${log.employeeId}") } 
-                                }
-                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { Text(log.verifyMode) }
-                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { 
-                                    Span({ style { color(Color("#166534")); backgroundColor(Color("#dcfce7")); padding(2.px, 8.px); borderRadius(4.px); fontSize(11.px) } }) { Text(t.get("verified")) } 
-                                }
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { Text(log.deviceSerial) }
+                                Td({ style { padding(8.px); property("border-bottom", "1px solid #f9f9f9") } }) { Text(log.customName) }
                             }
                         }
                     }
@@ -2244,8 +2415,8 @@ fun InventarioTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, 
     var cantidad by remember { mutableStateOf("") }
 
     if (canEdit) {
-        Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px) } }) {
-            Input(InputType.Text) { placeholder("Lugar"); value(lugar); onInput { lugar = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+        Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+            Input(InputType.Text) { placeholder("Lugar *"); value(lugar); onInput { lugar = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
             Input(InputType.Text) { placeholder("PO#"); value(po); onInput { po = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
             Input(InputType.Text) { placeholder("Modelo"); value(modelo); onInput { modelo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
             Input(InputType.Text) { placeholder("Cantidad"); value(cantidad); onInput { cantidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
@@ -2261,9 +2432,26 @@ fun InventarioTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, 
                             lugar = ""; po = ""; modelo = ""; cantidad = ""
                             onChange()
                         }
+                    } else {
+                        window.alert("El campo 'Lugar' es obligatorio para agregar un registro de inventario.")
                     }
                 }
             }) { Text("+ Agregar") }
+            CsvImportExportBar(scope, "inventario-csv-upload", onImport = { text ->
+                val parsed = parseInventarioCSV(text)
+                if (parsed.isEmpty()) {
+                    window.alert("No se detectaron filas válidas en el CSV.")
+                } else {
+                    scope.launch {
+                        client.post("$BACKEND_URL/api/v1/almacen/inventario/bulk") {
+                            contentType(ContentType.Application.Json)
+                            setBody(parsed)
+                        }
+                        onChange()
+                        window.alert("Se importaron ${parsed.size} registros de inventario.")
+                    }
+                }
+            }, onExport = { exportInventarioToCSV(items) })
         }
     }
 
@@ -2290,6 +2478,54 @@ fun InventarioTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, 
 
 @Composable
 fun EntradasTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canEdit: Boolean, items: List<WarehouseIncomingLog>, onChange: () -> Unit) {
+    var fecha by remember { mutableStateOf("") }
+    var po by remember { mutableStateOf("") }
+    var modelo by remember { mutableStateOf("") }
+    var cantidad by remember { mutableStateOf("") }
+    var ubicacion by remember { mutableStateOf("") }
+
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        if (canEdit) {
+            Input(InputType.Text) { placeholder("Fecha *"); value(fecha); onInput { fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+            Input(InputType.Text) { placeholder("PO#"); value(po); onInput { po = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+            Input(InputType.Text) { placeholder("Modelo"); value(modelo); onInput { modelo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+            Input(InputType.Text) { placeholder("Cantidad"); value(cantidad); onInput { cantidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+            Input(InputType.Text) { placeholder("Ubicación"); value(ubicacion); onInput { ubicacion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+            Button({
+                style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                onClick {
+                    if (fecha.isNotBlank()) {
+                        scope.launch {
+                            client.post("$BACKEND_URL/api/v1/almacen/entradas") {
+                                contentType(ContentType.Application.Json)
+                                setBody(WarehouseIncomingLog(fecha = fecha, po = po, modelo = modelo, cantidad = cantidad, ubicacion = ubicacion))
+                            }
+                            fecha = ""; po = ""; modelo = ""; cantidad = ""; ubicacion = ""
+                            onChange()
+                        }
+                    } else {
+                        window.alert("El campo 'Fecha' es obligatorio para agregar una entrada.")
+                    }
+                }
+            }) { Text("+ Agregar") }
+        }
+        CsvImportExportBar(scope, "entradas-csv-upload", onImport = { text ->
+            val parsed = parseEntradasCSV(text)
+            if (parsed.isEmpty()) {
+                window.alert("No se detectaron filas válidas en el CSV.")
+            } else {
+                scope.launch {
+                    client.post("$BACKEND_URL/api/v1/almacen/entradas/bulk") {
+                        contentType(ContentType.Application.Json)
+                        setBody(parsed)
+                    }
+                    onChange()
+                    window.alert("Se importaron ${parsed.size} entradas.")
+                }
+            }
+        }, onExport = { exportEntradasToCSV(items) }, allowImport = canEdit)
+    }
+
     Table({ style { width(100.percent) } }) {
         Thead { Tr { Th { Text("Fecha") }; Th { Text("PO#") }; Th { Text("Modelo") }; Th { Text("Cantidad") }; Th { Text("Ubicación") }; if (canEdit) Th { Text("") } } }
         Tbody {
@@ -2314,6 +2550,56 @@ fun EntradasTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, ca
 fun EnviosTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canEdit: Boolean, items: List<Shipment>, onChange: () -> Unit) {
     var filtroCliente by remember { mutableStateOf("") }
     val clientes = items.map { it.cliente }.distinct().sorted()
+
+    var cliente by remember { mutableStateOf("") }
+    var poContenedor by remember { mutableStateOf("") }
+    var sku by remember { mutableStateOf("") }
+    var cantidad by remember { mutableStateOf("") }
+    var sello by remember { mutableStateOf("") }
+    var placa by remember { mutableStateOf("") }
+
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        if (canEdit) {
+            Input(InputType.Text) { placeholder("Cliente *"); value(cliente); onInput { cliente = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(90.px) } }
+            Input(InputType.Text) { placeholder("PO/Contenedor"); value(poContenedor); onInput { poContenedor = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+            Input(InputType.Text) { placeholder("SKU"); value(sku); onInput { sku = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+            Input(InputType.Text) { placeholder("Cantidad"); value(cantidad); onInput { cantidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(90.px) } }
+            Input(InputType.Text) { placeholder("Sello"); value(sello); onInput { sello = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(90.px) } }
+            Input(InputType.Text) { placeholder("Placa"); value(placa); onInput { placa = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(90.px) } }
+            Button({
+                style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                onClick {
+                    if (cliente.isNotBlank()) {
+                        scope.launch {
+                            client.post("$BACKEND_URL/api/v1/almacen/envios") {
+                                contentType(ContentType.Application.Json)
+                                setBody(Shipment(cliente = cliente, poContenedor = poContenedor, sku = sku, cantidad = cantidad, numeroSello = sello, placa = placa))
+                            }
+                            cliente = ""; poContenedor = ""; sku = ""; cantidad = ""; sello = ""; placa = ""
+                            onChange()
+                        }
+                    } else {
+                        window.alert("El campo 'Cliente' es obligatorio para agregar un envío.")
+                    }
+                }
+            }) { Text("+ Agregar") }
+        }
+        CsvImportExportBar(scope, "envios-csv-upload", onImport = { text ->
+            val parsed = parseEnviosCSV(text)
+            if (parsed.isEmpty()) {
+                window.alert("No se detectaron filas válidas en el CSV.")
+            } else {
+                scope.launch {
+                    client.post("$BACKEND_URL/api/v1/almacen/envios/bulk") {
+                        contentType(ContentType.Application.Json)
+                        setBody(parsed)
+                    }
+                    onChange()
+                    window.alert("Se importaron ${parsed.size} envíos.")
+                }
+            }
+        }, onExport = { exportEnviosToCSV(items) }, allowImport = canEdit)
+    }
 
     Div({ style { marginBottom(12.px) } }) {
         Select({
@@ -2361,6 +2647,54 @@ fun EnviosTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canE
 
 @Composable
 fun ResumenTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canEdit: Boolean, items: List<ShipmentSummary>, onChange: () -> Unit) {
+    var cliente by remember { mutableStateOf("") }
+    var po by remember { mutableStateOf("") }
+    var modelo by remember { mutableStateOf("") }
+    var cantidad by remember { mutableStateOf("") }
+    var fecha by remember { mutableStateOf("") }
+
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        if (canEdit) {
+            Input(InputType.Text) { placeholder("Cliente *"); value(cliente); onInput { cliente = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+            Input(InputType.Text) { placeholder("PO#"); value(po); onInput { po = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+            Input(InputType.Text) { placeholder("Modelo"); value(modelo); onInput { modelo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+            Input(InputType.Text) { placeholder("Cantidad"); value(cantidad); onInput { cantidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+            Input(InputType.Text) { placeholder("Fecha"); value(fecha); onInput { fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+            Button({
+                style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                onClick {
+                    if (cliente.isNotBlank()) {
+                        scope.launch {
+                            client.post("$BACKEND_URL/api/v1/almacen/envios-resumen") {
+                                contentType(ContentType.Application.Json)
+                                setBody(ShipmentSummary(cliente = cliente, po = po, modelo = modelo, cantidad = cantidad, fecha = fecha))
+                            }
+                            cliente = ""; po = ""; modelo = ""; cantidad = ""; fecha = ""
+                            onChange()
+                        }
+                    } else {
+                        window.alert("El campo 'Cliente' es obligatorio para agregar un resumen.")
+                    }
+                }
+            }) { Text("+ Agregar") }
+        }
+        CsvImportExportBar(scope, "resumen-csv-upload", onImport = { text ->
+            val parsed = parseResumenCSV(text)
+            if (parsed.isEmpty()) {
+                window.alert("No se detectaron filas válidas en el CSV.")
+            } else {
+                scope.launch {
+                    client.post("$BACKEND_URL/api/v1/almacen/envios-resumen/bulk") {
+                        contentType(ContentType.Application.Json)
+                        setBody(parsed)
+                    }
+                    onChange()
+                    window.alert("Se importaron ${parsed.size} registros de resumen.")
+                }
+            }
+        }, onExport = { exportResumenToCSV(items) }, allowImport = canEdit)
+    }
+
     Table({ style { width(100.percent) } }) {
         Thead { Tr { Th { Text("Cliente") }; Th { Text("PO#") }; Th { Text("Modelo") }; Th { Text("Cantidad") }; Th { Text("Fecha") }; if (canEdit) Th { Text("") } } }
         Tbody {
@@ -2492,7 +2826,7 @@ fun UserManagementModule(t: Translations) {
                 
                 Div {
                     Label(attrs = { style { fontSize(11.px); color(Color.gray); display(DisplayStyle.Block) } }) { Text("Departamento / Rol") }
-                    val deps = listOf("Dirección", "Recursos Humanos", "Compras", "Mantenimiento", "Seguridad", "Producción")
+                    val deps = listOf("Dirección", "Recursos Humanos", "Compras", "Mantenimiento", "Seguridad", "Almacén", "Import/Export", "Producción")
                     // Simulación de Select usando Div y Buttons para evitar problemas de compatibilidad de tipos en KMP Web
                     Div({ style { display(DisplayStyle.Flex); gap(4.px) } }) {
                         deps.forEach { dep: String ->
@@ -2521,6 +2855,8 @@ fun UserManagementModule(t: Translations) {
                                 "Compras" -> "COMPRAS"
                                 "Mantenimiento" -> "MANTENIMIENTO"
                                 "Seguridad" -> "SEGURIDAD"
+                                "Almacén" -> "ALMACEN"
+                                "Import/Export" -> "IMPORT_EXPORT"
                                 else -> "EMPLEADO"
                             }
                             users.add(UserData(email, role, department))

@@ -12,7 +12,9 @@ data class HikvisionEventRequest(
 @Serializable
 data class AccessControllerEventData(
     val employeeNoString: String,
-    val currentVerifyMode: String
+    val currentVerifyMode: String,
+    val name: String? = null,
+    val attendanceStatus: String? = null
 )
 
 @Serializable

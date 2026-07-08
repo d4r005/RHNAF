@@ -15,7 +15,15 @@ class AttendanceUseCase {
      *
      * Devuelve true si el evento se guardo, false si se rechazo por exceder el limite diario.
      */
-    suspend fun registerCheckIn(employeeId: String, timestamp: String, deviceSerial: String = "UNKNOWN", verifyMode: String = "UNKNOWN"): Boolean {
+    suspend fun registerCheckIn(
+        employeeId: String,
+        timestamp: String,
+        deviceSerial: String = "UNKNOWN",
+        verifyMode: String = "UNKNOWN",
+        name: String = "",
+        department: String = "",
+        customName: String = ""
+    ): Boolean {
         val day = timestamp.substringBefore("T").substringBefore(" ")
 
         return DatabaseFactory.dbQuery {
@@ -35,7 +43,11 @@ class AttendanceUseCase {
                     it[AttendanceLogTable.employeeId] = employeeId
                     it[AttendanceLogTable.timestamp] = timestamp
                     it[AttendanceLogTable.deviceSerial] = deviceSerial
-                    it[AttendanceLogTable.verifyMode] = slot
+                    it[AttendanceLogTable.verifyMode] = verifyMode
+                    it[AttendanceLogTable.attendanceStatus] = slot
+                    it[AttendanceLogTable.name] = name
+                    it[AttendanceLogTable.department] = department
+                    it[AttendanceLogTable.customName] = customName
                 }
                 true
             }
@@ -72,10 +84,10 @@ class AttendanceUseCase {
 
                 // Aseguramos las etiquetas correctas para los dos que sí se quedan
                 AttendanceLogTable.update({ AttendanceLogTable.id eq checkInId }) {
-                    it[verifyMode] = "Check-in"
+                    it[attendanceStatus] = "Check-in"
                 }
                 AttendanceLogTable.update({ AttendanceLogTable.id eq checkOutId }) {
-                    it[verifyMode] = "Check-out"
+                    it[attendanceStatus] = "Check-out"
                 }
 
                 if (idsToDelete.isNotEmpty()) {
