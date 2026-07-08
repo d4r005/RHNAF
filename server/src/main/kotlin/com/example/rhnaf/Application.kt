@@ -107,6 +107,32 @@ fun Application.module() {
                 call.respond(employees)
             }
 
+            get("/users") {
+                val users = DatabaseFactory.dbQuery {
+                    com.example.rhnaf.database.UserTable.selectAll().map {
+                        mapOf(
+                            "email" to it[com.example.rhnaf.database.UserTable.email],
+                            "role" to it[com.example.rhnaf.database.UserTable.role],
+                            "name" to it[com.example.rhnaf.database.UserTable.name]
+                        )
+                    }
+                }
+                call.respond(users)
+            }
+
+            post("/user/add") {
+                val data = call.receive<Map<String, String>>()
+                DatabaseFactory.dbQuery {
+                    com.example.rhnaf.database.UserTable.insert {
+                        it[email] = data["email"] ?: ""
+                        it[password] = data["password"] ?: ""
+                        it[role] = data["role"] ?: "EMPLEADO"
+                        it[name] = data["name"] ?: "Usuario Nuevo"
+                    }
+                }
+                call.respond(HttpStatusCode.Created, mapOf("status" to "success"))
+            }
+
             post("/employee/add") {
                 val emp = call.receive<Employee>()
                 DatabaseFactory.dbQuery {

@@ -438,7 +438,7 @@ fun main() {
                             Module.SHIFTS -> ShiftsModule(t)
                             Module.BENEFITS -> BenefitsModule(t)
                             Module.WORKFLOWS -> WorkflowsModule(t)
-                            Module.USER_MANAGEMENT -> UserManagementModule(t)
+                            Module.USER_MANAGEMENT -> UserManagementModule(client, scope, t)
                             Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
                                 currentLang = it
                                 window.localStorage.setItem("naf_lang", it.name)
@@ -2797,14 +2797,26 @@ fun EnergyModule(t: Translations) {
 data class UserData(val email: String, val role: String, val department: String)
 
 @Composable
-fun UserManagementModule(t: Translations) {
+fun UserManagementModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
     var department by remember { mutableStateOf("Producción") }
-    val users = remember { mutableStateListOf(
-        UserData("d.trujillo@brancoindustries.com", "ADMIN", "Dirección"),
-        UserData("arni.oziel@brancoindustries.com", "RH", "Recursos Humanos")
-    ) }
+    
+    var users by remember { mutableStateOf(emptyList<Map<String, String>>()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            try {
+                users = client.get("$BACKEND_URL/api/users").body()
+            } catch (e: Exception) {
+                println("Error loading users: ${e.message}")
+            } finally {
+                isLoading = false
+            }
+        }
+    }
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3 { Text(t.get("user_mgmt")) }
@@ -2813,6 +2825,12 @@ fun UserManagementModule(t: Translations) {
         Div({ style { padding(24.px); backgroundColor(Color("#f8fafc")); borderRadius(12.px); marginBottom(32.px); property("border", "1px solid #e2e8f0") } }) {
             H4 { Text("Crear Nueva Cuenta") }
             Div({ style { display(DisplayStyle.Flex); gap(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+                Input(InputType.Text) { 
+                    placeholder("Nombre Completo")
+                    value(name)
+                    onInput { name = it.value }
+                    style { padding(10.px); borderRadius(6.px); property("border", "1px solid #ddd"); flex(1) } 
+                }
                 Input(InputType.Email) { 
                     placeholder("Correo electrónico")
                     value(email)
@@ -2861,35 +2879,56 @@ fun UserManagementModule(t: Translations) {
                                 "Import/Export" -> "IMPORT_EXPORT"
                                 else -> "EMPLEADO"
                             }
-                            users.add(UserData(email, role, department))
-                            window.alert("Usuario $email creado con éxito para el departamento $department")
-                            email = ""
-                            password = ""
+                            
+                            scope.launch {
+                                try {
+                                    client.post("$BACKEND_URL/api/user/add") {
+                                        contentType(ContentType.Application.Json)
+                                        setBody(mapOf(
+                                            "email" to email,
+                                            "password" to password,
+                                            "role" to role,
+                                            "name" to name
+                                        ))
+                                    }
+                                    users = client.get("$BACKEND_URL/api/users").body()
+                                    window.alert("Usuario $email creado con éxito.")
+                                    email = ""
+                                    password = ""
+                                    name = ""
+                                } catch (e: Exception) {
+                                    window.alert("Error: ${e.message}")
+                                }
+                            }
                         }
                     }
                 }) { Text("Crear Usuario") }
             }
         }
 
-        Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
-            Thead {
-                Tr {
-                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Email") }
-                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Rol") }
-                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Departamento") }
-                    Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Estado") }
-                }
-            }
-            Tbody {
-                users.forEach { u: UserData ->
+        if (isLoading) {
+            P { Text("Cargando usuarios...") }
+        } else {
+            Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
+                Thead {
                     Tr {
-                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(u.email) }
-                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { 
-                            Span({ style { backgroundColor(Color("#e2e8f0")); padding(2.px, 8.px); borderRadius(4.px); fontSize(11.px) } }) { Text(u.role) }
-                        }
-                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(u.department) }
-                        Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { 
-                            Span({ style { color(Color("#166534")); fontWeight("bold") } }) { Text("ACTIVO") }
+                        Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Email") }
+                        Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Nombre") }
+                        Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Rol") }
+                        Th({ style { textAlign("left"); padding(12.px); property("border-bottom", "2px solid #f1f5f9") } }) { Text("Estado") }
+                    }
+                }
+                Tbody {
+                    users.forEach { u ->
+                        Tr {
+                            Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(u["email"] ?: "") }
+                            Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(u["name"] ?: "") }
+                            Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { 
+                                Span({ style { backgroundColor(Color("#e2e8f0")); padding(2.px, 8.px); borderRadius(4.px); fontSize(11.px) } }) { Text(u["role"] ?: "") }
+                            }
+                            Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { 
+                                Span({ style { color(Color("#166534")); fontWeight("bold") } }) { Text("ACTIVO") }
+                            }
                         }
                     }
                 }
