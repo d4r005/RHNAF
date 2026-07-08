@@ -297,26 +297,21 @@ fun main() {
                             setBody(mapOf("username" to u, "password" to p))
                         }
                         if (resp.status == HttpStatusCode.OK) {
-                            // ... (resto del código de asignación de roles igual)
-                            val (role, name) = when(u) {
-                                "d.trujillo@brancoindustries.com" -> UserRole.ADMIN to "Dario Robles"
-                                "arni.oziel@brancoindustries.com" -> UserRole.RH to "Arni Oziel"
-                                "compras@brancoindustries.com" -> UserRole.COMPRAS to "Usuario Compras"
-                                "seguridad@brancoindustries.com" -> UserRole.SEGURIDAD to "Seguridad Planta"
-                                "mantenimiento@brancoindustries.com" -> UserRole.MANTENIMIENTO to "Ing. Mantenimiento"
-                                "almacen@brancoindustries.com" -> UserRole.ALMACEN to "Personal de Almacén"
-                                "importexport@brancoindustries.com" -> UserRole.IMPORT_EXPORT to "Personal de Import/Export"
-                                "finanzas@brancoindustries.com" -> UserRole.FINANZAS to "Control Financiero"
-                                else -> UserRole.EMPLEADO to "Colaborador"
-                            }
+                            // El servidor es la fuente de verdad del rol/nombre (viene de la tabla
+                            // de usuarios real). Ya NO adivinamos el rol aquí con una lista fija de
+                            // correos: eso causaba que cualquier cuenta nueva (Carlos, Andrea,
+                            // Liliana, etc.) cayera siempre en el rol EMPLEADO por defecto.
+                            val body: Map<String, String> = resp.body()
+                            val roleFromServer = body["role"] ?: "EMPLEADO"
+                            val name = body["name"] ?: "Colaborador"
+                            val role = try { UserRole.valueOf(roleFromServer) } catch (e: Exception) { UserRole.EMPLEADO }
                             userRole = role
-                            
-                            // Solo sobreescribimos el nombre si no hay uno guardado previamente
-                            val savedName = window.localStorage.getItem("naf_user_name")
-                            if (savedName == null || savedName == "Daniel Trujillo") {
-                                userName = name
-                                window.localStorage.setItem("naf_user_name", name)
-                            }
+
+                            // Siempre sobreescribimos el nombre mostrado con el que regresa el
+                            // servidor para esta cuenta (evita que quede pegado el nombre de otra
+                            // persona que inició sesión antes en el mismo navegador).
+                            userName = name
+                            window.localStorage.setItem("naf_user_name", name)
 
                             if (rememberMe) {
                                 window.localStorage.setItem("naf_saved_email", u)
