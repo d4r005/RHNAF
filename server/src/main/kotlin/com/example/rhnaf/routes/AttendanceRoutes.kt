@@ -4,6 +4,7 @@ import com.example.rhnaf.api.HikvisionEventRequest
 import com.example.rhnaf.database.AttendanceLogTable
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.DebugLogTable
+import com.example.rhnaf.database.EmployeeTable
 import com.example.rhnaf.domain.model.AttendanceLog
 import com.example.rhnaf.domain.model.ImportResult
 import com.example.rhnaf.domain.model.SyncResult
@@ -265,6 +266,14 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             call.respond(mapOf("registros_eliminados" to deleted.toString(), "mensaje" to "Se dejaron solo 1 Check-in y 1 Check-out por empleado por dia."))
         }
 
+        // Repara registros historicos con Name/Department/Attendance Status vacios
+        // (llegaron antes de que existieran estas columnas, o la lectora no manda el nombre).
+        // Seguro de correr varias veces.
+        post("/backfill-metadata") {
+            val updated = attendanceUseCase.backfillMissingMetadata()
+            call.respond(mapOf("registros_actualizados" to updated.toString(), "mensaje" to "Se completaron Name/Department/Attendance Status faltantes en registros historicos."))
+        }
+
         // Importación manual: sube el CSV que exporta el software de asistencia
         // de la lectora (mismo formato de "checadas"). Ruta de respaldo mientras
         // se resuelve el push/pull automático en tiempo real.
@@ -295,6 +304,19 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             var cappedByDailyLimit = 0
 
             DatabaseFactory.dbQuery {
+                // Cruzamos con la ficha del empleado (por readerId o id) para completar
+                // Name/Department cuando el CSV los trae vacios.
+                val employeeInfoById = HashMap<String, Pair<String, String>>()
+                EmployeeTable
+                    .selectAll()
+                    .where { (EmployeeTable.readerId inList employeeIds) or (EmployeeTable.id inList employeeIds) }
+                    .forEach { row ->
+                        val fullName = "${row[EmployeeTable.firstName]} ${row[EmployeeTable.lastName]}".trim()
+                        val dept = row[EmployeeTable.department]
+                        row[EmployeeTable.readerId]?.let { employeeInfoById[it] = fullName to dept }
+                        employeeInfoById[row[EmployeeTable.id]] = fullName to dept
+                    }
+
                 // Traemos de una sola vez las combinaciones (empleado, timestamp) ya existentes
                 // para esos empleados, y así evitar duplicar checadas ya guardadas antes
                 // (por ejemplo si se vuelve a subir un rango de fechas que se traslapa).
@@ -337,10 +359,14 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                     existingKeys.add(key)
                     dayCounts[dayKey] = countToday + 1
 
+                    val empInfo = employeeInfoById[row.employeeId]
+                    val resolvedName = row.name.ifBlank { empInfo?.first ?: "" }
+                    val resolvedDept = row.department.ifBlank { empInfo?.second ?: "" }
+
                     AttendanceLogTable.insert {
                         it[employeeId] = row.employeeId
-                        it[name] = row.name
-                        it[department] = row.department
+                        it[name] = resolvedName
+                        it[department] = resolvedDept
                         it[timestamp] = row.timestamp
                         it[deviceSerial] = row.deviceSerial
                         it[verifyMode] = "CSV-IMPORT"
