@@ -1,23 +1,25 @@
-# Plan de Corrección: Error de Conexión a Base de Datos (503 en Producción)
+# Plan de Corrección y Migración: Nueva Supabase (`vrqxemvsizitimvvqttd`)
 
-El error **503** y los logs del servidor indican que la aplicación no puede iniciar porque falla la conexión con la base de datos **Supabase**. El error específico `FATAL: (ENOTFOUND) tenant/user postgres.tudxbophpebusvnkyzcz not found` sugiere un problema con las credenciales o el estado del proyecto en Supabase.
+El servidor está fallando (error 503) debido a que el proyecto de Supabase anterior (`tudxbophpebusvnkyzcz`) no es accesible. Vamos a migrar la base de datos a la nueva instancia proporcionada.
 
-## Análisis del Problema
+## Análisis de la Migración
 
-1.  **Proyecto Pausado**: Supabase pausa los proyectos gratuitos tras periodos de inactividad. Los logs del usuario son de Julio y estamos en Agosto; es muy probable que el proyecto `tudxbophpebusvnkyzcz` esté pausado.
-2.  **Robustez del Parsing**: La función `parsePostgresUrl` en `DatabaseFactory.kt` usa `split("@")`, lo cual fallará si la contraseña de la base de datos contiene el carácter `@`.
-3.  **Configuración de Puerto**: Se está usando el puerto `5432` con el hostname del pooler. Aunque es válido para el "Session Pooler", en entornos de contenedores como Hugging Face se recomienda el "Transaction Pooler" en el puerto `6543` para evitar agotar las conexiones.
+1.  **Nueva Instancia**: `https://vrqxemvsizitimvvqttd.supabase.co`.
+2.  **Identificador de Proyecto**: `vrqxemvsizitimvvqttd`.
+3.  **Información Faltante**: Para la conexión JDBC del servidor Ktor, se necesita la **Contraseña de la Base de Datos** (la que definiste al crear el proyecto en Supabase). La `anon key` proporcionada es para el cliente web/móvil y no sirve para la conexión directa de base de datos que usa el servidor.
+4.  **Robustez del Parsing**: La función `parsePostgresUrl` actual falla si la contraseña tiene el carácter `@`. Corregiremos esto usando `lastIndexOf`.
 
-## Propuesta de Cambios
+## User Review Required
 
-### 1. Mejorar `DatabaseFactory.kt`
-*   Refactorizar `parsePostgresUrl` para que sea resistente a caracteres especiales en la contraseña (buscando el `@` desde el final).
-*   Agregar logs de depuración seguros (que no muestren la contraseña completa) para identificar qué valores se están procesando.
-*   Aumentar la resiliencia del pool de conexiones.
+> [!IMPORTANT]
+> Para completar la migración, necesito que configures la nueva `DATABASE_URL` en los **Settings > Secrets** de tu Hugging Face Space. El formato debe ser:
+> `postgresql://postgres.[PROYECTO]:[PASSWORD]@aws-1-us-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true`
+> (Sustituyendo `[PROYECTO]` por `vrqxemvsizitimvvqttd` y `[PASSWORD]` por tu contraseña real).
 
-### 2. Verificación de Infraestructura (Usuario)
-*   **IMPORTANTE**: El usuario debe entrar a su panel de [Supabase](https://supabase.com/dashboard) y verificar que el proyecto no esté en estado "Paused". Si lo está, debe reanudarlo ("Restore").
-*   **IMPORTANTE**: Verificar que la variable `DATABASE_URL` en los "Secrets" de Hugging Face Space sea la correcta y use el formato: `postgresql://postgres.[ID]:[PASS]@aws-1-us-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true`.
+## Open Questions
+
+*   **¿Tienes la contraseña de la base de datos?** Sin ella, el servidor no podrá conectar aunque actualicemos el código.
+*   **¿Deseas que también configuremos el cliente Android/Web para usar la Supabase directamente?** Por ahora, solo se usa como almacenamiento del servidor.
 
 ## Proposed Changes
 
