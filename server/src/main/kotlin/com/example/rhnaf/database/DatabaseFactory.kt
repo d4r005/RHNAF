@@ -160,22 +160,26 @@ object DatabaseFactory {
 
     // Convierte una URL estilo postgres://user:pass@host:port/dbname
     // (formato de Neon/Supabase/Render) al formato jdbc:postgresql://... que
-    // espera el driver, separando usuario y password.
+    // espera el driver, separando usuario y password. Soporta contraseñas con '@'.
     private fun parsePostgresUrl(raw: String): Triple<String, String, String> {
         val cleaned = raw.removePrefix("postgres://").removePrefix("postgresql://")
-        val atParts = cleaned.split("@", limit = 2)
-        require(atParts.size == 2) {
+        val lastAtIndex = cleaned.lastIndexOf('@')
+        require(lastAtIndex > 0) {
             "DATABASE_URL invalida: se esperaba el formato completo " +
-            "postgresql://usuario:password@host:puerto/basededatos, pero se recibio: " +
-            "'${raw.take(15)}...' (posiblemente solo se guardo la password, sin el resto de la cadena)"
+            "postgresql://usuario:password@host:puerto/basededatos"
         }
-        val (credentials, hostPart) = atParts
-        val credParts = credentials.split(":", limit = 2)
-        require(credParts.size == 2) {
+        val credentials = cleaned.substring(0, lastAtIndex)
+        val hostPart = cleaned.substring(lastAtIndex + 1)
+
+        val firstColonIndex = credentials.indexOf(':')
+        require(firstColonIndex > 0) {
             "DATABASE_URL invalida: falta 'usuario:password' antes del @"
         }
-        val (user, password) = credParts
-        // hostPart puede traer ?sslmode=require etc, lo dejamos pasar tal cual
+        val user = credentials.substring(0, firstColonIndex)
+        val password = credentials.substring(firstColonIndex + 1)
+
+        // hostPart puede traer ?sslmode=require etc, lo dejamos pasar tal cual.
+        // Forzamos sslmode=require si no viene en el query string para seguridad.
         val jdbcUrl = "jdbc:postgresql://$hostPart" + if (!hostPart.contains("?")) "?sslmode=require" else ""
         return Triple(jdbcUrl, user, password)
     }
@@ -190,7 +194,14 @@ object DatabaseFactory {
         jdbcUrl = url
         if (user != null) username = user
         if (password != null) this.password = password
-        maximumPoolSize = 3
+        
+        // Optimización para Hugging Face / Supabase Pooler
+        maximumPoolSize = 5
+        minimumIdle = 1
+        idleTimeout = 30000
+        connectionTimeout = 20000
+        maxLifetime = 1800000
+        
         isAutoCommit = false
         transactionIsolation = "TRANSACTION_REPEATABLE_READ"
         validate()
