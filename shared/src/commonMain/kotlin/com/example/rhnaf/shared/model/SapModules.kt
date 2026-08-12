@@ -1,0 +1,141 @@
+package com.example.rhnaf.shared.model
+
+import kotlinx.serialization.Serializable
+
+// ============================================================
+// Modelos de datos de los modulos estilo SAP integrados a RHNAF
+// (FI, CO, MM, PP, QM, PM, EWM, WM, HCM, GTS, EHS, GRC)
+// ============================================================
+
+// FI - Financial Accounting (Contabilidad Financiera)
+@Serializable
+data class JournalEntry(
+    val id: Int = 0,
+    val fecha: String,
+    val cuenta: String,
+    val concepto: String = "",
+    val tipo: String = "",
+    val monto: String = "",
+    val referencia: String = ""
+)
+
+// CO - Controlling (Control de Costos)
+@Serializable
+data class CostCenter(
+    val id: Int = 0,
+    val codigo: String,
+    val nombre: String,
+    val departamento: String = "",
+    val presupuestoMensual: String = "",
+    val gastoActual: String = ""
+)
+
+// MM - Materials Management (Compras)
+@Serializable
+data class PurchaseOrder(
+    val id: Int = 0,
+    val numero: String,
+    val proveedor: String,
+    val fecha: String = "",
+    val descripcion: String = "",
+    val montoTotal: String = "",
+    val estado: String = ""
+)
+
+// PP - Production Planning (Planificación de Producción)
+@Serializable
+data class ProductionOrder(
+    val id: Int = 0,
+    val numero: String,
+    val producto: String,
+    val cantidadPlan: String = "",
+    val cantidadProducida: String = "",
+    val centroTrabajo: String = "",
+    val fechaInicio: String = "",
+    val fechaFin: String = "",
+    val estado: String = ""
+)
+
+// QM - Quality Management (Gestión de Calidad)
+@Serializable
+data class QualityInspection(
+    val id: Int = 0,
+    val fecha: String,
+    val loteProducto: String,
+    val inspector: String = "",
+    val resultado: String = "",
+    val observaciones: String = ""
+)
+
+// PM - Plant Maintenance (Mantenimiento de Planta)
+@Serializable
+data class MaintenanceOrder(
+    val id: Int = 0,
+    val equipo: String,
+    val tipo: String = "",
+    val fechaProgramada: String = "",
+    val fechaRealizada: String = "",
+    val tecnico: String = "",
+    val estado: String = "",
+    val notas: String = ""
+)
+
+// EWM - Extended Warehouse Management (Gestión Avanzada de Almacenes)
+@Serializable
+data class WarehouseTask(
+    val id: Int = 0,
+    val tipo: String,
+    val bin: String = "",
+    val sku: String = "",
+    val cantidad: String = "",
+    val asignadoA: String = "",
+    val estado: String = ""
+)
+
+// HCM - Human Capital Management (Reclutamiento)
+@Serializable
+data class RecruitmentVacancy(
+    val id: Int = 0,
+    val puesto: String,
+    val departamento: String = "",
+    val fechaApertura: String = "",
+    val vacantes: String = "",
+    val candidatosPostulados: String = "",
+    val estado: String = ""
+)
+
+// GTS - Global Trade Services (Comercio Exterior)
+@Serializable
+data class CustomsDeclaration(
+    val id: Int = 0,
+    val numeroPedimento: String,
+    val fecha: String = "",
+    val cliente: String = "",
+    val paisDestino: String = "",
+    val valorAduana: String = "",
+    val regimen: String = "",
+    val estado: String = ""
+)
+
+// EHS - Environment, Health & Safety
+@Serializable
+data class SafetyInspection(
+    val id: Int = 0,
+    val fecha: String,
+    val area: String = "",
+    val inspector: String = "",
+    val hallazgos: String = "",
+    val riesgo: String = "",
+    val estado: String = ""
+)
+
+// GRC - SAP Security / GRC (Gobierno, Riesgo y Cumplimiento)
+@Serializable
+data class AccessAuditLog(
+    val id: Int = 0,
+    val fecha: String,
+    val usuario: String,
+    val accion: String = "",
+    val modulo: String = "",
+    val resultado: String = ""
+)

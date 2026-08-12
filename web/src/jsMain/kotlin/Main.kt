@@ -90,7 +90,13 @@ class Translations(val lang: Language) {
         "machine_status" to "Estado de Maquinaria",
         "billing" to "Facturación Industrial",
         "self_service" to "Autoservicio",
-        "user_mgmt" to "Gestión de Usuarios"
+        "user_mgmt" to "Gestión de Usuarios",
+        "controlling" to "Controlling (CO)",
+        "purchasing" to "Compras (MM)",
+        "production_planning" to "Producción (PP)",
+        "quality_management" to "Calidad (QM)",
+        "extended_warehouse" to "Almacén Avanzado (EWM)",
+        "it_security_grc" to "Seguridad SAP / GRC"
     )
     private val en = mapOf(
         "dashboard" to "Dashboard",
@@ -160,7 +166,13 @@ class Translations(val lang: Language) {
         "machine_status" to "Machine Status",
         "billing" to "Industrial Billing",
         "self_service" to "Self-Service",
-        "user_mgmt" to "User Management"
+        "user_mgmt" to "User Management",
+        "controlling" to "Controlling (CO)",
+        "purchasing" to "Purchasing (MM)",
+        "production_planning" to "Production (PP)",
+        "quality_management" to "Quality (QM)",
+        "extended_warehouse" to "Extended Warehouse (EWM)",
+        "it_security_grc" to "SAP Security / GRC"
     )
     private val zh = mapOf(
         "dashboard" to "仪表板",
@@ -230,7 +242,13 @@ class Translations(val lang: Language) {
         "machine_status" to "机器状态",
         "billing" to "工业计费",
         "self_service" to "自助服务",
-        "user_mgmt" to "用户管理"
+        "user_mgmt" to "用户管理",
+        "controlling" to "成本控制 (CO)",
+        "purchasing" to "采购 (MM)",
+        "production_planning" to "生产计划 (PP)",
+        "quality_management" to "质量管理 (QM)",
+        "extended_warehouse" to "高级仓储 (EWM)",
+        "it_security_grc" to "SAP安全 / GRC"
     )
 
     fun get(key: String): String {
@@ -245,7 +263,8 @@ class Translations(val lang: Language) {
 enum class Module {
     DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, INCIDENTS_PANEL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS,
     TALENT_MARKET, SUSTAINABILITY, PULSE_SURVEY, ASSETS, SHIFTS, BENEFITS, WORKFLOWS,
-    WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY, MAINTENANCE, EMPLOYEE_PORTAL, FINANCE, ENERGY, USER_MANAGEMENT
+    WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY, MAINTENANCE, EMPLOYEE_PORTAL, FINANCE, ENERGY, USER_MANAGEMENT,
+    CONTROLLING, PURCHASING, PRODUCTION, QUALITY, EXTENDED_WAREHOUSE, GTS_TRADE, EHS_AUDITS, GRC_SECURITY
 }
 
 enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, ALMACEN, IMPORT_EXPORT, FINANZAS }
@@ -254,12 +273,12 @@ fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
     return when(role) {
         UserRole.RH -> module in listOf(Module.DASHBOARD, Module.EMPLOYEES, Module.RECRUITMENT, Module.ATTENDANCE, Module.PAYROLL, Module.INCIDENTS_PANEL, Module.TRAINING, Module.PERFORMANCE, Module.VACATIONS, Module.DOCUMENTS, Module.REPORTS, Module.TALENT_MARKET, Module.PULSE_SURVEY, Module.BENEFITS, Module.WORKFLOWS, Module.SETTINGS)
-        UserRole.COMPRAS -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.ASSETS, Module.FINANCE, Module.SETTINGS)
-        UserRole.ALMACEN -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SETTINGS)
-        UserRole.IMPORT_EXPORT -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.SETTINGS)
-        UserRole.FINANZAS -> module in listOf(Module.DASHBOARD, Module.FINANCE, Module.PAYROLL, Module.SETTINGS)
-        UserRole.MANTENIMIENTO -> module in listOf(Module.DASHBOARD, Module.MAINTENANCE, Module.ENERGY, Module.ASSETS, Module.SETTINGS)
-        UserRole.SEGURIDAD -> module in listOf(Module.DASHBOARD, Module.INCIDENTS, Module.PATRIMONIAL_SECURITY, Module.SETTINGS)
+        UserRole.COMPRAS -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.ASSETS, Module.FINANCE, Module.PURCHASING, Module.GTS_TRADE, Module.SETTINGS)
+        UserRole.ALMACEN -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.EXTENDED_WAREHOUSE, Module.SETTINGS)
+        UserRole.IMPORT_EXPORT -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.GTS_TRADE, Module.SETTINGS)
+        UserRole.FINANZAS -> module in listOf(Module.DASHBOARD, Module.FINANCE, Module.PAYROLL, Module.CONTROLLING, Module.SETTINGS)
+        UserRole.MANTENIMIENTO -> module in listOf(Module.DASHBOARD, Module.MAINTENANCE, Module.ENERGY, Module.ASSETS, Module.PRODUCTION, Module.QUALITY, Module.EXTENDED_WAREHOUSE, Module.SETTINGS)
+        UserRole.SEGURIDAD -> module in listOf(Module.DASHBOARD, Module.INCIDENTS, Module.PATRIMONIAL_SECURITY, Module.EHS_AUDITS, Module.GRC_SECURITY, Module.SETTINGS)
         UserRole.EMPLEADO -> module in listOf(Module.DASHBOARD, Module.EMPLOYEE_PORTAL, Module.SETTINGS)
         else -> false
     }
@@ -434,6 +453,14 @@ fun main() {
                             Module.BENEFITS -> BenefitsModule(t)
                             Module.WORKFLOWS -> WorkflowsModule(t)
                             Module.USER_MANAGEMENT -> UserManagementModule(client, scope, t)
+                            Module.CONTROLLING -> ControllingModule(client, scope, t)
+                            Module.PURCHASING -> PurchasingModule(client, scope, t)
+                            Module.PRODUCTION -> ProductionModule(client, scope, t)
+                            Module.QUALITY -> QualityModule(client, scope, t)
+                            Module.EXTENDED_WAREHOUSE -> ExtendedWarehouseModule(client, scope, t)
+                            Module.GTS_TRADE -> GtsTradeModule(client, scope, t)
+                            Module.EHS_AUDITS -> EhsAuditsModule(client, scope, t)
+                            Module.GRC_SECURITY -> GrcSecurityModule(client, scope, t)
                             Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
                                 currentLang = it
                                 window.localStorage.setItem("naf_lang", it.name)
@@ -505,7 +532,14 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
             if (isModuleVisible(Module.SUSTAINABILITY, role)) SidebarLink(t.get("esg_metrics"), Module.SUSTAINABILITY, active == Module.SUSTAINABILITY, onSelect)
             if (isModuleVisible(Module.PULSE_SURVEY, role)) SidebarLink(t.get("pulse"), Module.PULSE_SURVEY, active == Module.PULSE_SURVEY, onSelect)
             if (isModuleVisible(Module.WORKFLOWS, role)) SidebarLink(t.get("workflows"), Module.WORKFLOWS, active == Module.WORKFLOWS, onSelect)
-            if (role == UserRole.ADMIN) SidebarLink(t.get("user_mgmt"), Module.USER_MANAGEMENT, active == Module.USER_MANAGEMENT, onSelect)
+            if (isModuleVisible(Module.CONTROLLING, role)) SidebarLink(t.get("controlling"), Module.CONTROLLING, active == Module.CONTROLLING, onSelect)
+            if (isModuleVisible(Module.PURCHASING, role)) SidebarLink(t.get("purchasing"), Module.PURCHASING, active == Module.PURCHASING, onSelect)
+            if (isModuleVisible(Module.PRODUCTION, role)) SidebarLink(t.get("production_planning"), Module.PRODUCTION, active == Module.PRODUCTION, onSelect)
+            if (isModuleVisible(Module.QUALITY, role)) SidebarLink(t.get("quality_management"), Module.QUALITY, active == Module.QUALITY, onSelect)
+            if (isModuleVisible(Module.EXTENDED_WAREHOUSE, role)) SidebarLink(t.get("extended_warehouse"), Module.EXTENDED_WAREHOUSE, active == Module.EXTENDED_WAREHOUSE, onSelect)
+            if (isModuleVisible(Module.EHS_AUDITS, role)) SidebarLink(t.get("safety_audits"), Module.EHS_AUDITS, active == Module.EHS_AUDITS, onSelect)
+            if (isModuleVisible(Module.GRC_SECURITY, role)) SidebarLink(t.get("it_security_grc"), Module.GRC_SECURITY, active == Module.GRC_SECURITY, onSelect)
+                        if (role == UserRole.ADMIN) SidebarLink(t.get("user_mgmt"), Module.USER_MANAGEMENT, active == Module.USER_MANAGEMENT, onSelect)
             SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
         }
 
