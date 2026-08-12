@@ -692,17 +692,6 @@ fun GrcSecurityModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         }
     }
 }
-import androidx.compose.runtime.*
-import org.jetbrains.compose.web.dom.*
-import org.jetbrains.compose.web.css.*
-import org.jetbrains.compose.web.attributes.*
-import io.ktor.client.*
-import io.ktor.client.request.*
-import io.ktor.client.call.*
-import io.ktor.http.*
-import com.example.rhnaf.shared.model.*
-import kotlinx.coroutines.launch
-import kotlinx.browser.window
 
 // Modulos estilo SAP: FI (Contabilidad Financiera), PM (Mantenimiento de Planta), HCM (Reclutamiento)
 // Mismo patron que SapModulesUi.kt: HttpClient + LaunchedEffect + formulario inline + tabla + delete
