@@ -96,7 +96,10 @@ class Translations(val lang: Language) {
         "production_planning" to "Producción (PP)",
         "quality_management" to "Calidad (QM)",
         "extended_warehouse" to "Almacén Avanzado (EWM)",
-        "it_security_grc" to "Seguridad SAP / GRC"
+        "it_security_grc" to "Seguridad SAP / GRC",
+        "financial_accounting" to "Contabilidad (FI)",
+        "plant_maintenance" to "Mantenimiento Planta (PM)",
+        "recruitment_sap" to "Reclutamiento (HCM)"
     )
     private val en = mapOf(
         "dashboard" to "Dashboard",
@@ -172,7 +175,10 @@ class Translations(val lang: Language) {
         "production_planning" to "Production (PP)",
         "quality_management" to "Quality (QM)",
         "extended_warehouse" to "Extended Warehouse (EWM)",
-        "it_security_grc" to "SAP Security / GRC"
+        "it_security_grc" to "SAP Security / GRC",
+        "financial_accounting" to "Accounting (FI)",
+        "plant_maintenance" to "Plant Maintenance (PM)",
+        "recruitment_sap" to "Recruitment (HCM)"
     )
     private val zh = mapOf(
         "dashboard" to "仪表板",
@@ -248,7 +254,10 @@ class Translations(val lang: Language) {
         "production_planning" to "生产计划 (PP)",
         "quality_management" to "质量管理 (QM)",
         "extended_warehouse" to "高级仓储 (EWM)",
-        "it_security_grc" to "SAP安全 / GRC"
+        "it_security_grc" to "SAP安全 / GRC",
+        "financial_accounting" to "财务会计 (FI)",
+        "plant_maintenance" to "工厂维护 (PM)",
+        "recruitment_sap" to "招聘 (HCM)"
     )
 
     fun get(key: String): String {
@@ -264,7 +273,8 @@ enum class Module {
     DASHBOARD, EMPLOYEES, RECRUITMENT, ATTENDANCE, PAYROLL, INCIDENTS_PANEL, TRAINING, PERFORMANCE, INCIDENTS, VACATIONS, DOCUMENTS, REPORTS, SETTINGS,
     TALENT_MARKET, SUSTAINABILITY, PULSE_SURVEY, ASSETS, SHIFTS, BENEFITS, WORKFLOWS,
     WAREHOUSE, IMPORT_EXPORT, PATRIMONIAL_SECURITY, MAINTENANCE, EMPLOYEE_PORTAL, FINANCE, ENERGY, USER_MANAGEMENT,
-    CONTROLLING, PURCHASING, PRODUCTION, QUALITY, EXTENDED_WAREHOUSE, GTS_TRADE, EHS_AUDITS, GRC_SECURITY
+    CONTROLLING, PURCHASING, PRODUCTION, QUALITY, EXTENDED_WAREHOUSE, GTS_TRADE, EHS_AUDITS, GRC_SECURITY,
+    FINANCIAL_ACCOUNTING, PLANT_MAINTENANCE, RECRUITMENT_SAP
 }
 
 enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, ALMACEN, IMPORT_EXPORT, FINANZAS }
@@ -272,12 +282,12 @@ enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, AL
 fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
     return when(role) {
-        UserRole.RH -> module in listOf(Module.DASHBOARD, Module.EMPLOYEES, Module.RECRUITMENT, Module.ATTENDANCE, Module.PAYROLL, Module.INCIDENTS_PANEL, Module.TRAINING, Module.PERFORMANCE, Module.VACATIONS, Module.DOCUMENTS, Module.REPORTS, Module.TALENT_MARKET, Module.PULSE_SURVEY, Module.BENEFITS, Module.WORKFLOWS, Module.SETTINGS)
+        UserRole.RH -> module in listOf(Module.DASHBOARD, Module.EMPLOYEES, Module.RECRUITMENT, Module.ATTENDANCE, Module.PAYROLL, Module.INCIDENTS_PANEL, Module.TRAINING, Module.PERFORMANCE, Module.VACATIONS, Module.DOCUMENTS, Module.REPORTS, Module.TALENT_MARKET, Module.PULSE_SURVEY, Module.BENEFITS, Module.WORKFLOWS, Module.RECRUITMENT_SAP, Module.SETTINGS)
         UserRole.COMPRAS -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.ASSETS, Module.FINANCE, Module.PURCHASING, Module.GTS_TRADE, Module.SETTINGS)
         UserRole.ALMACEN -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.EXTENDED_WAREHOUSE, Module.SETTINGS)
         UserRole.IMPORT_EXPORT -> module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.IMPORT_EXPORT, Module.GTS_TRADE, Module.SETTINGS)
-        UserRole.FINANZAS -> module in listOf(Module.DASHBOARD, Module.FINANCE, Module.PAYROLL, Module.CONTROLLING, Module.SETTINGS)
-        UserRole.MANTENIMIENTO -> module in listOf(Module.DASHBOARD, Module.MAINTENANCE, Module.ENERGY, Module.ASSETS, Module.PRODUCTION, Module.QUALITY, Module.EXTENDED_WAREHOUSE, Module.SETTINGS)
+        UserRole.FINANZAS -> module in listOf(Module.DASHBOARD, Module.FINANCE, Module.PAYROLL, Module.CONTROLLING, Module.FINANCIAL_ACCOUNTING, Module.SETTINGS)
+        UserRole.MANTENIMIENTO -> module in listOf(Module.DASHBOARD, Module.MAINTENANCE, Module.ENERGY, Module.ASSETS, Module.PRODUCTION, Module.QUALITY, Module.EXTENDED_WAREHOUSE, Module.PLANT_MAINTENANCE, Module.SETTINGS)
         UserRole.SEGURIDAD -> module in listOf(Module.DASHBOARD, Module.INCIDENTS, Module.PATRIMONIAL_SECURITY, Module.EHS_AUDITS, Module.GRC_SECURITY, Module.SETTINGS)
         UserRole.EMPLEADO -> module in listOf(Module.DASHBOARD, Module.EMPLOYEE_PORTAL, Module.SETTINGS)
         else -> false
@@ -461,6 +471,9 @@ fun main() {
                             Module.GTS_TRADE -> GtsTradeModule(client, scope, t)
                             Module.EHS_AUDITS -> EhsAuditsModule(client, scope, t)
                             Module.GRC_SECURITY -> GrcSecurityModule(client, scope, t)
+                            Module.FINANCIAL_ACCOUNTING -> FinancialAccountingModule(client, scope, t)
+                            Module.PLANT_MAINTENANCE -> PlantMaintenanceModule(client, scope, t)
+                            Module.RECRUITMENT_SAP -> RecruitmentSapModule(client, scope, t)
                             Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
                                 currentLang = it
                                 window.localStorage.setItem("naf_lang", it.name)
@@ -538,7 +551,10 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
             if (isModuleVisible(Module.QUALITY, role)) SidebarLink(t.get("quality_management"), Module.QUALITY, active == Module.QUALITY, onSelect)
             if (isModuleVisible(Module.EXTENDED_WAREHOUSE, role)) SidebarLink(t.get("extended_warehouse"), Module.EXTENDED_WAREHOUSE, active == Module.EXTENDED_WAREHOUSE, onSelect)
             if (isModuleVisible(Module.EHS_AUDITS, role)) SidebarLink(t.get("safety_audits"), Module.EHS_AUDITS, active == Module.EHS_AUDITS, onSelect)
-            if (isModuleVisible(Module.GRC_SECURITY, role)) SidebarLink(t.get("it_security_grc"), Module.GRC_SECURITY, active == Module.GRC_SECURITY, onSelect)
+            if (isModuleVisible(Module.FINANCIAL_ACCOUNTING, role)) SidebarLink(t.get("financial_accounting"), Module.FINANCIAL_ACCOUNTING, active == Module.FINANCIAL_ACCOUNTING, onSelect)
+            if (isModuleVisible(Module.PLANT_MAINTENANCE, role)) SidebarLink(t.get("plant_maintenance"), Module.PLANT_MAINTENANCE, active == Module.PLANT_MAINTENANCE, onSelect)
+            if (isModuleVisible(Module.RECRUITMENT_SAP, role)) SidebarLink(t.get("recruitment_sap"), Module.RECRUITMENT_SAP, active == Module.RECRUITMENT_SAP, onSelect)
+                        if (isModuleVisible(Module.GRC_SECURITY, role)) SidebarLink(t.get("it_security_grc"), Module.GRC_SECURITY, active == Module.GRC_SECURITY, onSelect)
                         if (role == UserRole.ADMIN) SidebarLink(t.get("user_mgmt"), Module.USER_MANAGEMENT, active == Module.USER_MANAGEMENT, onSelect)
             SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
         }

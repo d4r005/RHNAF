@@ -692,3 +692,275 @@ fun GrcSecurityModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         }
     }
 }
+import androidx.compose.runtime.*
+import org.jetbrains.compose.web.dom.*
+import org.jetbrains.compose.web.css.*
+import org.jetbrains.compose.web.attributes.*
+import io.ktor.client.*
+import io.ktor.client.request.*
+import io.ktor.client.call.*
+import io.ktor.http.*
+import com.example.rhnaf.shared.model.*
+import kotlinx.coroutines.launch
+import kotlinx.browser.window
+
+// Modulos estilo SAP: FI (Contabilidad Financiera), PM (Mantenimiento de Planta), HCM (Reclutamiento)
+// Mismo patron que SapModulesUi.kt: HttpClient + LaunchedEffect + formulario inline + tabla + delete
+
+@Composable
+fun FinancialAccountingModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
+    var items by remember { mutableStateOf(emptyList<JournalEntry>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+
+    LaunchedEffect(refreshKey) {
+        isLoading = true
+        try {
+            items = client.get("$BACKEND_URL/api/v1/sap/fi/asientos").body()
+        } catch (e: Exception) {
+            println("Error cargando FinancialAccountingModule: ${e.message}")
+        } finally {
+            isLoading = false
+        }
+    }
+    fun refresh() { refreshKey++ }
+
+    var f_fecha by remember { mutableStateOf("") }
+    var f_cuenta by remember { mutableStateOf("") }
+    var f_concepto by remember { mutableStateOf("") }
+    var f_tipo by remember { mutableStateOf("") }
+    var f_monto by remember { mutableStateOf("") }
+    var f_referencia by remember { mutableStateOf("") }
+
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(16.px) } }) {
+            H3({ style { margin(0.px) } }) { Text("FI · Contabilidad Financiera (Financial Accounting)") }
+            Span({ style { color(Color.gray); fontSize(13.px) } }) { Text("${items.size} registros") }
+        }
+
+        Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+            Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) } }
+            Input(InputType.Text) { placeholder("Cuenta contable *"); value(f_cuenta); onInput { f_cuenta = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
+            Input(InputType.Text) { placeholder("Concepto"); value(f_concepto); onInput { f_concepto = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+            Input(InputType.Text) { placeholder("Tipo (Cargo/Abono)"); value(f_tipo); onInput { f_tipo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+            Input(InputType.Text) { placeholder("Monto"); value(f_monto); onInput { f_monto = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) } }
+            Input(InputType.Text) { placeholder("Referencia"); value(f_referencia); onInput { f_referencia = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+            Button({
+                style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                onClick {
+                    if (f_fecha.isNotBlank()) {
+                        scope.launch {
+                            client.post("$BACKEND_URL/api/v1/sap/fi/asientos") {
+                                contentType(ContentType.Application.Json)
+                                setBody(JournalEntry(fecha = f_fecha, cuenta = f_cuenta, concepto = f_concepto, tipo = f_tipo, monto = f_monto, referencia = f_referencia))
+                            }
+                            f_fecha = ""
+                            f_cuenta = ""
+                            f_concepto = ""
+                            f_tipo = ""
+                            f_monto = ""
+                            f_referencia = ""
+                            refresh()
+                        }
+                    } else {
+                        window.alert("Completa el campo obligatorio para agregar el registro.")
+                    }
+                }
+            }) { Text("+ Agregar") }
+        }
+
+        if (isLoading) {
+            P { Text("Cargando...") }
+        } else {
+            Table({ style { width(100.percent) } }) {
+                Thead { Tr { Th { Text("Fecha") }; Th { Text("Cuenta") }; Th { Text("Concepto") }; Th { Text("Tipo") }; Th { Text("Monto") }; Th { Text("Referencia") }; Th { Text("") } } }
+                Tbody {
+                    items.forEach { row ->
+                        Tr {
+                            Td { Text(row.fecha) }; Td { Text(row.cuenta) }; Td { Text(row.concepto) }; Td { Text(row.tipo) }; Td { Text(row.monto) }; Td { Text(row.referencia) }
+                            Td {
+                                Button({
+                                    style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
+                                    onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/fi/asientos/${row.id}"); refresh() } }
+                                }) { Text("Eliminar") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PlantMaintenanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
+    var items by remember { mutableStateOf(emptyList<MaintenanceOrder>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+
+    LaunchedEffect(refreshKey) {
+        isLoading = true
+        try {
+            items = client.get("$BACKEND_URL/api/v1/sap/pm/ordenes-mantenimiento").body()
+        } catch (e: Exception) {
+            println("Error cargando PlantMaintenanceModule: ${e.message}")
+        } finally {
+            isLoading = false
+        }
+    }
+    fun refresh() { refreshKey++ }
+
+    var f_equipo by remember { mutableStateOf("") }
+    var f_tipo by remember { mutableStateOf("") }
+    var f_fechaProgramada by remember { mutableStateOf("") }
+    var f_fechaRealizada by remember { mutableStateOf("") }
+    var f_tecnico by remember { mutableStateOf("") }
+    var f_estado by remember { mutableStateOf("") }
+    var f_notas by remember { mutableStateOf("") }
+
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(16.px) } }) {
+            H3({ style { margin(0.px) } }) { Text("PM · Mantenimiento de Planta (Plant Maintenance)") }
+            Span({ style { color(Color.gray); fontSize(13.px) } }) { Text("${items.size} registros") }
+        }
+
+        Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+            Input(InputType.Text) { placeholder("Equipo *"); value(f_equipo); onInput { f_equipo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
+            Input(InputType.Text) { placeholder("Tipo (Preventivo/Correctivo)"); value(f_tipo); onInput { f_tipo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+            Input(InputType.Text) { placeholder("Fecha programada"); value(f_fechaProgramada); onInput { f_fechaProgramada = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+            Input(InputType.Text) { placeholder("Fecha realizada"); value(f_fechaRealizada); onInput { f_fechaRealizada = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+            Input(InputType.Text) { placeholder("Tecnico"); value(f_tecnico); onInput { f_tecnico = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+            Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+            Input(InputType.Text) { placeholder("Notas"); value(f_notas); onInput { f_notas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+            Button({
+                style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                onClick {
+                    if (f_equipo.isNotBlank()) {
+                        scope.launch {
+                            client.post("$BACKEND_URL/api/v1/sap/pm/ordenes-mantenimiento") {
+                                contentType(ContentType.Application.Json)
+                                setBody(MaintenanceOrder(equipo = f_equipo, tipo = f_tipo, fechaProgramada = f_fechaProgramada, fechaRealizada = f_fechaRealizada, tecnico = f_tecnico, estado = f_estado, notas = f_notas))
+                            }
+                            f_equipo = ""
+                            f_tipo = ""
+                            f_fechaProgramada = ""
+                            f_fechaRealizada = ""
+                            f_tecnico = ""
+                            f_estado = ""
+                            f_notas = ""
+                            refresh()
+                        }
+                    } else {
+                        window.alert("Completa el campo obligatorio para agregar el registro.")
+                    }
+                }
+            }) { Text("+ Agregar") }
+        }
+
+        if (isLoading) {
+            P { Text("Cargando...") }
+        } else {
+            Table({ style { width(100.percent) } }) {
+                Thead { Tr { Th { Text("Equipo") }; Th { Text("Tipo") }; Th { Text("F. Programada") }; Th { Text("F. Realizada") }; Th { Text("Tecnico") }; Th { Text("Estado") }; Th { Text("Notas") }; Th { Text("") } } }
+                Tbody {
+                    items.forEach { row ->
+                        Tr {
+                            Td { Text(row.equipo) }; Td { Text(row.tipo) }; Td { Text(row.fechaProgramada) }; Td { Text(row.fechaRealizada) }; Td { Text(row.tecnico) }; Td { Text(row.estado) }; Td { Text(row.notas) }
+                            Td {
+                                Button({
+                                    style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
+                                    onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/pm/ordenes-mantenimiento/${row.id}"); refresh() } }
+                                }) { Text("Eliminar") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RecruitmentSapModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
+    var items by remember { mutableStateOf(emptyList<RecruitmentVacancy>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+
+    LaunchedEffect(refreshKey) {
+        isLoading = true
+        try {
+            items = client.get("$BACKEND_URL/api/v1/sap/hcm/vacantes").body()
+        } catch (e: Exception) {
+            println("Error cargando RecruitmentSapModule: ${e.message}")
+        } finally {
+            isLoading = false
+        }
+    }
+    fun refresh() { refreshKey++ }
+
+    var f_puesto by remember { mutableStateOf("") }
+    var f_departamento by remember { mutableStateOf("") }
+    var f_fechaApertura by remember { mutableStateOf("") }
+    var f_vacantes by remember { mutableStateOf("") }
+    var f_candidatosPostulados by remember { mutableStateOf("") }
+    var f_estado by remember { mutableStateOf("") }
+
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(16.px) } }) {
+            H3({ style { margin(0.px) } }) { Text("HCM · Reclutamiento (Human Capital Management)") }
+            Span({ style { color(Color.gray); fontSize(13.px) } }) { Text("${items.size} registros") }
+        }
+
+        Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+            Input(InputType.Text) { placeholder("Puesto *"); value(f_puesto); onInput { f_puesto = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
+            Input(InputType.Text) { placeholder("Departamento"); value(f_departamento); onInput { f_departamento = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+            Input(InputType.Text) { placeholder("Fecha apertura"); value(f_fechaApertura); onInput { f_fechaApertura = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) } }
+            Input(InputType.Text) { placeholder("No. vacantes"); value(f_vacantes); onInput { f_vacantes = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(110.px) } }
+            Input(InputType.Text) { placeholder("Candidatos postulados"); value(f_candidatosPostulados); onInput { f_candidatosPostulados = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+            Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+            Button({
+                style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                onClick {
+                    if (f_puesto.isNotBlank()) {
+                        scope.launch {
+                            client.post("$BACKEND_URL/api/v1/sap/hcm/vacantes") {
+                                contentType(ContentType.Application.Json)
+                                setBody(RecruitmentVacancy(puesto = f_puesto, departamento = f_departamento, fechaApertura = f_fechaApertura, vacantes = f_vacantes, candidatosPostulados = f_candidatosPostulados, estado = f_estado))
+                            }
+                            f_puesto = ""
+                            f_departamento = ""
+                            f_fechaApertura = ""
+                            f_vacantes = ""
+                            f_candidatosPostulados = ""
+                            f_estado = ""
+                            refresh()
+                        }
+                    } else {
+                        window.alert("Completa el campo obligatorio para agregar el registro.")
+                    }
+                }
+            }) { Text("+ Agregar") }
+        }
+
+        if (isLoading) {
+            P { Text("Cargando...") }
+        } else {
+            Table({ style { width(100.percent) } }) {
+                Thead { Tr { Th { Text("Puesto") }; Th { Text("Departamento") }; Th { Text("Fecha Apertura") }; Th { Text("Vacantes") }; Th { Text("Candidatos") }; Th { Text("Estado") }; Th { Text("") } } }
+                Tbody {
+                    items.forEach { row ->
+                        Tr {
+                            Td { Text(row.puesto) }; Td { Text(row.departamento) }; Td { Text(row.fechaApertura) }; Td { Text(row.vacantes) }; Td { Text(row.candidatosPostulados) }; Td { Text(row.estado) }
+                            Td {
+                                Button({
+                                    style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
+                                    onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/hcm/vacantes/${row.id}"); refresh() } }
+                                }) { Text("Eliminar") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
