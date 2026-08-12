@@ -7,6 +7,7 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.*
 import com.example.rhnaf.shared.model.EmployeeStatus
+import com.example.rhnaf.database.SapModulesTables.*
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 
@@ -35,7 +36,7 @@ object DatabaseFactory {
         }
 
         transaction(database) {
-            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, AccessAuditLogTable)
+            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, SafetyIncidentTable, WorkPermitTable, PpeDeliveryTable, SafetyTrainingTable, EmergencyDrillTable, RiskMatrixTable, AccessAuditLogTable)
 
             // CARGA DE USUARIOS DEL SISTEMA (ADMIN/OPERACIONES)
             if (UserTable.selectAll().empty()) {

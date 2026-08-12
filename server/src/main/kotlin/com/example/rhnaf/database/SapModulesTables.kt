@@ -125,14 +125,113 @@ object CustomsDeclarationTable : Table("gts_customs_declarations") {
     override val primaryKey = PrimaryKey(id)
 }
 
-// EHS - Environment, Health & Safety
+// ============================================================
+// EHS - Environment, Health & Safety (7 sub-modulos)
+// ============================================================
+
+// EHS-1. Inspecciones de Seguridad (mejorada)
 object SafetyInspectionTable : Table("ehs_safety_inspections") {
     val id = integer("id").autoIncrement()
     val fecha = varchar("fecha", 50)
+    val tipoInspeccion = varchar("tipo_inspeccion", 50).default("")
     val area = varchar("area", 200).default("")
     val inspector = varchar("inspector", 200).default("")
     val hallazgos = varchar("hallazgos", 400).default("")
     val riesgo = varchar("riesgo", 50).default("")
+    val accionesCorrectivas = varchar("acciones_correctivas", 500).default("")
+    val fechaCierre = varchar("fecha_cierre", 50).default("")
+    val evidencia = varchar("evidencia", 500).default("")
+    val estado = varchar("estado", 50).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+// EHS-2. Incidentes y Accidentes
+object SafetyIncidentTable : Table("ehs_safety_incidents") {
+    val id = integer("id").autoIncrement()
+    val fecha = varchar("fecha", 50)
+    val tipo = varchar("tipo", 50).default("")
+    val severidad = varchar("severidad", 50).default("")
+    val personaAfectada = varchar("persona_afectada", 200).default("")
+    val departamento = varchar("departamento", 200).default("")
+    val parteCuerpo = varchar("parte_cuerpo", 200).default("")
+    val diasPerdidos = varchar("dias_perdidos", 20).default("")
+    val descripcion = varchar("descripcion", 500).default("")
+    val causaRaiz = varchar("causa_raiz", 500).default("")
+    val accionesCorrectivas = varchar("acciones_correctivas", 500).default("")
+    val estado = varchar("estado", 50).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+// EHS-3. Permisos de Trabajo
+object WorkPermitTable : Table("ehs_work_permits") {
+    val id = integer("id").autoIncrement()
+    val tipo = varchar("tipo", 100).default("")
+    val solicitante = varchar("solicitante", 200).default("")
+    val autorizadoPor = varchar("autorizado_por", 200).default("")
+    val fechaInicio = varchar("fecha_inicio", 50).default("")
+    val fechaFin = varchar("fecha_fin", 50).default("")
+    val area = varchar("area", 200).default("")
+    val riesgosIdentificados = varchar("riesgos_identificados", 500).default("")
+    val eppRequerido = varchar("epp_requerido", 500).default("")
+    val estado = varchar("estado", 50).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+// EHS-4. Entrega de EPP (Equipo de Proteccion Personal)
+object PpeDeliveryTable : Table("ehs_ppe_deliveries") {
+    val id = integer("id").autoIncrement()
+    val fecha = varchar("fecha", 50)
+    val empleado = varchar("empleado", 200).default("")
+    val tipoEpp = varchar("tipo_epp", 200).default("")
+    val talla = varchar("talla", 20).default("")
+    val proximaReposicion = varchar("proxima_reposicion", 50).default("")
+    val firma = varchar("firma", 200).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+// EHS-5. Capacitaciones de Seguridad
+object SafetyTrainingTable : Table("ehs_safety_trainings") {
+    val id = integer("id").autoIncrement()
+    val fecha = varchar("fecha", 50)
+    val tema = varchar("tema", 300).default("")
+    val instructor = varchar("instructor", 200).default("")
+    val asistentes = varchar("asistentes", 50).default("")
+    val vigenciaMeses = varchar("vigencia_meses", 20).default("")
+    val proximaFecha = varchar("proxima_fecha", 50).default("")
+    val estado = varchar("estado", 50).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+// EHS-6. Simulacros de Emergencia
+object EmergencyDrillTable : Table("ehs_emergency_drills") {
+    val id = integer("id").autoIncrement()
+    val fecha = varchar("fecha", 50)
+    val tipo = varchar("tipo", 100).default("")
+    val participantes = varchar("participantes", 50).default("")
+    val tiempoEvacuacion = varchar("tiempo_evacuacion", 50).default("")
+    val resultado = varchar("resultado", 300).default("")
+    val observaciones = varchar("observaciones", 500).default("")
+    val estado = varchar("estado", 50).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+// EHS-7. Matriz de Riesgos / IPER
+object RiskMatrixTable : Table("ehs_risk_matrix") {
+    val id = integer("id").autoIncrement()
+    val area = varchar("area", 200).default("")
+    val proceso = varchar("proceso", 200).default("")
+    val riesgoIdentificado = varchar("riesgo_identificado", 500).default("")
+    val probabilidad = varchar("probabilidad", 50).default("")
+    val severidad = varchar("severidad", 50).default("")
+    val nivelRiesgo = varchar("nivel_riesgo", 50).default("")
+    val controles = varchar("controles", 500).default("")
+    val responsable = varchar("responsable", 200).default("")
     val estado = varchar("estado", 50).default("")
 
     override val primaryKey = PrimaryKey(id)

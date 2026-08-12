@@ -118,14 +118,104 @@ data class CustomsDeclaration(
 )
 
 // EHS - Environment, Health & Safety
+// 1. Inspecciones de Seguridad (mejorada)
 @Serializable
 data class SafetyInspection(
     val id: Int = 0,
     val fecha: String,
+    val tipoInspeccion: String = "",
     val area: String = "",
     val inspector: String = "",
     val hallazgos: String = "",
     val riesgo: String = "",
+    val accionesCorrectivas: String = "",
+    val fechaCierre: String = "",
+    val evidencia: String = "",
+    val estado: String = ""
+)
+
+// 2. Incidentes y Accidentes
+@Serializable
+data class SafetyIncident(
+    val id: Int = 0,
+    val fecha: String,
+    val tipo: String = "",
+    val severidad: String = "",
+    val personaAfectada: String = "",
+    val departamento: String = "",
+    val parteCuerpo: String = "",
+    val diasPerdidos: String = "",
+    val descripcion: String = "",
+    val causaRaiz: String = "",
+    val accionesCorrectivas: String = "",
+    val estado: String = ""
+)
+
+// 3. Permisos de Trabajo
+@Serializable
+data class WorkPermit(
+    val id: Int = 0,
+    val tipo: String = "",
+    val solicitante: String = "",
+    val autorizadoPor: String = "",
+    val fechaInicio: String = "",
+    val fechaFin: String = "",
+    val area: String = "",
+    val riesgosIdentificados: String = "",
+    val eppRequerido: String = "",
+    val estado: String = ""
+)
+
+// 4. Entrega de EPP (Equipo de Proteccion Personal)
+@Serializable
+data class PpeDelivery(
+    val id: Int = 0,
+    val fecha: String,
+    val empleado: String = "",
+    val tipoEpp: String = "",
+    val talla: String = "",
+    val proximaReposicion: String = "",
+    val firma: String = ""
+)
+
+// 5. Capacitaciones de Seguridad
+@Serializable
+data class SafetyTraining(
+    val id: Int = 0,
+    val fecha: String,
+    val tema: String = "",
+    val instructor: String = "",
+    val asistentes: String = "",
+    val vigenciaMeses: String = "",
+    val proximaFecha: String = "",
+    val estado: String = ""
+)
+
+// 6. Simulacros de Emergencia
+@Serializable
+data class EmergencyDrill(
+    val id: Int = 0,
+    val fecha: String,
+    val tipo: String = "",
+    val participantes: String = "",
+    val tiempoEvacuacion: String = "",
+    val resultado: String = "",
+    val observaciones: String = "",
+    val estado: String = ""
+)
+
+// 7. Matriz de Riesgos / IPER
+@Serializable
+data class RiskMatrix(
+    val id: Int = 0,
+    val area: String = "",
+    val proceso: String = "",
+    val riesgoIdentificado: String = "",
+    val probabilidad: String = "",
+    val severidad: String = "",
+    val nivelRiesgo: String = "",
+    val controles: String = "",
+    val responsable: String = "",
     val estado: String = ""
 )
 

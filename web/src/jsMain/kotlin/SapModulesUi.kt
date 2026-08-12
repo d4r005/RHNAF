@@ -528,85 +528,291 @@ fun GtsTradeModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope,
 
 @Composable
 fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
+    var activeTab by remember { mutableStateOf(0) }
+    val tabs = listOf("Inspecciones", "Incidentes", "Permisos Trabajo", "EPP", "Capacitaciones", "Simulacros", "Matriz Riesgos")
+
+    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
+        H3({ style { margin(0.px); marginBottom(16.px) } }) { Text("EHS \u00b7 Seguridad, Salud y Ambiente") }
+
+        // Tab bar
+        Div({ style { display(DisplayStyle.Flex); gap(4.px); marginBottom(20.px); flexWrap(FlexWrap.Wrap) } }) {
+            tabs.forEachIndexed { idx, label ->
+                Button({
+                    style {
+                        padding(8.px, 14.px); borderRadius(6.px); cursor("pointer")
+                        property("border", "none")
+                        if (idx == activeTab) { backgroundColor(SidebarActiveColor); color(Color.white) } else { backgroundColor(Color("#f1f5f9")); color(Color("#475569")) }
+                    }
+                    onClick { activeTab = idx }
+                }) { Text(label) }
+            }
+        }
+
+        when (activeTab) {
+            0 -> EhsInspectionsTab(client, scope)
+            1 -> EhsIncidentsTab(client, scope)
+            2 -> EhsWorkPermitsTab(client, scope)
+            3 -> EhsPpeTab(client, scope)
+            4 -> EhsTrainingsTab(client, scope)
+            5 -> EhsDrillsTab(client, scope)
+            6 -> EhsRiskMatrixTab(client, scope)
+        }
+    }
+}
+
+// EHS-1. Inspecciones de Seguridad
+@Composable
+fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     var items by remember { mutableStateOf(emptyList<SafetyInspection>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
-
     LaunchedEffect(refreshKey) {
         isLoading = true
-        try {
-            items = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body()
-        } catch (e: Exception) {
-            println("Error cargando EhsAuditsModule: ${e.message}")
-        } finally {
-            isLoading = false
-        }
+        try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
-
     var f_fecha by remember { mutableStateOf("") }
+    var f_tipoInspeccion by remember { mutableStateOf("") }
     var f_area by remember { mutableStateOf("") }
     var f_inspector by remember { mutableStateOf("") }
     var f_hallazgos by remember { mutableStateOf("") }
     var f_riesgo by remember { mutableStateOf("") }
+    var f_accionesCorrectivas by remember { mutableStateOf("") }
+    var f_fechaCierre by remember { mutableStateOf("") }
     var f_estado by remember { mutableStateOf("") }
-
-    Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(16.px) } }) {
-            H3({ style { margin(0.px) } }) { Text("EHS · Auditorias de Seguridad, Salud y Ambiente") }
-            Span({ style { color(Color.gray); fontSize(13.px) } }) { Text("${items.size} registros") }
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} registros") }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Tipo (Programada/No prog.)"); value(f_tipoInspeccion); onInput { f_tipoInspeccion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
+        Input(InputType.Text) { placeholder("Area"); value(f_area); onInput { f_area = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Inspector"); value(f_inspector); onInput { f_inspector = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Hallazgos"); value(f_hallazgos); onInput { f_hallazgos = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Riesgo"); value(f_riesgo); onInput { f_riesgo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Acciones correctivas"); value(f_accionesCorrectivas); onInput { f_accionesCorrectivas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Fecha cierre"); value(f_fechaCierre); onInput { f_fechaCierre = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick { if (f_fecha.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/sap/ehs/inspecciones") { contentType(ContentType.Application.Json); setBody(SafetyInspection(fecha = f_fecha, tipoInspeccion = f_tipoInspeccion, area = f_area, inspector = f_inspector, hallazgos = f_hallazgos, riesgo = f_riesgo, accionesCorrectivas = f_accionesCorrectivas, fechaCierre = f_fechaCierre, estado = f_estado)) }; f_fecha = ""; f_tipoInspeccion = ""; f_area = ""; f_inspector = ""; f_hallazgos = ""; f_riesgo = ""; f_accionesCorrectivas = ""; f_fechaCierre = ""; f_estado = ""; refresh() } } else { window.alert("La fecha es obligatoria.") } } }) { Text("+ Agregar") }
+    }
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Area") }; Th { Text("Inspector") }; Th { Text("Hallazgos") }; Th { Text("Riesgo") }; Th { Text("Acciones") }; Th { Text("F.Cierre") }; Th { Text("Estado") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipoInspeccion) }; Td { Text(row.area) }; Td { Text(row.inspector) }; Td { Text(row.hallazgos) }; Td { Text(row.riesgo) }; Td { Text(row.accionesCorrectivas) }; Td { Text(row.fechaCierre) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/inspecciones/${row.id}"); refresh() } } }) { Text("X") } } } } }
         }
+    }
+}
 
-        Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-            Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) } }
-            Input(InputType.Text) { placeholder("Area"); value(f_area); onInput { f_area = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
-            Input(InputType.Text) { placeholder("Inspector"); value(f_inspector); onInput { f_inspector = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
-            Input(InputType.Text) { placeholder("Hallazgos"); value(f_hallazgos); onInput { f_hallazgos = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
-            Input(InputType.Text) { placeholder("Riesgo (Bajo/Medio/Alto/Critico)"); value(f_riesgo); onInput { f_riesgo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
-            Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
-            Button({
-                style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
-                onClick {
-                    if (f_fecha.isNotBlank()) {
-                        scope.launch {
-                            client.post("$BACKEND_URL/api/v1/sap/ehs/inspecciones") {
-                                contentType(ContentType.Application.Json)
-                                setBody(SafetyInspection(fecha = f_fecha, area = f_area, inspector = f_inspector, hallazgos = f_hallazgos, riesgo = f_riesgo, estado = f_estado))
-                            }
-                            f_fecha = ""
-                            f_area = ""
-                            f_inspector = ""
-                            f_hallazgos = ""
-                            f_riesgo = ""
-                            f_estado = ""
-                            refresh()
-                        }
-                    } else {
-                        window.alert("Completa el campo obligatorio para agregar el registro.")
-                    }
-                }
-            }) { Text("+ Agregar") }
+// EHS-2. Incidentes y Accidentes
+@Composable
+fun EhsIncidentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var items by remember { mutableStateOf(emptyList<SafetyIncident>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/incidentes").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    fun refresh() { refreshKey++ }
+    var f_fecha by remember { mutableStateOf("") }
+    var f_tipo by remember { mutableStateOf("") }
+    var f_severidad by remember { mutableStateOf("") }
+    var f_personaAfectada by remember { mutableStateOf("") }
+    var f_departamento by remember { mutableStateOf("") }
+    var f_parteCuerpo by remember { mutableStateOf("") }
+    var f_diasPerdidos by remember { mutableStateOf("") }
+    var f_descripcion by remember { mutableStateOf("") }
+    var f_causaRaiz by remember { mutableStateOf("") }
+    var f_estado by remember { mutableStateOf("") }
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} registros") }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Tipo (Accidente/Incidente/Casi)"); value(f_tipo); onInput { f_tipo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Severidad (Leve/Mod/Grave/Fatal)"); value(f_severidad); onInput { f_severidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Persona afectada"); value(f_personaAfectada); onInput { f_personaAfectada = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        Input(InputType.Text) { placeholder("Departamento"); value(f_departamento); onInput { f_departamento = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Parte cuerpo"); value(f_parteCuerpo); onInput { f_parteCuerpo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Dias perdidos"); value(f_diasPerdidos); onInput { f_diasPerdidos = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+        Input(InputType.Text) { placeholder("Descripcion"); value(f_descripcion); onInput { f_descripcion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Causa raiz"); value(f_causaRaiz); onInput { f_causaRaiz = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick { if (f_fecha.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/sap/ehs/incidentes") { contentType(ContentType.Application.Json); setBody(SafetyIncident(fecha = f_fecha, tipo = f_tipo, severidad = f_severidad, personaAfectada = f_personaAfectada, departamento = f_departamento, parteCuerpo = f_parteCuerpo, diasPerdidos = f_diasPerdidos, descripcion = f_descripcion, causaRaiz = f_causaRaiz, estado = f_estado)) }; f_fecha = ""; f_tipo = ""; f_severidad = ""; f_personaAfectada = ""; f_departamento = ""; f_parteCuerpo = ""; f_diasPerdidos = ""; f_descripcion = ""; f_causaRaiz = ""; f_estado = ""; refresh() } } else { window.alert("La fecha es obligatoria.") } } }) { Text("+ Agregar") }
+    }
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Severidad") }; Th { Text("Persona") }; Th { Text("Depto") }; Th { Text("Cuerpo") }; Th { Text("Dias") }; Th { Text("Descripcion") }; Th { Text("Causa") }; Th { Text("Estado") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipo) }; Td { Text(row.severidad) }; Td { Text(row.personaAfectada) }; Td { Text(row.departamento) }; Td { Text(row.parteCuerpo) }; Td { Text(row.diasPerdidos) }; Td { Text(row.descripcion) }; Td { Text(row.causaRaiz) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/incidentes/${row.id}"); refresh() } } }) { Text("X") } } } } }
         }
+    }
+}
 
-        if (isLoading) {
-            P { Text("Cargando...") }
-        } else {
-            Table({ style { width(100.percent) } }) {
-                Thead { Tr { Th { Text("Fecha") }; Th { Text("Area") }; Th { Text("Inspector") }; Th { Text("Hallazgos") }; Th { Text("Riesgo") }; Th { Text("Estado") }; Th { Text("") } } }
-                Tbody {
-                    items.forEach { row ->
-                        Tr {
-                            Td { Text(row.fecha) }; Td { Text(row.area) }; Td { Text(row.inspector) }; Td { Text(row.hallazgos) }; Td { Text(row.riesgo) }; Td { Text(row.estado) }
-                            Td {
-                                Button({
-                                    style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
-                                    onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/inspecciones/${row.id}"); refresh() } }
-                                }) { Text("Eliminar") }
-                            }
-                        }
-                    }
-                }
-            }
+// EHS-3. Permisos de Trabajo
+@Composable
+fun EhsWorkPermitsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var items by remember { mutableStateOf(emptyList<WorkPermit>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/permisos-trabajo").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    fun refresh() { refreshKey++ }
+    var f_tipo by remember { mutableStateOf("") }
+    var f_solicitante by remember { mutableStateOf("") }
+    var f_autorizadoPor by remember { mutableStateOf("") }
+    var f_fechaInicio by remember { mutableStateOf("") }
+    var f_fechaFin by remember { mutableStateOf("") }
+    var f_area by remember { mutableStateOf("") }
+    var f_riesgosIdentificados by remember { mutableStateOf("") }
+    var f_eppRequerido by remember { mutableStateOf("") }
+    var f_estado by remember { mutableStateOf("") }
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} registros") }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("Tipo (Caliente/Espacio confinado/Alturas)"); value(f_tipo); onInput { f_tipo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+        Input(InputType.Text) { placeholder("Solicitante *"); value(f_solicitante); onInput { f_solicitante = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+        Input(InputType.Text) { placeholder("Autorizado por"); value(f_autorizadoPor); onInput { f_autorizadoPor = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+        Input(InputType.Text) { placeholder("F. Inicio"); value(f_fechaInicio); onInput { f_fechaInicio = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("F. Fin"); value(f_fechaFin); onInput { f_fechaFin = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Area"); value(f_area); onInput { f_area = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Riesgos identificados"); value(f_riesgosIdentificados); onInput { f_riesgosIdentificados = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("EPP requerido"); value(f_eppRequerido); onInput { f_eppRequerido = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick { if (f_solicitante.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/sap/ehs/permisos-trabajo") { contentType(ContentType.Application.Json); setBody(WorkPermit(tipo = f_tipo, solicitante = f_solicitante, autorizadoPor = f_autorizadoPor, fechaInicio = f_fechaInicio, fechaFin = f_fechaFin, area = f_area, riesgosIdentificados = f_riesgosIdentificados, eppRequerido = f_eppRequerido, estado = f_estado)) }; f_tipo = ""; f_solicitante = ""; f_autorizadoPor = ""; f_fechaInicio = ""; f_fechaFin = ""; f_area = ""; f_riesgosIdentificados = ""; f_eppRequerido = ""; f_estado = ""; refresh() } } else { window.alert("El solicitante es obligatorio.") } } }) { Text("+ Agregar") }
+    }
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Tipo") }; Th { Text("Solicitante") }; Th { Text("Autorizado") }; Th { Text("F.Inicio") }; Th { Text("F.Fin") }; Th { Text("Area") }; Th { Text("Riesgos") }; Th { Text("EPP") }; Th { Text("Estado") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.tipo) }; Td { Text(row.solicitante) }; Td { Text(row.autorizadoPor) }; Td { Text(row.fechaInicio) }; Td { Text(row.fechaFin) }; Td { Text(row.area) }; Td { Text(row.riesgosIdentificados) }; Td { Text(row.eppRequerido) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/permisos-trabajo/${row.id}"); refresh() } } }) { Text("X") } } } } }
+        }
+    }
+}
+
+// EHS-4. Entrega de EPP
+@Composable
+fun EhsPpeTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var items by remember { mutableStateOf(emptyList<PpeDelivery>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/entregas-epp").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    fun refresh() { refreshKey++ }
+    var f_fecha by remember { mutableStateOf("") }
+    var f_empleado by remember { mutableStateOf("") }
+    var f_tipoEpp by remember { mutableStateOf("") }
+    var f_talla by remember { mutableStateOf("") }
+    var f_proximaReposicion by remember { mutableStateOf("") }
+    var f_firma by remember { mutableStateOf("") }
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} registros") }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Empleado *"); value(f_empleado); onInput { f_empleado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        Input(InputType.Text) { placeholder("Tipo EPP (Casco/Lentes/Guantes...)"); value(f_tipoEpp); onInput { f_tipoEpp = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+        Input(InputType.Text) { placeholder("Talla"); value(f_talla); onInput { f_talla = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(80.px) } }
+        Input(InputType.Text) { placeholder("Prox. reposicion"); value(f_proximaReposicion); onInput { f_proximaReposicion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) } }
+        Input(InputType.Text) { placeholder("Firma"); value(f_firma); onInput { f_firma = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick { if (f_fecha.isNotBlank() && f_empleado.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/sap/ehs/entregas-epp") { contentType(ContentType.Application.Json); setBody(PpeDelivery(fecha = f_fecha, empleado = f_empleado, tipoEpp = f_tipoEpp, talla = f_talla, proximaReposicion = f_proximaReposicion, firma = f_firma)) }; f_fecha = ""; f_empleado = ""; f_tipoEpp = ""; f_talla = ""; f_proximaReposicion = ""; f_firma = ""; refresh() } } else { window.alert("Fecha y empleado son obligatorios.") } } }) { Text("+ Agregar") }
+    }
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Empleado") }; Th { Text("Tipo EPP") }; Th { Text("Talla") }; Th { Text("Prox. Reposicion") }; Th { Text("Firma") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.empleado) }; Td { Text(row.tipoEpp) }; Td { Text(row.talla) }; Td { Text(row.proximaReposicion) }; Td { Text(row.firma) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/entregas-epp/${row.id}"); refresh() } } }) { Text("X") } } } } }
+        }
+    }
+}
+
+// EHS-5. Capacitaciones de Seguridad
+@Composable
+fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var items by remember { mutableStateOf(emptyList<SafetyTraining>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/capacitaciones").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    fun refresh() { refreshKey++ }
+    var f_fecha by remember { mutableStateOf("") }
+    var f_tema by remember { mutableStateOf("") }
+    var f_instructor by remember { mutableStateOf("") }
+    var f_asistentes by remember { mutableStateOf("") }
+    var f_vigenciaMeses by remember { mutableStateOf("") }
+    var f_proximaFecha by remember { mutableStateOf("") }
+    var f_estado by remember { mutableStateOf("") }
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} registros") }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Tema (Extintores/Primeros auxil.)"); value(f_tema); onInput { f_tema = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+        Input(InputType.Text) { placeholder("Instructor"); value(f_instructor); onInput { f_instructor = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+        Input(InputType.Text) { placeholder("Asistentes"); value(f_asistentes); onInput { f_asistentes = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+        Input(InputType.Text) { placeholder("Vigencia (meses)"); value(f_vigenciaMeses); onInput { f_vigenciaMeses = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Prox. fecha"); value(f_proximaFecha); onInput { f_proximaFecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick { if (f_fecha.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/sap/ehs/capacitaciones") { contentType(ContentType.Application.Json); setBody(SafetyTraining(fecha = f_fecha, tema = f_tema, instructor = f_instructor, asistentes = f_asistentes, vigenciaMeses = f_vigenciaMeses, proximaFecha = f_proximaFecha, estado = f_estado)) }; f_fecha = ""; f_tema = ""; f_instructor = ""; f_asistentes = ""; f_vigenciaMeses = ""; f_proximaFecha = ""; f_estado = ""; refresh() } } else { window.alert("La fecha es obligatoria.") } } }) { Text("+ Agregar") }
+    }
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tema") }; Th { Text("Instructor") }; Th { Text("Asist.") }; Th { Text("Vigencia") }; Th { Text("Prox.Fecha") }; Th { Text("Estado") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tema) }; Td { Text(row.instructor) }; Td { Text(row.asistentes) }; Td { Text(row.vigenciaMeses) }; Td { Text(row.proximaFecha) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/capacitaciones/${row.id}"); refresh() } } }) { Text("X") } } } } }
+        }
+    }
+}
+
+// EHS-6. Simulacros de Emergencia
+@Composable
+fun EhsDrillsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var items by remember { mutableStateOf(emptyList<EmergencyDrill>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/simulacros").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    fun refresh() { refreshKey++ }
+    var f_fecha by remember { mutableStateOf("") }
+    var f_tipo by remember { mutableStateOf("") }
+    var f_participantes by remember { mutableStateOf("") }
+    var f_tiempoEvacuacion by remember { mutableStateOf("") }
+    var f_resultado by remember { mutableStateOf("") }
+    var f_observaciones by remember { mutableStateOf("") }
+    var f_estado by remember { mutableStateOf("") }
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} registros") }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Tipo (Incendio/Sismo/Derrame)"); value(f_tipo); onInput { f_tipo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Participantes"); value(f_participantes); onInput { f_participantes = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Tiempo evacuacion"); value(f_tiempoEvacuacion); onInput { f_tiempoEvacuacion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Resultado"); value(f_resultado); onInput { f_resultado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        Input(InputType.Text) { placeholder("Observaciones"); value(f_observaciones); onInput { f_observaciones = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick { if (f_fecha.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/sap/ehs/simulacros") { contentType(ContentType.Application.Json); setBody(EmergencyDrill(fecha = f_fecha, tipo = f_tipo, participantes = f_participantes, tiempoEvacuacion = f_tiempoEvacuacion, resultado = f_resultado, observaciones = f_observaciones, estado = f_estado)) }; f_fecha = ""; f_tipo = ""; f_participantes = ""; f_tiempoEvacuacion = ""; f_resultado = ""; f_observaciones = ""; f_estado = ""; refresh() } } else { window.alert("La fecha es obligatoria.") } } }) { Text("+ Agregar") }
+    }
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Particip.") }; Th { Text("T.Evacuac.") }; Th { Text("Resultado") }; Th { Text("Observaciones") }; Th { Text("Estado") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipo) }; Td { Text(row.participantes) }; Td { Text(row.tiempoEvacuacion) }; Td { Text(row.resultado) }; Td { Text(row.observaciones) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/simulacros/${row.id}"); refresh() } } }) { Text("X") } } } } }
+        }
+    }
+}
+
+// EHS-7. Matriz de Riesgos / IPER
+@Composable
+fun EhsRiskMatrixTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var items by remember { mutableStateOf(emptyList<RiskMatrix>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/matriz-riesgos").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    fun refresh() { refreshKey++ }
+    var f_area by remember { mutableStateOf("") }
+    var f_proceso by remember { mutableStateOf("") }
+    var f_riesgoIdentificado by remember { mutableStateOf("") }
+    var f_probabilidad by remember { mutableStateOf("") }
+    var f_severidad by remember { mutableStateOf("") }
+    var f_nivelRiesgo by remember { mutableStateOf("") }
+    var f_controles by remember { mutableStateOf("") }
+    var f_responsable by remember { mutableStateOf("") }
+    var f_estado by remember { mutableStateOf("") }
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} registros") }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("Area *"); value(f_area); onInput { f_area = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Proceso"); value(f_proceso); onInput { f_proceso = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Riesgo identificado"); value(f_riesgoIdentificado); onInput { f_riesgoIdentificado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Probabilidad (B/M/A)"); value(f_probabilidad); onInput { f_probabilidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        Input(InputType.Text) { placeholder("Severidad (B/M/A)"); value(f_severidad); onInput { f_severidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        Input(InputType.Text) { placeholder("Nivel riesgo"); value(f_nivelRiesgo); onInput { f_nivelRiesgo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Controles"); value(f_controles); onInput { f_controles = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Responsable"); value(f_responsable); onInput { f_responsable = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+        Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
+        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick { if (f_area.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/sap/ehs/matriz-riesgos") { contentType(ContentType.Application.Json); setBody(RiskMatrix(area = f_area, proceso = f_proceso, riesgoIdentificado = f_riesgoIdentificado, probabilidad = f_probabilidad, severidad = f_severidad, nivelRiesgo = f_nivelRiesgo, controles = f_controles, responsable = f_responsable, estado = f_estado)) }; f_area = ""; f_proceso = ""; f_riesgoIdentificado = ""; f_probabilidad = ""; f_severidad = ""; f_nivelRiesgo = ""; f_controles = ""; f_responsable = ""; f_estado = ""; refresh() } } else { window.alert("El area es obligatoria.") } } }) { Text("+ Agregar") }
+    }
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Area") }; Th { Text("Proceso") }; Th { Text("Riesgo") }; Th { Text("Prob.") }; Th { Text("Sev.") }; Th { Text("Nivel") }; Th { Text("Controles") }; Th { Text("Responsable") }; Th { Text("Estado") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.area) }; Td { Text(row.proceso) }; Td { Text(row.riesgoIdentificado) }; Td { Text(row.probabilidad) }; Td { Text(row.severidad) }; Td { Text(row.nivelRiesgo) }; Td { Text(row.controles) }; Td { Text(row.responsable) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/matriz-riesgos/${row.id}"); refresh() } } }) { Text("X") } } } } }
         }
     }
 }
