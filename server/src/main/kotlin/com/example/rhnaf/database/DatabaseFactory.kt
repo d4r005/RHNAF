@@ -7,7 +7,6 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.*
 import com.example.rhnaf.shared.model.EmployeeStatus
-import com.example.rhnaf.database.SapModulesTables.*
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 
