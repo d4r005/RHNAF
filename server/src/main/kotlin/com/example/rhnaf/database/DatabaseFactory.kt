@@ -193,7 +193,14 @@ object DatabaseFactory {
 
         // hostPart puede traer ?sslmode=require etc, lo dejamos pasar tal cual.
         // Forzamos sslmode=require si no viene en el query string para seguridad.
-        val jdbcUrl = "jdbc:postgresql://$hostPart" + if (!hostPart.contains("?")) "?sslmode=require" else ""
+        // Agregamos prepareThreshold=0 para compatibilidad con PgBouncer (Supabase Transaction Pooler)
+        var jdbcUrl = "jdbc:postgresql://$hostPart"
+        if (!hostPart.contains("?")) {
+            jdbcUrl += "?sslmode=require&prepareThreshold=0"
+        } else {
+            if (!hostPart.contains("sslmode")) jdbcUrl += "&sslmode=require"
+            if (!hostPart.contains("prepareThreshold")) jdbcUrl += "&prepareThreshold=0"
+        }
         return Triple(jdbcUrl, user, password)
     }
 
@@ -216,7 +223,9 @@ object DatabaseFactory {
         maxLifetime = 1800000
         
         isAutoCommit = false
-        transactionIsolation = "TRANSACTION_REPEATABLE_READ"
+        // TRANSACTION_REPEATABLE_READ puede causar conflictos con PgBouncer en modo transaccion
+        // al intentar resetear el estado de la conexion. Usamos el default del driver.
+        // transactionIsolation = "TRANSACTION_REPEATABLE_READ" 
         validate()
     })
 
