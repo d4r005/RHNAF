@@ -128,7 +128,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                         }
                     }
                     Tbody {
-                        filtered.sortedByDescending { it.timestamp }.take(200).forEach { log ->
+                        filtered.sortedBy { it.timestamp }.take(200).forEach { log ->
                             Tr({
                                 style {
                                     property("border-bottom", "1px solid #f1f5f9")
