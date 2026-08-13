@@ -258,7 +258,14 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                                 Td({ style { padding(10.px, 12.px); fontWeight("bold") } }) { Text(log.name.ifBlank { "Unknown" }) }
                                 Td({ style { padding(10.px, 12.px); color(Color("#64748b")) } }) { Text(log.department) }
                                 Td({ style { padding(10.px, 12.px) } }) { 
-                                    Text(log.timestamp.replace("T", " ").substringBefore("-").trim()) 
+                                    // Limpiamos el formato ISO para mostrar Fecha y Hora legibles
+                                    val displayTs = log.timestamp.replace("T", " ")
+                                        .substringBefore(".") // Quitamos milisegundos si existen
+                                        .let { 
+                                            // Quitamos el offset de zona horaria si existe (ej. -06:00)
+                                            if (it.length > 19) it.substring(0, 19) else it 
+                                        }
+                                    Text(displayTs) 
                                 }
                                 Td({ style { padding(10.px, 12.px) } }) {
                                     val isCheckIn = log.attendanceStatus.contains("in", ignoreCase = true)
