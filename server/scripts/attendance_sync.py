@@ -108,14 +108,20 @@ def fetch_events(start_time: str, end_time: str, position: int = 0, major: int =
     return resp.json()
 
 
-def push_to_cloud(event: dict, skip_reasons: dict) -> bool:
+def push_to_cloud(event: dict, skip_reasons: dict, skip_samples: dict) -> bool:
     """Manda un evento al servidor en la nube en el formato que ya espera."""
     employee_no = event.get("employeeNoString") or event.get("cardNo") or ""
     if not employee_no:
         # Diagnostico: contamos por tipo de evento (major/minor) para saber
-        # que estamos descartando, sin spamear miles de lineas.
+        # que estamos descartando, sin spamear miles de lineas. Ademas
+        # guardamos UN evento crudo de ejemplo por tipo para poder ver
+        # exactamente que campos trae (asi identificamos si es una checada
+        # fallida, alarma, apertura remota, etc. sin tener que correr un
+        # script de diagnostico aparte).
         key = f"major={event.get('major')} minor={event.get('minor')}"
         skip_reasons[key] = skip_reasons.get(key, 0) + 1
+        if key not in skip_samples:
+            skip_samples[key] = event
         return False
 
     payload = {
@@ -158,6 +164,7 @@ def run_once(force_since: str | None = None, major: int = 5, minor: int = 0):
     position = 0
     latest_time_seen = start_time
     skip_reasons: dict = {}
+    skip_samples: dict = {}
 
     for page in range(MAX_PAGES_PER_RUN):
         try:
@@ -177,7 +184,7 @@ def run_once(force_since: str | None = None, major: int = 5, minor: int = 0):
             ev_time = ev.get("time", "")
             if ev_time > latest_time_seen:
                 latest_time_seen = ev_time
-            if push_to_cloud(ev, skip_reasons):
+            if push_to_cloud(ev, skip_reasons, skip_samples):
                 total_pushed += 1
 
         num_matches = acs.get("numOfMatches", len(info_list))
@@ -192,6 +199,10 @@ def run_once(force_since: str | None = None, major: int = 5, minor: int = 0):
         print("Eventos descartados por tipo (no traian employeeNo/cardNo):")
         for k, v in sorted(skip_reasons.items(), key=lambda x: -x[1]):
             print(f"  {k}: {v}")
+        print("\nEjemplo de evento crudo por cada tipo descartado (para identificar que es):")
+        for k, sample in skip_samples.items():
+            print(f"  --- {k} ---")
+            print(f"  {json.dumps(sample, ensure_ascii=False)[:600]}")
 
     # Avanza el checkpoint solo si vimos algo, para no repetir en la siguiente corrida
     if total_seen > 0:
