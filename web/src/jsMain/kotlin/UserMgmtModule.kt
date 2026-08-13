@@ -131,56 +131,45 @@ fun UserMgmtModule(
         } else if (users.isEmpty()) {
             P({ style { textAlign("center"); color(Color.gray); padding(40.px, 0.px) } }) { Text("No hay usuarios registrados") }
         } else {
-            // Tabla de usuarios
-            Div({ style { overflowX("auto") } }) {
-                Table {
-                    Thead {
-                        Tr {
-                            Th { style { padding(12.px, 16.px); textAlign("left"); fontSize(13.px); color(Color("#64748b")); borderBottom("2px solid #e2e8f0") }; Text("Nombre") }
-                            Th { style { padding(12.px, 16.px); textAlign("left"); fontSize(13.px); color(Color("#64748b")); borderBottom("2px solid #e2e8f0") }; Text("Email") }
-                            Th { style { padding(12.px, 16.px); textAlign("left"); fontSize(13.px); color(Color("#64748b")); borderBottom("2px solid #e2e8f0") }; Text("Rol") }
-                            Th { style { padding(12.px, 16.px); textAlign("center"); fontSize(13.px); color(Color("#64748b")); borderBottom("2px solid #e2e8f0") }; Text("Acciones") }
+            Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); gap(8.px) } }) {
+                // Header row
+                Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "2fr 2fr 1fr 1fr"); gap(12.px); padding(8.px, 16.px); property("border-bottom", "2px solid #e2e8f0") } }) {
+                    Span({ style { fontSize(13.px); color(Color("#64748b")); fontWeight("bold") } }) { Text("Nombre") }
+                    Span({ style { fontSize(13.px); color(Color("#64748b")); fontWeight("bold") } }) { Text("Email") }
+                    Span({ style { fontSize(13.px); color(Color("#64748b")); fontWeight("bold") } }) { Text("Rol") }
+                    Span({ style { fontSize(13.px); color(Color("#64748b")); fontWeight("bold"); textAlign("center") } }) { Text("Acciones") }
+                }
+                // User rows
+                users.forEach { u ->
+                    Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "2fr 2fr 1fr 1fr"); gap(12.px); padding(12.px, 16.px); property("border-bottom", "1px solid #f1f5f9"); alignItems(AlignItems.Center) } }) {
+                        Span({ style { fontSize(14.px) } }) { Text(u.name) }
+                        Span({ style { fontSize(14.px); color(Color("#64748b")) } }) { Text(u.email) }
+                        val (roleColor, roleBg) = when (u.role) {
+                            "ADMIN" -> Color("#991b1b") to Color("#fee2e2")
+                            "RH" -> Color("#1e40af") to Color("#dbeafe")
+                            else -> Color("#475569") to Color("#f1f5f9")
                         }
-                    }
-                    Tbody {
-                        users.forEach { u ->
-                            Tr {
-                                Td { style { padding(12.px, 16.px); fontSize(14.px) }; Text(u.name) }
-                                Td { style { padding(12.px, 16.px); fontSize(14.px); color(Color("#64748b") } }; Text(u.email) }
-                                Td {
-                                    style { padding(12.px, 16.px) }
-                                    val (roleColor, roleBg) = when (u.role) {
-                                        "ADMIN" -> Color("#991b1b") to Color("#fee2e2")
-                                        "RH" -> Color("#1e40af") to Color("#dbeafe")
-                                        else -> Color("#475569") to Color("#f1f5f9")
-                                    }
-                                    Span({
-                                        style {
-                                            padding(2.px, 10.px); borderRadius(99.px); fontSize(11.px); fontWeight("bold")
-                                            backgroundColor(roleBg); color(roleColor)
-                                        }
-                                    }) { Text(u.role) }
-                                }
-                                Td {
-                                    style { padding(12.px, 16.px); textAlign("center") }
-                                    Div({ style { display(DisplayStyle.Flex); gap(6.px); justifyContent(JustifyContent.Center) } }) {
-                                        Button({
-                                            style {
-                                                padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
-                                                property("border", "1px solid #2563eb"); backgroundColor(Color.white); color(Color("#2563eb"))
-                                            }
-                                            onClick { editUser = u }
-                                        }) { Text("Editar") }
-                                        Button({
-                                            style {
-                                                padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
-                                                property("border", "1px solid #ef4444"); backgroundColor(Color.white); color(Color("#ef4444"))
-                                            }
-                                            onClick { deleteUser(u.email) }
-                                        }) { Text("Eliminar") }
-                                    }
-                                }
+                        Span({
+                            style {
+                                padding(2.px, 10.px); borderRadius(99.px); fontSize(11.px); fontWeight("bold")
+                                backgroundColor(roleBg); color(roleColor); textAlign("center")
                             }
+                        }) { Text(u.role) }
+                        Div({ style { display(DisplayStyle.Flex); gap(6.px); justifyContent(JustifyContent.Center) } }) {
+                            Button({
+                                style {
+                                    padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
+                                    property("border", "1px solid #2563eb"); backgroundColor(Color.white); color(Color("#2563eb"))
+                                }
+                                onClick { editUser = u }
+                            }) { Text("Editar") }
+                            Button({
+                                style {
+                                    padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
+                                    property("border", "1px solid #ef4444"); backgroundColor(Color.white); color(Color("#ef4444"))
+                                }
+                                onClick { deleteUser(u.email) }
+                            }) { Text("Eliminar") }
                         }
                     }
                 }
@@ -198,19 +187,23 @@ fun UserMgmtModule(
         ModalDialog("Nuevo Usuario") {
             UserFormField("Nombre", name) { name = it }
             UserFormField("Email", email) { email = it }
-            // Selector de rol
+            // Rol: botones en lugar de Select (Compose Web no soporta Select/Option facil)
             Div({ style { marginBottom(12.px) } }) {
                 Label { Text("Rol") }
-                Select {
-                    style {
-                        width(100.percent); padding(8.px, 12.px); marginTop(4.px)
-                        borderRadius(6.px); property("border", "1px solid #cbd5e1")
-                        property("box-sizing", "border-box")
+                Div({ style { display(DisplayStyle.Flex); gap(8.px); marginTop(8.px) } }) {
+                    listOf("ADMIN", "RH", "EMPLEADO").forEach { r ->
+                        Button({
+                            style {
+                                padding(6.px, 14.px); borderRadius(6.px); fontSize(12.px); cursor("pointer")
+                                if (role == r) {
+                                    backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none")
+                                } else {
+                                    backgroundColor(Color.white); color(Color("#475569")); property("border", "1px solid #cbd5e1")
+                                }
+                            }
+                            onClick { role = r }
+                        }) { Text(r) }
                     }
-                    onChange { role = it.value }
-                    option("ADMIN") { Text("ADMIN") }
-                    option("RH") { Text("RH") }
-                    option("EMPLEADO") { Text("EMPLEADO") }
                 }
             }
             UserFormField("Contraseña", password) { password = it }
@@ -245,16 +238,19 @@ fun UserMgmtModule(
             UserFormField("Nombre", name) { name = it }
             Div({ style { marginBottom(12.px) } }) {
                 Label { Text("Rol") }
-                Select {
-                    style {
-                        width(100.percent); padding(8.px, 12.px); marginTop(4.px)
-                        borderRadius(6.px); property("border", "1px solid #cbd5e1")
-                        property("box-sizing", "border-box")
-                    }
-                    onChange { role = it.value }
-                    option(u.role) { Text(u.role) }
-                    listOf("ADMIN", "RH", "EMPLEADO").filter { it != u.role }.forEach { r ->
-                        option(r) { Text(r) }
+                Div({ style { display(DisplayStyle.Flex); gap(8.px); marginTop(8.px) } }) {
+                    listOf("ADMIN", "RH", "EMPLEADO").forEach { r ->
+                        Button({
+                            style {
+                                padding(6.px, 14.px); borderRadius(6.px); fontSize(12.px); cursor("pointer")
+                                if (role == r) {
+                                    backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none")
+                                } else {
+                                    backgroundColor(Color.white); color(Color("#475569")); property("border", "1px solid #cbd5e1")
+                                }
+                            }
+                            onClick { role = r }
+                        }) { Text(r) }
                     }
                 }
             }
@@ -301,7 +297,7 @@ fun ModalDialog(title: String, content: @Composable () -> Unit) {
         style {
             position(Position.Fixed); top(0.px); left(0.px); width(100.vw); height(100.vh)
             backgroundColor(Color("rgba(0,0,0,0.5)")); display(DisplayStyle.Flex)
-            alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); zIndex(999)
+            alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); property("z-index", "999")
         }
     }) {
         Div({

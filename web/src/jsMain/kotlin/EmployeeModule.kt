@@ -185,7 +185,7 @@ fun EmployeeModule(
             style {
                 position(Position.Fixed); top(0.px); left(0.px); width(100.vw); height(100.vh)
                 backgroundColor(Color("rgba(0,0,0,0.5)")); display(DisplayStyle.Flex)
-                alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); zIndex(999)
+                alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); property("z-index", "999")
             }
         }) {
             Div({
@@ -237,7 +237,7 @@ fun EmployeeModule(
             style {
                 position(Position.Fixed); top(0.px); left(0.px); width(100.vw); height(100.vh)
                 backgroundColor(Color("rgba(0,0,0,0.5)")); display(DisplayStyle.Flex)
-                alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); zIndex(999)
+                alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); property("z-index", "999")
             }
         }) {
             Div({
@@ -282,7 +282,7 @@ fun EmployeeModule(
             style {
                 position(Position.Fixed); top(0.px); left(0.px); width(100.vw); height(100.vh)
                 backgroundColor(Color("rgba(0,0,0,0.5)")); display(DisplayStyle.Flex)
-                alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); zIndex(999)
+                alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); property("z-index", "999")
             }
         }) {
             Div({
