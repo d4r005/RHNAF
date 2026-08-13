@@ -12,8 +12,7 @@ class AttendanceUseCase {
     /**
      * Busca en la ficha del empleado (por readerId o por id) el nombre completo y
      * departamento, para enriquecer automaticamente cada checada aunque la lectora
-     * no mande el nombre en el evento (lo normal en la mayoria de eventos de tarjeta/rostro).
-     * Debe llamarse DENTRO de una transaccion (dbQuery) ya abierta.
+     * no mande el nombre en el evento.
      */
     private fun lookupEmployeeInfo(employeeId: String): Pair<String, String> {
         val row = EmployeeTable
@@ -30,11 +29,15 @@ class AttendanceUseCase {
     }
 
     /**
-     * Regla de negocio: cada empleado puede tener COMO MAXIMO 1 "Check-in" y 1 "Check-out"
-     * por dia calendario. El primer evento del dia se guarda como Check-in, el segundo como
-     * Check-out, y cualquier evento adicional ese mismo dia se RECHAZA (no se guarda).
+     * NUEVA REGLA: Acepta TODAS las checadas. No rechaza ninguna.
+     * Cada evento se guarda con su timestamp real. Al exportar (CSV/PDF),
+     * se toma el check-in mas temprano y el check-out mas tardio del dia.
      *
-     * Devuelve true si el evento se guardo, false si se rechazo por exceder el limite diario.
+     * El campo attendanceStatus se asigna asi:
+     * - Si es el primer evento del dia para ese empleado: "Check-in"
+     * - Si ya hay eventos previos: "Check-out" (y se actualiza el anterior a "Check-in" si era el unico)
+     *
+     * Devuelve true siempre (el evento se guardo).
      */
     suspend fun registerCheckIn(
         employeeId: String,
@@ -52,39 +55,125 @@ class AttendanceUseCase {
                 .selectAll()
                 .where {
                     (AttendanceLogTable.employeeId eq employeeId) and
-                        (AttendanceLogTable.timestamp like "$day%")
+                        (AttendanceLogTable.timestamp greaterEq day) and (AttendanceLogTable.timestamp lessEq day + "T23:59:59.999999999")
                 }
                 .count()
 
-            if (countToday >= 2) {
-                false
-            } else {
-                val slot = if (countToday == 0L) "Check-in" else "Check-out"
-                val (resolvedName, resolvedDept) = if (name.isBlank() || department.isBlank()) {
-                    val (empName, empDept) = lookupEmployeeInfo(employeeId)
-                    (name.ifBlank { empName }) to (department.ifBlank { empDept })
-                } else name to department
+            // Si es el primer evento del dia: Check-in. Si ya hay eventos: Check-out.
+            val slot = if (countToday == 0L) "Check-in" else "Check-out"
 
-                AttendanceLogTable.insert {
-                    it[AttendanceLogTable.employeeId] = employeeId
-                    it[AttendanceLogTable.timestamp] = timestamp
-                    it[AttendanceLogTable.deviceSerial] = deviceSerial
-                    it[AttendanceLogTable.verifyMode] = verifyMode
-                    it[AttendanceLogTable.attendanceStatus] = slot
-                    it[AttendanceLogTable.name] = resolvedName
-                    it[AttendanceLogTable.department] = resolvedDept
-                    it[AttendanceLogTable.customName] = customName
+            val (resolvedName, resolvedDept) = if (name.isBlank() || department.isBlank()) {
+                val (empName, empDept) = lookupEmployeeInfo(employeeId)
+                (name.ifBlank { empName }) to (department.ifBlank { empDept })
+            } else name to department
+
+            AttendanceLogTable.insert {
+                it[AttendanceLogTable.employeeId] = employeeId
+                it[AttendanceLogTable.timestamp] = timestamp
+                it[AttendanceLogTable.deviceSerial] = deviceSerial
+                it[AttendanceLogTable.verifyMode] = verifyMode
+                it[AttendanceLogTable.attendanceStatus] = slot
+                it[AttendanceLogTable.name] = resolvedName
+                it[AttendanceLogTable.department] = resolvedDept
+                it[AttendanceLogTable.customName] = customName
+            }
+            true
+        }
+    }
+
+    /**
+     * Exportacion para nomina/auditoria: agrupa por (empleado, dia) y devuelve
+     * solo el check-in mas temprano y el check-out mas tardio de cada dia.
+     * Si un empleado solo tiene una checada en el dia, se marca como Check-in.
+     */
+    data class DailySummary(
+        val employeeId: String,
+        val name: String,
+        val department: String,
+        val date: String,
+        val checkIn: String?,
+        val checkOut: String?,
+        val totalChecks: Int
+    )
+
+    suspend fun exportDailySummary(startDate: String, endDate: String): List<DailySummary> {
+        return DatabaseFactory.dbQuery {
+            val rows = AttendanceLogTable
+                .selectAll()
+                .where {
+                    (AttendanceLogTable.timestamp greaterEq startDate) and
+                        (AttendanceLogTable.timestamp lessEq endDate + "\uFFFF")
                 }
-                true
+                .orderBy(AttendanceLogTable.timestamp, SortOrder.ASC)
+                .map { row ->
+                    Triple(
+                        row[AttendanceLogTable.employeeId],
+                        row[AttendanceLogTable.name],
+                        row[AttendanceLogTable.timestamp]
+                    )
+                }
+
+            // Agrupar por (empleado, dia)
+            val grouped = rows.groupBy { (empId, _, ts) ->
+                empId to ts.substringBefore("T").substringBefore(" ")
+            }
+
+            val results = mutableListOf<DailySummary>()
+            for ((key, records) in grouped) {
+                val (empId, day) = key
+                val sorted = records.sortedBy { it.third }
+                val earliest = sorted.first().third
+                val latest = sorted.last().third
+                val name = sorted.first().second
+
+                // Buscar departamento del empleado
+                val dept = EmployeeTable
+                    .selectAll()
+                    .where { (EmployeeTable.readerId eq empId) or (EmployeeTable.id eq empId) }
+                    .firstOrNull()?.let { it[EmployeeTable.department] } ?: ""
+
+                results.add(
+                    DailySummary(
+                        employeeId = empId,
+                        name = name,
+                        department = dept,
+                        date = day,
+                        checkIn = if (sorted.size >= 1) earliest else null,
+                        checkOut = if (sorted.size >= 2) latest else null,
+                        totalChecks = sorted.size
+                    )
+                )
+            }
+
+            results.sortedWith(compareBy({ it.date }, { it.employeeId }))
+        }
+    }
+
+    /**
+     * Elimina todos los registros de un dia especifico que vinieron de LOCAL-SYNC
+     * (sincronizacion historica) para que no ensucien el dia con checadas falsas.
+     */
+    suspend fun deleteLocalSyncForDay(day: String): Int {
+        return DatabaseFactory.dbQuery {
+            // Seleccionamos los IDs de los registros LOCAL-SYNC del dia y borramos por ID
+            val ids = AttendanceLogTable
+                .select(AttendanceLogTable.id)
+                .where {
+                    (AttendanceLogTable.deviceSerial eq "LOCAL-SYNC") and
+                        (AttendanceLogTable.timestamp like "$day%")
+                }
+                .map { it[AttendanceLogTable.id] }
+            if (ids.isNotEmpty()) {
+                AttendanceLogTable.deleteWhere { AttendanceLogTable.id inList ids }
+            } else {
+                0
             }
         }
     }
 
     /**
-     * Limpieza retroactiva: para cada (empleado, dia) que tenga MAS de 2 checadas guardadas
-     * (de datos historicos importados antes de existir esta regla), se conserva solo la mas
-     * temprana (Check-in) y la mas tardia (Check-out), y se eliminan las de en medio.
-     * Devuelve cuantos registros se eliminaron.
+     * Limpieza retroactiva: para cada (empleado, dia) que tenga MAS de 2 checadas,
+     * conserva solo la mas temprana (Check-in) y la mas tardia (Check-out).
      */
     private data class LogRecord(val recordId: Int, val employeeId: String, val timestamp: String)
 
@@ -108,7 +197,6 @@ class AttendanceUseCase {
                 val checkOutId = sorted.last().recordId
                 val idsToDelete = sorted.map { rec -> rec.recordId }.filter { recId -> recId != checkInId && recId != checkOutId }
 
-                // Aseguramos las etiquetas correctas para los dos que sí se quedan
                 AttendanceLogTable.update({ AttendanceLogTable.id eq checkInId }) {
                     it[attendanceStatus] = "Check-in"
                 }
@@ -125,22 +213,10 @@ class AttendanceUseCase {
         }
     }
 
-    /**
-     * Repara registros HISTORICOS que se guardaron antes de que existieran las columnas
-     * name/department/attendance_status (o que llegaron sin esos datos):
-     *  - attendance_status: se infiere por orden cronologico dentro del mismo dia
-     *    (1er registro del dia = Check-in, 2do = Check-out; si por algun motivo ya
-     *    hay mas de 2, se dejan alternados en el mismo orden sin borrar nada).
-     *  - name / department: se cruzan con la ficha del empleado (EmployeeTable) por
-     *    readerId o id.
-     * Devuelve cuantos registros se actualizaron. Es seguro correrlo varias veces
-     * (idempotente): solo toca filas que tengan estos campos vacios.
-     */
     suspend fun backfillMissingMetadata(): Int {
         return DatabaseFactory.dbQuery {
             var updated = 0
 
-            // --- 1) attendance_status faltante, inferido por orden dentro del dia ---
             val missingStatusRows = AttendanceLogTable
                 .selectAll()
                 .where { AttendanceLogTable.attendanceStatus eq "" }
@@ -160,7 +236,6 @@ class AttendanceUseCase {
                 }
             }
 
-            // --- 2) name / department faltantes, cruzando con la ficha del empleado ---
             val missingInfoRows = AttendanceLogTable
                 .selectAll()
                 .where { (AttendanceLogTable.name eq "") or (AttendanceLogTable.department eq "") }
@@ -194,13 +269,6 @@ class AttendanceUseCase {
     }
 
     suspend fun syncWithDevice(deviceIp: String): Int {
-        // IP de la lectora configurada: 10.141.1.230
-        // En un entorno real, aquí usaríamos Ktor Client para llamar a la ISAPI de Hikvision
-        // Ejemplo: GET http://admin:password@$deviceIp/ISAPI/AccessControl/AcsEvent?format=json
-
-        // Eliminamos los datos de prueba (mock) para mostrar solo información verídica
-        // que la lectora envíe vía Push a este servidor.
-
-        return 0 // Retornamos 0 ya que la sincronización manual vía IP local no es posible desde la nube
+        return 0
     }
 }

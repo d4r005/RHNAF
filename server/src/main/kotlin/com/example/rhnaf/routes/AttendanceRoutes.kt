@@ -274,6 +274,100 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             call.respond(mapOf("registros_actualizados" to updated.toString(), "mensaje" to "Se completaron Name/Department/Attendance Status faltantes en registros historicos."))
         }
 
+        // ========== EXPORTACION PARA NOMINA / AUDITORIA ==========
+
+        // Elimina registros falsos de LOCAL-SYNC de un dia especifico
+        delete("/local-sync/{day}") {
+            val day = call.parameters["day"] ?: java.time.LocalDate.now().toString()
+            val deleted = attendanceUseCase.deleteLocalSyncForDay(day)
+            call.respond(mapOf(
+                "dia" to day,
+                "registros_eliminados" to deleted,
+                "mensaje" to "Se eliminaron " + deleted + " registros falsos de LOCAL-SYNC del dia " + day + "."
+            ))
+        }
+
+        // Export CSV: 1 Check-in (mas temprano) + 1 Check-out (mas tardio) por empleado por dia
+        get("/export/csv") {
+            val today = java.time.LocalDate.now().toString()
+            val from = call.parameters["from"] ?: today
+            val to = call.parameters["to"] ?: today
+
+            val summary = attendanceUseCase.exportDailySummary(from + "T00:00:00", to + "T23:59:59")
+
+            val csv = buildString {
+                appendLine("Employee ID,Name,Department,Date,Check-In,Check-Out,Total Checks")
+                for (row in summary) {
+                    val ci = row.checkIn ?: ""
+                    val co = row.checkOut ?: ""
+                    appendLine(row.employeeId + "," + row.name + "," + row.department + "," + row.date + "," + ci + "," + co + "," + row.totalChecks)
+                }
+            }
+
+            call.response.header("Content-Disposition", "attachment; filename=reporte_asistencia_" + from + "_a_" + to + ".csv")
+            call.respondText(csv, contentType = ContentType.Text.CSV)
+        }
+
+        // Export PDF: reporte HTML formateado para impresion a PDF
+        get("/export/pdf") {
+            val today = java.time.LocalDate.now().toString()
+            val from = call.parameters["from"] ?: today
+            val to = call.parameters["to"] ?: today
+
+            val summary = attendanceUseCase.exportDailySummary(from + "T00:00:00", to + "T23:59:59")
+
+            val sb = StringBuilder()
+            sb.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>")
+            sb.append("<title>Reporte de Asistencia " + from + " a " + to + "</title>")
+            sb.append("<style>")
+            sb.append("@page { size: A4; margin: 15mm; }")
+            sb.append("body { font-family: 'Helvetica', sans-serif; font-size: 11px; color: #333; }")
+            sb.append("h1 { font-size: 18px; text-align: center; margin-bottom: 5px; }")
+            sb.append("h2 { font-size: 12px; text-align: center; color: #666; font-weight: normal; margin-bottom: 20px; }")
+            sb.append("table { width: 100%; border-collapse: collapse; margin-top: 10px; }")
+            sb.append("th { background: #2c3e50; color: white; padding: 6px 8px; text-align: left; font-size: 10px; }")
+            sb.append("td { padding: 5px 8px; border-bottom: 1px solid #ddd; }")
+            sb.append("tr:nth-child(even) { background: #f9f9f9; }")
+            sb.append(".header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }")
+            sb.append(".logo { font-size: 16px; font-weight: bold; color: #2c3e50; }")
+            sb.append(".date { font-size: 10px; color: #999; }")
+            sb.append(".total { margin-top: 15px; font-weight: bold; text-align: right; }")
+            sb.append("@media print { .no-print { display: none; } }")
+            sb.append(".btn { background: #2c3e50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }")
+            sb.append("</style>")
+            sb.append("</head><body>")
+            sb.append("<div class='header'><span class='logo'>NAF - Reporte de Asistencia</span>")
+            val genDate = java.time.LocalDateTime.now().toString().substring(0, 16).replace("T", " ")
+            sb.append("<span class='date'>Generado: " + genDate + "</span></div>")
+            sb.append("<h1>Reporte de Asistencia</h1>")
+            sb.append("<h2>Periodo: " + from + " a " + to + "</h2>")
+            sb.append("<button class='btn no-print' onclick='window.print()'>Imprimir / Guardar PDF</button>")
+            sb.append("<table><thead><tr>")
+            sb.append("<th>#</th><th>Employee ID</th><th>Nombre</th><th>Departamento</th><th>Fecha</th><th>Check-In</th><th>Check-Out</th><th>Checadas</th>")
+            sb.append("</tr></thead><tbody>")
+            for ((index, row) in summary.withIndex()) {
+                sb.append("<tr>")
+                sb.append("<td>" + (index + 1) + "</td>")
+                sb.append("<td>" + row.employeeId + "</td>")
+                sb.append("<td>" + row.name + "</td>")
+                sb.append("<td>" + row.department + "</td>")
+                sb.append("<td>" + row.date + "</td>")
+                val checkInTime = row.checkIn?.substringAfter("T")?.substring(0, 8) ?: "-"
+                val checkOutTime = row.checkOut?.substringAfter("T")?.substring(0, 8) ?: "-"
+                sb.append("<td>" + checkInTime + "</td>")
+                sb.append("<td>" + checkOutTime + "</td>")
+                sb.append("<td>" + row.totalChecks + "</td>")
+                sb.append("</tr>")
+            }
+            sb.append("</tbody></table>")
+            sb.append("<div class='total'>Total de registros: " + summary.size + "</div>")
+            sb.append("</body></html>")
+
+            call.respondText(sb.toString(), contentType = ContentType.Text.Html)
+        }
+
+
+
         // Importación manual: sube el CSV que exporta el software de asistencia
         // de la lectora (mismo formato de "checadas"). Ruta de respaldo mientras
         // se resuelve el push/pull automático en tiempo real.
