@@ -167,19 +167,39 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
         }
 
         if (!employeeNo.isNullOrBlank()) {
-            val saved = attendanceUseCase.registerCheckIn(
-                employeeId = employeeNo!!,
-                timestamp = java.time.LocalDateTime.now().toString(),
-                deviceSerial = deviceId,
-                verifyMode = verifyMode,
-                name = employeeName
-            )
-            if (!saved) {
-                DatabaseFactory.dbQuery {
-                    DebugLogTable.insert {
-                        it[timestamp] = java.time.LocalDateTime.now().toString()
-                        it[rawContent] = "HIK-POST RECHAZADO (ya tiene Check-in y Check-out hoy) | employeeNo=$employeeNo"
-                        it[sourceIp] = clientIp
+            // IMPORTANTE: nunca dejamos que una excepcion aqui tumbe la respuesta con un 500.
+            // Si algo truena (ej. un valor demasiado largo para una columna, un campo
+            // inesperado, etc.) lo atrapamos, lo dejamos escrito en DebugLogTable con el
+            // detalle exacto del error, y de todas formas respondemos 200 OK -- asi la
+            // lectora/el script de sync nunca se quedan reintentando en bucle, y nosotros
+            // vemos en /api/v1/asistencia/debug exactamente que fallo y por que.
+            try {
+                val saved = attendanceUseCase.registerCheckIn(
+                    employeeId = employeeNo!!,
+                    timestamp = java.time.LocalDateTime.now().toString(),
+                    deviceSerial = deviceId,
+                    verifyMode = verifyMode,
+                    name = employeeName
+                )
+                if (!saved) {
+                    DatabaseFactory.dbQuery {
+                        DebugLogTable.insert {
+                            it[timestamp] = java.time.LocalDateTime.now().toString()
+                            it[rawContent] = "HIK-POST RECHAZADO (ya tiene Check-in y Check-out hoy) | employeeNo=$employeeNo"
+                            it[sourceIp] = clientIp
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                val detail = "HIK-POST ERROR AL GUARDAR | employeeNo=$employeeNo deviceId=$deviceId verifyMode=$verifyMode " +
+                    "| excepcion=${e::class.simpleName}: ${e.message} | BODY: $rawBody"
+                runCatching {
+                    DatabaseFactory.dbQuery {
+                        DebugLogTable.insert {
+                            it[timestamp] = java.time.LocalDateTime.now().toString()
+                            it[rawContent] = detail.take(4000)
+                            it[sourceIp] = clientIp
+                        }
                     }
                 }
             }

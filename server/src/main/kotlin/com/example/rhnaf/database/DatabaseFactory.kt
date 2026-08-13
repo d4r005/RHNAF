@@ -37,6 +37,19 @@ object DatabaseFactory {
         transaction(database) {
             SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, SafetyIncidentTable, WorkPermitTable, PpeDeliveryTable, SafetyTrainingTable, EmergencyDrillTable, RiskMatrixTable, AccessAuditLogTable, EnvironmentalWasteTable, OccupationalHealthTable, ChemicalInventoryTable, ShiftTable, AttendancePolicyTable, EmployeeShiftTable, JustificationTable, PrePayrollTable)
 
+            // MIGRACION: createMissingTablesAndColumns NO amplia columnas ya existentes,
+            // solo agrega tablas/columnas faltantes. attendance_logs.device_serial y
+            // .verify_mode se quedaron muy angostos (varchar(50)/(30)) para lo que la
+            // lectora real manda (deviceName y currentVerifyMode pueden ser mas largos
+            // que los valores de prueba), causando "value too long for type character
+            // varying" -> 500 al sincronizar el historico real. Ampliamos explicitamente
+            // aqui (idempotente, seguro de correr en cada arranque).
+            if (!rawDatabaseUrl.isNullOrBlank()) {
+                runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN device_serial TYPE VARCHAR(150)") }
+                runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN verify_mode TYPE VARCHAR(100)") }
+                runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN employee_id TYPE VARCHAR(100)") }
+            }
+
             // CARGA DE USUARIOS DEL SISTEMA (ADMIN/OPERACIONES)
             if (UserTable.selectAll().empty()) {
                 val systemUsers = listOf(

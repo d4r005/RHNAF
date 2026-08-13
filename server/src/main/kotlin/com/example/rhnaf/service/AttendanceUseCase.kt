@@ -67,15 +67,20 @@ class AttendanceUseCase {
                 (name.ifBlank { empName }) to (department.ifBlank { empDept })
             } else name to department
 
+            // Truncamos defensivamente a los limites de columna (ver AttendanceLogTable):
+            // la lectora real manda valores de deviceName/currentVerifyMode mas largos
+            // que los de prueba, y un insert que excede el varchar tumba la request con
+            // un 500 "value too long for type character varying". Mejor recortar que
+            // que se pierda el registro completo.
             AttendanceLogTable.insert {
-                it[AttendanceLogTable.employeeId] = employeeId
+                it[AttendanceLogTable.employeeId] = employeeId.take(100)
                 it[AttendanceLogTable.timestamp] = timestamp
-                it[AttendanceLogTable.deviceSerial] = deviceSerial
-                it[AttendanceLogTable.verifyMode] = verifyMode
+                it[AttendanceLogTable.deviceSerial] = deviceSerial.take(150)
+                it[AttendanceLogTable.verifyMode] = verifyMode.take(100)
                 it[AttendanceLogTable.attendanceStatus] = slot
-                it[AttendanceLogTable.name] = resolvedName
-                it[AttendanceLogTable.department] = resolvedDept
-                it[AttendanceLogTable.customName] = customName
+                it[AttendanceLogTable.name] = resolvedName.take(200)
+                it[AttendanceLogTable.department] = resolvedDept.take(150)
+                it[AttendanceLogTable.customName] = customName.take(200)
             }
             true
         }
