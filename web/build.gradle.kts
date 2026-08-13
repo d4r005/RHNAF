@@ -2,6 +2,7 @@ plugins {
     kotlin("multiplatform")
     id("org.jetbrains.compose")
     kotlin("plugin.compose")
+    kotlin("plugin.serialization")
 }
 
 kotlin {
@@ -25,6 +26,7 @@ kotlin {
                 implementation("io.ktor:ktor-client-js:3.0.3")
                 implementation("io.ktor:ktor-client-content-negotiation:3.0.3")
                 implementation("io.ktor:ktor-serialization-kotlinx-json:3.0.3")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
             }
         }
     }
