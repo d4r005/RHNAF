@@ -11,162 +11,329 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.launch
 import kotlinx.browser.window
+import kotlin.js.Date
 
 @Composable
 fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
     var logs by remember { mutableStateOf(emptyList<AttendanceLog>()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf("") }
-    var searchQuery by remember { mutableStateOf("") }
-    var filterDate by remember { mutableStateOf("") }
+    
+    // Filtros estilo iVMS-4200
+    val today = Date().toISOString().substringBefore("T")
+    var startTime by remember { mutableStateOf("$today 00:00:00") }
+    var endTime by remember { mutableStateOf("$today 23:59:59") }
+    var deptFilter by remember { mutableStateOf("") }
+    var nameFilter by remember { mutableStateOf("") }
+    var pidFilter by remember { mutableStateOf("") }
+    var sourceFilter by remember { mutableStateOf("") }
+    
+    var currentPage by remember { mutableStateOf(1) }
+    val pageSize = 50
     var refreshKey by remember { mutableStateOf(0) }
 
     LaunchedEffect(refreshKey) {
         isLoading = true
         errorMsg = ""
         try {
-            val resp = client.get("$BACKEND_URL/api/v1/asistencia/logs")
+            // Construir URL con filtros
+            val url = "$BACKEND_URL/api/v1/asistencia/logs?" +
+                "from=${startTime.replace(" ", "T")}&" +
+                "to=${endTime.replace(" ", "T")}&" +
+                "pid=$pidFilter&" +
+                "name=$nameFilter&" +
+                "dept=$deptFilter&" +
+                "source=$sourceFilter"
+            
+            val resp = client.get(url)
             if (resp.status == HttpStatusCode.OK) {
                 logs = resp.body()
+                currentPage = 1 // Reset a primera pagina al buscar
             } else {
-                errorMsg = "El servidor respondio ${resp.status}"
+                errorMsg = "El servidor respondió ${resp.status}"
             }
         } catch (e: Exception) {
-            errorMsg = "No se pudo conectar: ${e.message}"
+            errorMsg = "Error: ${e.message}"
         }
         isLoading = false
     }
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3({ style { margin(0.px, 0.px, 4.px, 0.px) } }) { Text("Registro de Asistencia") }
-        P({ style { color(Color.gray); margin(0.px, 0.px, 16.px, 0.px); fontSize(14.px) } }) {
-            Text("Checadas registradas desde la lectora Hikvision, importacion CSV y app movil")
+        H3({ style { margin(0.px, 0.px, 16.px, 0.px) } }) { Text("Search Events - Attendance Control") }
+
+        // PANEL DE BUSQUEDA ESTILO iVMS-4200
+        Div({
+            style {
+                backgroundColor(Color("#2c3e50"))
+                padding(24.px)
+                borderRadius(8.px)
+                marginBottom(24.px)
+                display(DisplayStyle.Grid)
+                property("grid-template-columns", "repeat(auto-fit, minmax(280.px, 1fr))")
+                gap(16.px)
+                color(Color.white)
+            }
+        }) {
+            // Columna 1
+            Div {
+                SearchLabel("Start Time")
+                Input(InputType.Text) {
+                    value(startTime); onInput { startTime = it.value }
+                    style { 
+                        width(100.percent)
+                        padding(8.px)
+                        borderRadius(4.px)
+                        property("border", "1px solid #455a64")
+                        backgroundColor(Color("#34495e"))
+                        color(Color.white)
+                        property("margin-bottom", "12.px")
+                        property("outline", "none")
+                    }
+                }
+                SearchLabel("Department")
+                Select({
+                    style { 
+                        width(100.percent)
+                        padding(8.px)
+                        borderRadius(4.px)
+                        property("border", "1px solid #455a64")
+                        backgroundColor(Color("#34495e"))
+                        color(Color.white)
+                        property("margin-bottom", "12.px")
+                        property("outline", "none")
+                    }
+                    onChange { deptFilter = it.target?.asDynamic().value as String }
+                }) {
+                    Option("") { Text("North America Flooring (All)") }
+                    listOf("Producción", "Almacén", "RH", "Mantenimiento", "Seguridad").forEach {
+                        Option(it) { Text(it) }
+                    }
+                }
+                SearchLabel("Person ID")
+                Input(InputType.Text) {
+                    value(pidFilter); onInput { pidFilter = it.value }
+                    style { 
+                        width(100.percent)
+                        padding(8.px)
+                        borderRadius(4.px)
+                        property("border", "1px solid #455a64")
+                        backgroundColor(Color("#34495e"))
+                        color(Color.white)
+                        property("margin-bottom", "12.px")
+                        property("outline", "none")
+                    }
+                }
+            }
+
+            // Columna 2
+            Div {
+                SearchLabel("End Time")
+                Input(InputType.Text) {
+                    value(endTime); onInput { endTime = it.value }
+                    style { 
+                        width(100.percent)
+                        padding(8.px)
+                        borderRadius(4.px)
+                        property("border", "1px solid #455a64")
+                        backgroundColor(Color("#34495e"))
+                        color(Color.white)
+                        property("margin-bottom", "12.px")
+                        property("outline", "none")
+                    }
+                }
+                SearchLabel("Name")
+                Input(InputType.Text) {
+                    value(nameFilter); onInput { nameFilter = it.value }
+                    style { 
+                        width(100.percent)
+                        padding(8.px)
+                        borderRadius(4.px)
+                        property("border", "1px solid #455a64")
+                        backgroundColor(Color("#34495e"))
+                        color(Color.white)
+                        property("margin-bottom", "12.px")
+                        property("outline", "none")
+                    }
+                }
+                SearchLabel("Data Source")
+                Select({
+                    style { 
+                        width(100.percent)
+                        padding(8.px)
+                        borderRadius(4.px)
+                        property("border", "1px solid #455a64")
+                        backgroundColor(Color("#34495e"))
+                        color(Color.white)
+                        property("margin-bottom", "12.px")
+                        property("outline", "none")
+                    }
+                    onChange { sourceFilter = it.target?.asDynamic().value as String }
+                }) {
+                    Option("") { Text("All Sources") }
+                    Option("HIKVISIONWEB") { Text("HIKVISIONWEB") }
+                    Option("CSV-IMPORT") { Text("CSV-IMPORT") }
+                }
+            }
+
+            // Botones de Accion
+            Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); justifyContent(JustifyContent.FlexEnd); gap(8.px) } }) {
+                Button({
+                    style { 
+                        width(100.percent); padding(10.px); borderRadius(4.px); property("border", "none")
+                        backgroundColor(Color("#e74c3c")); color(Color.white); fontWeight("bold"); cursor("pointer")
+                    }
+                    onClick { refreshKey++ }
+                }) { Text("Search") }
+                
+                Button({
+                    style { 
+                        width(100.percent); padding(10.px); borderRadius(4.px); property("border", "none")
+                        backgroundColor(Color("#34495e")); color(Color.white); fontWeight("bold"); cursor("pointer")
+                    }
+                    onClick { 
+                        startTime = ""; endTime = ""; deptFilter = ""; nameFilter = ""; pidFilter = ""; sourceFilter = ""
+                        refreshKey++ 
+                    }
+                }) { Text("Reset") }
+
+                Button({
+                    style { 
+                        width(100.percent); padding(10.px); borderRadius(4.px); property("border", "none")
+                        backgroundColor(Color("#2980b9")); color(Color.white); fontWeight("bold"); cursor("pointer")
+                    }
+                    onClick { 
+                        scope.launch { client.post("$BACKEND_URL/api/v1/asistencia/sync") }
+                        window.alert("Sincronización iniciada...")
+                    }
+                }) { Text("Get Events from Device") }
+            }
         }
 
-        Div({ style { display(DisplayStyle.Flex); gap(12.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-            Input(InputType.Text) {
-                style {
-                    padding(8.px, 12.px); borderRadius(6.px); property("border", "1px solid #cbd5e1")
-                    width(240.px); property("outline", "none")
-                }
-                placeholder("Buscar por nombre o ID...")
-                value(searchQuery)
-                onInput { searchQuery = it.value }
+        // ACCIONES DE EXPORTACION Y LIMPIEZA
+        Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(16.px) } }) {
+            Div({ style { display(DisplayStyle.Flex); gap(8.px) } }) {
+                Button({
+                    style { 
+                        padding(8.px, 16.px); borderRadius(6.px); property("border", "none")
+                        backgroundColor(Color("#27ae60")); color(Color.white); cursor("pointer"); fontSize(13.px)
+                    }
+                    onClick { 
+                        val url = "$BACKEND_URL/api/v1/asistencia/export/raw/csv?" +
+                            "from=${startTime.replace(" ", "T")}&to=${endTime.replace(" ", "T")}&pid=$pidFilter&name=$nameFilter&dept=$deptFilter"
+                        window.open(url, "_blank")
+                    }
+                }) { Text("Download CSV") }
+                Button({
+                    style { 
+                        padding(8.px, 16.px); borderRadius(6.px); property("border", "none")
+                        backgroundColor(Color("#c0392b")); color(Color.white); cursor("pointer"); fontSize(13.px)
+                    }
+                    onClick { 
+                        val url = "$BACKEND_URL/api/v1/asistencia/export/pdf?" +
+                            "from=${startTime.split(" ")[0]}&to=${endTime.split(" ")[0]}"
+                        window.open(url, "_blank")
+                    }
+                }) { Text("Generate PDF Report") }
             }
-            Input(InputType.Text) {
-                style {
-                    padding(8.px, 12.px); borderRadius(6.px); property("border", "1px solid #cbd5e1")
-                    width(160.px); property("outline", "none")
-                }
-                placeholder("Filtrar fecha (YYYY-MM-DD)")
-                value(filterDate)
-                onInput { filterDate = it.value }
-            }
+
             Button({
-                style {
+                style { 
                     padding(8.px, 16.px); borderRadius(6.px); property("border", "none")
-                    backgroundColor(SidebarActiveColor); color(Color.white); cursor("pointer")
-                    fontWeight("bold")
+                    backgroundColor(Color("#7f8c8d")); color(Color.white); cursor("pointer"); fontSize(13.px)
                 }
-                onClick { refreshKey++ }
-            }) { Text("Actualizar") }
+                onClick {
+                    if (window.confirm("¿ESTÁS SEGURO? Se borrarán TODOS los registros de asistencia de la base de datos.")) {
+                        scope.launch {
+                            client.delete("$BACKEND_URL/api/v1/asistencia/all")
+                            refreshKey++
+                            window.alert("Base de datos vaciada.")
+                        }
+                    }
+                }
+            }) { Text("Clear Database (Danger)") }
         }
 
         if (isLoading) {
-            P({ style { textAlign("center"); padding(40.px, 0.px); color(Color.gray) } }) { Text("Cargando registros...") }
+            P({ style { textAlign("center"); padding(40.px, 0.px); color(Color.gray) } }) { Text("Loading events...") }
         } else if (errorMsg.isNotEmpty()) {
-            Div({ style { padding(16.px); backgroundColor(Color("#fef2f2")); borderRadius(8.px); color(Color("#dc2626")) } }) {
-                P({ style { margin(0.px) } }) { Text(errorMsg) }
-            }
-        } else if (logs.isEmpty()) {
-            Div({ style { padding(40.px, 0.px); textAlign("center") } }) {
-                P({ style { color(Color.gray); fontSize(16.px); margin(0.px, 0.px, 8.px, 0.px) } }) {
-                    Text("No hay registros de asistencia aun")
-                }
-                P({ style { color(Color("#94a3b8")); fontSize(13.px); margin(0.px) } }) {
-                    Text("Los eventos apareceran aqui cuando la lectora Hikvision sincronice via el script de red local")
-                }
-            }
+            Div({ style { padding(16.px); backgroundColor(Color("#fef2f2")); borderRadius(8.px); color(Color("#dc2626")) } }) { Text(errorMsg) }
         } else {
-            val filtered = logs.filter { log ->
-                (searchQuery.isBlank() ||
-                    log.name.contains(searchQuery, ignoreCase = true) ||
-                    log.employeeId.contains(searchQuery, ignoreCase = true)) &&
-                (filterDate.isBlank() || log.timestamp.startsWith(filterDate))
-            }
-            val checkIns = filtered.count { it.attendanceStatus.contains("in", ignoreCase = true) }
-            val checkOuts = filtered.count { it.attendanceStatus.contains("out", ignoreCase = true) }
-            val uniqueEmployees = filtered.map { it.employeeId }.distinct().size
+            val totalPages = (logs.size / pageSize) + (if (logs.size % pageSize > 0) 1 else 0)
+            val pagedLogs = logs.drop((currentPage - 1) * pageSize).take(pageSize)
 
-            Div({ style { display(DisplayStyle.Flex); gap(12.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap) } }) {
-                AttStatCard("Total Checadas", filtered.size.toString())
-                AttStatCard("Empleados Unicos", uniqueEmployees.toString())
-                AttStatCard("Check-ins", checkIns.toString())
-                AttStatCard("Check-outs", checkOuts.toString())
+            Div({ style { display(DisplayStyle.Flex); gap(12.px); marginBottom(16.px) } }) {
+                AttStatCard("Events Found", logs.size.toString())
+                AttStatCard("Page", "$currentPage / $totalPages")
             }
 
             Div({ style { overflowX("auto"); property("border", "1px solid #e2e8f0"); borderRadius(8.px) } }) {
-                Table({
-                    style {
-                        width(100.percent)
-                        property("border-collapse", "collapse")
-                        fontSize(13.px)
-                    }
-                }) {
+                Table({ style { width(100.percent); property("border-collapse", "collapse"); fontSize(13.px) } }) {
                     Thead {
-                        Tr({
-                            style { backgroundColor(Color("#f8fafc")); property("border-bottom", "2px solid #e2e8f0") }
-                        }) {
+                        Tr({ style { backgroundColor(Color("#f8fafc")); property("border-bottom", "2px solid #e2e8f0") } }) {
                             listOf("ID", "Empleado", "Departamento", "Fecha/Hora", "Tipo", "Metodo", "Dispositivo").forEach { h ->
-                                Th({
-                                    style {
-                                        padding(10.px, 12.px); textAlign("left")
-                                        fontWeight("bold"); color(Color("#475569"))
-                                    }
-                                }) { Text(h) }
+                                Th({ style { padding(12.px); textAlign("left"); fontWeight("bold"); color(Color("#475569")) } }) { Text(h) }
                             }
                         }
                     }
                     Tbody {
-                        filtered.sortedBy { it.timestamp }.take(200).forEach { log ->
-                            Tr({
-                                style {
-                                    property("border-bottom", "1px solid #f1f5f9")
+                        pagedLogs.forEach { log ->
+                            Tr({ style { property("border-bottom", "1px solid #f1f5f9") } }) {
+                                Td({ style { padding(10.px, 12.px); color(Color("#64748b")) } }) { Text(log.employeeId) }
+                                Td({ style { padding(10.px, 12.px); fontWeight("bold") } }) { Text(log.name.ifBlank { "Unknown" }) }
+                                Td({ style { padding(10.px, 12.px); color(Color("#64748b")) } }) { Text(log.department) }
+                                Td({ style { padding(10.px, 12.px) } }) { 
+                                    Text(log.timestamp.replace("T", " ").substringBefore("-").trim()) 
                                 }
-                            }) {
-                                Td({ style { padding(8.px, 12.px); color(Color("#64748b")) } }) { Text(log.employeeId) }
-                                Td({ style { padding(8.px, 12.px); fontWeight("bold") } }) {
-                                    Text(log.name.ifBlank { log.employeeId })
-                                }
-                                Td({ style { padding(8.px, 12.px); color(Color("#64748b")) } }) { Text(log.department) }
-                                Td({ style { padding(8.px, 12.px); color(Color("#475569")) } }) {
-                                    Text(log.timestamp.replace("T", " ").substringBefore("."))
-                                }
-                                Td({ style { padding(8.px, 12.px) } }) {
+                                Td({ style { padding(10.px, 12.px) } }) {
                                     val isCheckIn = log.attendanceStatus.contains("in", ignoreCase = true)
                                     Span({
                                         style {
-                                            padding(2.px, 10.px); borderRadius(99.px); fontSize(11.px); fontWeight("bold")
+                                            padding(2.px, 10.px); borderRadius(4.px); fontSize(11.px); fontWeight("bold")
                                             backgroundColor(if (isCheckIn) Color("#dcfce7") else Color("#dbeafe"))
                                             color(if (isCheckIn) Color("#166534") else Color("#1e40af"))
                                         }
-                                    }) { Text(log.attendanceStatus.ifBlank { "—" }) }
+                                    }) { Text(log.attendanceStatus.uppercase()) }
                                 }
-                                Td({ style { padding(8.px, 12.px); color(Color("#64748b")) } }) { Text(log.verifyMode) }
-                                Td({ style { padding(8.px, 12.px); color(Color("#94a3b8")); fontSize(11.px) } }) { Text(log.deviceSerial) }
+                                Td({ style { padding(10.px, 12.px) } }) { 
+                                    val mode = if (log.verifyMode.lowercase().contains("face")) "Face" else log.verifyMode
+                                    Text(mode) 
+                                }
+                                Td({ style { padding(10.px, 12.px); color(Color("#94a3b8")) } }) { Text(log.deviceSerial) }
                             }
                         }
                     }
                 }
             }
 
-            if (filtered.size > 200) {
-                P({ style { textAlign("center"); color(Color("#94a3b8")); fontSize(12.px); padding(12.px, 0.px) } }) {
-                    Text("Mostrando 200 de ${filtered.size} registros. Usa los filtros para acotar.")
-                }
+            // PAGINACION
+            Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.Center); gap(16.px); marginTop(24.px); alignItems(AlignItems.Center) } }) {
+                Button({
+                    style { 
+                        val bg = if(currentPage > 1) Color("#34495e") else Color("#bdc3c7")
+                        padding(8.px, 16.px); borderRadius(6.px); property("border", "none")
+                        backgroundColor(bg); color(Color.white); cursor("pointer"); fontSize(13.px)
+                    }
+                    onClick { if(currentPage > 1) currentPage-- }
+                }) { Text("Previous") }
+                
+                Text("Page $currentPage of $totalPages")
+                
+                Button({
+                    style { 
+                        val bg = if(currentPage < totalPages) Color("#34495e") else Color("#bdc3c7")
+                        padding(8.px, 16.px); borderRadius(6.px); property("border", "none")
+                        backgroundColor(bg); color(Color.white); cursor("pointer"); fontSize(13.px)
+                    }
+                    onClick { if(currentPage < totalPages) currentPage++ }
+                }) { Text("Next") }
             }
         }
     }
+}
+
+@Composable
+fun SearchLabel(text: String) {
+    Label(attrs = { style { display(DisplayStyle.Block); fontSize(12.px); marginBottom(4.px); color(Color("#bdc3c7")) } }) { Text(text) }
 }
 
 @Composable

@@ -246,8 +246,24 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
         }
 
         get("/logs") {
+            val pid = call.request.queryParameters["pid"]
+            val name = call.request.queryParameters["name"]
+            val dept = call.request.queryParameters["dept"]
+            val from = call.request.queryParameters["from"] // YYYY-MM-DD
+            val to = call.request.queryParameters["to"]     // YYYY-MM-DD
+            val source = call.request.queryParameters["source"]
+
             val logs = DatabaseFactory.dbQuery {
-                AttendanceLogTable.selectAll().orderBy(AttendanceLogTable.id, SortOrder.DESC).map {
+                val query = AttendanceLogTable.selectAll()
+                
+                if (!pid.isNullOrBlank()) query.andWhere { AttendanceLogTable.employeeId eq pid }
+                if (!name.isNullOrBlank()) query.andWhere { AttendanceLogTable.name.lowerCase() like "%${name.lowercase()}%" }
+                if (!dept.isNullOrBlank()) query.andWhere { AttendanceLogTable.department.lowerCase() like "%${dept.lowercase()}%" }
+                if (!from.isNullOrBlank()) query.andWhere { AttendanceLogTable.timestamp greaterEq from }
+                if (!to.isNullOrBlank()) query.andWhere { AttendanceLogTable.timestamp lessEq to + "T23:59:59" }
+                if (!source.isNullOrBlank()) query.andWhere { AttendanceLogTable.deviceSerial eq source }
+
+                query.orderBy(AttendanceLogTable.id, SortOrder.DESC).map {
                     AttendanceLog(
                         id = it[AttendanceLogTable.id].toString(),
                         employeeId = it[AttendanceLogTable.employeeId],
@@ -262,6 +278,12 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                 }
             }
             call.respond(logs)
+        }
+
+        // Limpieza TOTAL de la base de datos de asistencia
+        delete("/all") {
+            val deleted = attendanceUseCase.deleteAllAttendance()
+            call.respond(mapOf("mensaje" to "Base de datos de asistencia vaciada correctamente.", "registros_eliminados" to deleted.toString()))
         }
 
         // El servidor vive en la nube (Hugging Face) y la lectora Hikvision vive
@@ -359,6 +381,44 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             }
 
             call.response.header("Content-Disposition", "attachment; filename=reporte_asistencia_" + from + "_a_" + to + ".csv")
+            call.respondText(csv, contentType = ContentType.Text.CSV)
+        }
+
+        // Export Raw CSV: todas las checadas filtradas sin agrupar
+        get("/export/raw/csv") {
+            val pid = call.request.queryParameters["pid"]
+            val name = call.request.queryParameters["name"]
+            val dept = call.request.queryParameters["dept"]
+            val from = call.request.queryParameters["from"]
+            val to = call.request.queryParameters["to"]
+
+            val logs = DatabaseFactory.dbQuery {
+                val query = AttendanceLogTable.selectAll()
+                if (!pid.isNullOrBlank()) query.andWhere { AttendanceLogTable.employeeId eq pid }
+                if (!name.isNullOrBlank()) query.andWhere { AttendanceLogTable.name.lowerCase() like "%${name.lowercase()}%" }
+                if (!dept.isNullOrBlank()) query.andWhere { AttendanceLogTable.department.lowerCase() like "%${dept.lowercase()}%" }
+                if (!from.isNullOrBlank()) query.andWhere { AttendanceLogTable.timestamp greaterEq from }
+                if (!to.isNullOrBlank()) query.andWhere { AttendanceLogTable.timestamp lessEq to + "T23:59:59" }
+
+                query.orderBy(AttendanceLogTable.timestamp, SortOrder.ASC).map {
+                    listOf(
+                        it[AttendanceLogTable.employeeId],
+                        it[AttendanceLogTable.name],
+                        it[AttendanceLogTable.department],
+                        it[AttendanceLogTable.timestamp],
+                        it[AttendanceLogTable.attendanceStatus],
+                        it[AttendanceLogTable.verifyMode],
+                        it[AttendanceLogTable.deviceSerial]
+                    ).joinToString(",")
+                }
+            }
+
+            val csv = buildString {
+                appendLine("Employee ID,Name,Department,Timestamp,Status,Method,Device")
+                logs.forEach { appendLine(it) }
+            }
+
+            call.response.header("Content-Disposition", "attachment; filename=asistencias_raw.csv")
             call.respondText(csv, contentType = ContentType.Text.CSV)
         }
 

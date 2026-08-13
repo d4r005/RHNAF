@@ -1,8 +1,14 @@
-# Tareas de Refinamiento de Asistencia (Hikvision)
+# Tareas: Reingeniería del Módulo de Asistencia (Estilo iVMS)
 
-- `[/]` Implementar filtrado y renombrado:
-    - `[ ]` Actualizar `AttendanceRoutes.kt` (Filtrado "None" + Renombrar a HIKVISIONWEB).
-    - `[ ]` Actualizar `AttendanceUseCase.kt` (Validación de IDs).
-    - `[ ]` Actualizar `attendance_sync.py` (Payload HIKVISIONWEB).
-- `[ ]` Limpieza de base de datos (Borrar registros "None" actuales).
-- `[ ]` Realizar Commit and Push.
+- `[/]` Backend (Servidor Ktor):
+    - `[ ]` Añadir endpoint `DELETE /api/v1/asistencia/all` para limpieza total.
+    - `[ ]` Actualizar `GET /api/v1/asistencia/logs` con soporte para filtros dinámicos (fecha, depto, id, nombre).
+    - `[ ]` Implementar endpoints de exportación `GET /export/raw/csv` y `GET /export/raw/pdf`.
+- `[ ]` Frontend (Web Compose):
+    - `[ ]` Crear el nuevo panel de búsqueda estilo iVMS-4200.
+    - `[ ]` Implementar lógica de paginación en la tabla.
+    - `[ ]` Añadir botones de descarga vinculados a los filtros.
+    - `[ ]` Añadir botón de "Clear Database" con advertencia.
+- `[ ]` Verificación y Push:
+    - `[ ]` Probar limpieza y re-sincronización.
+    - `[ ]` Realizar Commit and Push.

@@ -183,6 +183,16 @@ class AttendanceUseCase {
     }
 
     /**
+     * Borra TODOS los registros de la tabla de asistencia.
+     * Útil para reiniciar pruebas de sincronización.
+     */
+    suspend fun deleteAllAttendance(): Int {
+        return DatabaseFactory.dbQuery {
+            AttendanceLogTable.deleteAll()
+        }
+    }
+
+    /**
      * Borra TODOS los registros de un dia especifico, sin importar el origen.
      */
     suspend fun deleteAllForDay(day: String): Int {
