@@ -11,6 +11,7 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.launch
 import kotlinx.browser.window
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.builtins.ListSerializer
 
@@ -47,7 +48,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                 val text = resp.bodyAsText()
                 logs = attJson.decodeFromString(ListSerializer(AttendanceLogWeb.serializer()), text)
             } else {
-                errorMsg = "El servidor respondió ${resp.status}"
+                errorMsg = "El servidor respondio ${resp.status}"
             }
         } catch (e: Exception) {
             errorMsg = "No se pudo conectar: ${e.message}"
@@ -58,7 +59,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3({ style { margin(0.px, 0.px, 4.px, 0.px) } }) { Text("Registro de Asistencia") }
         P({ style { color(Color.gray); margin(0.px, 0.px, 16.px, 0.px); fontSize(14.px) } }) {
-            Text("Checadas registradas desde la lectora Hikvision, importación CSV y app móvil")
+            Text("Checadas registradas desde la lectora Hikvision, importacion CSV y app movil")
         }
 
         // Barra de controles
@@ -100,33 +101,29 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
         } else if (logs.isEmpty()) {
             Div({ style { padding(40.px, 0.px); textAlign("center") } }) {
                 P({ style { color(Color.gray); fontSize(16.px); margin(0.px, 0.px, 8.px, 0.px) } }) {
-                    Text("No hay registros de asistencia aún")
+                    Text("No hay registros de asistencia aun")
                 }
                 P({ style { color(Color("#94a3b8")); fontSize(13.px); margin(0.px) } }) {
-                    Text("Los eventos aparecerán aquí cuando la lectora Hikvision sincronice via el script de red local")
+                    Text("Los eventos apareceran aqui cuando la lectora Hikvision sincronice via el script de red local")
                 }
             }
         } else {
-            // Estadísticas rápidas
+            // Estadisticas rapidas
             val filtered = logs.filter { log ->
                 (searchQuery.isBlank() ||
                     log.name.contains(searchQuery, ignoreCase = true) ||
                     log.employeeId.contains(searchQuery, ignoreCase = true)) &&
                 (filterDate.isBlank() || log.timestamp.startsWith(filterDate))
             }
-            val todayCount = filtered.count {
-                val today = kotlinx.datetime.Clock.System.now().toString().substring(0, 10)
-                it.timestamp.startsWith(today)
-            }
             val checkIns = filtered.count { it.attendanceStatus.contains("in", ignoreCase = true) }
             val checkOuts = filtered.count { it.attendanceStatus.contains("out", ignoreCase = true) }
             val uniqueEmployees = filtered.map { it.employeeId }.distinct().size
 
             Div({ style { display(DisplayStyle.Flex); gap(12.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap) } }) {
-                StatCard("Total Checadas", filtered.size.toString())
-                StatCard("Empleados Únicos", uniqueEmployees.toString())
-                StatCard("Check-ins", checkIns.toString())
-                StatCard("Check-outs", checkOuts.toString())
+                AttStatCard("Total Checadas", filtered.size.toString())
+                AttStatCard("Empleados Unicos", uniqueEmployees.toString())
+                AttStatCard("Check-ins", checkIns.toString())
+                AttStatCard("Check-outs", checkOuts.toString())
             }
 
             // Tabla de registros
@@ -142,7 +139,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                         Tr({
                             style { backgroundColor(Color("#f8fafc")); property("border-bottom", "2px solid #e2e8f0") }
                         }) {
-                            listOf("ID", "Empleado", "Departamento", "Fecha/Hora", "Tipo", "Método", "Dispositivo").forEach { h ->
+                            listOf("ID", "Empleado", "Departamento", "Fecha/Hora", "Tipo", "Metodo", "Dispositivo").forEach { h ->
                                 Th({
                                     style {
                                         padding(10.px, 12.px); textAlign("left")
@@ -157,7 +154,6 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                             Tr({
                                 style {
                                     property("border-bottom", "1px solid #f1f5f9")
-                                    hover { backgroundColor(Color("#f8fafc")) }
                                 }
                             }) {
                                 Td({ style { padding(8.px, 12.px); color(Color("#64748b")) } }) { Text(log.employeeId) }
@@ -196,7 +192,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
 }
 
 @Composable
-fun StatCard(label: String, value: String) {
+fun AttStatCard(label: String, value: String) {
     Div({
         style {
             flex(1); padding(16.px); borderRadius(8.px)
@@ -204,7 +200,7 @@ fun StatCard(label: String, value: String) {
             minWidth(140.px)
         }
     }) {
-        P({ style { margin(0.px, 0.px, 4.px, 0.px); fontSize(11.px); color(Color("#94a3b8")); fontWeight("bold"); textTransform("uppercase") } }) {
+        P({ style { margin(0.px, 0.px, 4.px, 0.px); fontSize(11.px); color(Color("#94a3b8")); fontWeight("bold"); property("text-transform", "uppercase") } }) {
             Text(label)
         }
         P({ style { margin(0.px); fontSize(24.px); fontWeight("bold"); color(Color("#0f172a")) } }) {
