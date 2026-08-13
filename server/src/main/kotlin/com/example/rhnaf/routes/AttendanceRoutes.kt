@@ -287,6 +287,17 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             ))
         }
 
+        // Elimina TODOS los registros de un dia especifico
+        delete("/day/{day}") {
+            val day = call.parameters["day"] ?: java.time.LocalDate.now().toString()
+            val deleted = attendanceUseCase.deleteAllForDay(day)
+            call.respond(mapOf(
+                "dia" to day,
+                "registros_eliminados" to deleted.toString(),
+                "mensaje" to "Se eliminaron " + deleted + " registros del dia " + day + "."
+            ))
+        }
+
         // Export CSV: 1 Check-in (mas temprano) + 1 Check-out (mas tardio) por empleado por dia
         get("/export/csv") {
             val today = java.time.LocalDate.now().toString()

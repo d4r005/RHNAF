@@ -172,6 +172,25 @@ class AttendanceUseCase {
     }
 
     /**
+     * Borra TODOS los registros de un dia especifico, sin importar el origen.
+     */
+    suspend fun deleteAllForDay(day: String): Int {
+        return DatabaseFactory.dbQuery {
+            val ids = AttendanceLogTable
+                .select(AttendanceLogTable.id)
+                .where {
+                    AttendanceLogTable.timestamp like "$day%"
+                }
+                .map { it[AttendanceLogTable.id] }
+            if (ids.isNotEmpty()) {
+                AttendanceLogTable.deleteWhere { AttendanceLogTable.id inList ids }
+            } else {
+                0
+            }
+        }
+    }
+
+    /**
      * Limpieza retroactiva: para cada (empleado, dia) que tenga MAS de 2 checadas,
      * conserva solo la mas temprana (Check-in) y la mas tardia (Check-out).
      */
