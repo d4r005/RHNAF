@@ -10,18 +10,15 @@ Este script combina en un solo ciclo:
 
   1) EMPLEADOS: jala la lista COMPLETA de empleados de la lectora
      (ISAPI/AccessControl/UserInfo/Search) con sus FOTOS de rostro
-     (ISAPI/Intelligent/FDLib/FDSearch) y los sube al servidor en la nube.
-     Los nuevos se dan de alta automaticamente; los existentes se
-     actualizan (nombre, foto, departamento).
+     y los sube al servidor en la nube. Los nuevos se dan de alta
+     automaticamente; los existentes se actualizan (nombre, foto).
 
   2) ASISTENCIA: jala TODOS los eventos de checada desde la ultima vez
      que corrio (o desde --since si se fuerza) y los sube al servidor.
 
   3) REPARACION: llama al endpoint /backfill-metadata del servidor para
-     que cualquier checada que se haya guardado sin nombre (porque el
-     empleado aun no existia en la ficha) se le cruce con la ficha ya
-     actualizada y le aparezca el nombre. Tambien llama a /normalize
-     para respetar el limite de 1 Check-in + 1 Check-out por dia.
+     que cualquier checada que se haya guardado sin nombre se le cruce
+     con la ficha ya actualizada. Tambien llama a /normalize.
 
 Requisitos:
     pip install requests
@@ -30,8 +27,7 @@ Uso:
     python sync_all.py                           (una corrida y termina)
     python sync_all.py --loop                    (corre para siempre, cada 5 min)
     python sync_all.py --loop --interval 60      (cada 60 seg en vez de 5 min)
-    python sync_all.py --since 2026-01-01T00:00:00  (fuerza fecha de inicio para
-                                                     vaciar el backlog historico)
+    python sync_all.py --since 2026-01-01T00:00:00  (fuerza fecha de inicio)
     python sync_all.py --sin-fotos               (mas rapido: omite fotos)
     python sync_all.py --debug                   (imprime respuestas crudas)
 
@@ -68,8 +64,8 @@ TZ_OFFSET = "-06:00"
 
 # Paginacion ISAPI
 BATCH_SIZE = 30
-MAX_PAGES_ATTENDANCE = 50    # 1500 eventos max por corrida
-MAX_PAGES_EMPLOYEES = 100   # 3000 usuarios max
+MAX_PAGES_ATTENDANCE = 50
+MAX_PAGES_EMPLOYEES = 100
 MAX_PAGES_FACES = 100
 FACE_LIB_ID = "1"
 
@@ -79,12 +75,11 @@ DEFAULT_LOOKBACK_DAYS = 7
 
 # Archivo de estado (checkpoint de la ultima checada subida)
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sync_state.json")
-UPLOAD_CHUNK = 25            # empleados por request al servidor
+UPLOAD_CHUNK = 25
 # =============================================================
 
 
 def log(msg: str):
-    """Print con timestamp para que se vea ordenado en la consola."""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{ts}] {msg}")
 
@@ -92,7 +87,6 @@ def log(msg: str):
 # -------------------- utilidades ISAPI --------------------
 
 def with_tz(ts: str) -> str:
-    """Le agrega el offset de zona horaria a un timestamp ISO8601 si no lo trae."""
     if not ts:
         return ts
     tail = ts[10:]
@@ -105,7 +99,7 @@ def with_tz(ts: str) -> str:
 
 def load_state():
     if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, "w" if False else "r", encoding="utf-8") as f:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
@@ -165,7 +159,10 @@ def fetch_all_users(debug: bool = False):
     return users
 
 
+# -------------------- FOTOS: multiples metodos --------------------
+
 def parse_multipart_faces(resp: requests.Response, debug: bool = False):
+    """Parsea respuesta multipart/mixed de FDSearch: JSON metadata + JPEG binario."""
     content_type = resp.headers.get("Content-Type", "")
     if "boundary=" not in content_type:
         if debug:
@@ -204,11 +201,13 @@ def parse_multipart_faces(resp: requests.Response, debug: bool = False):
     return photos_by_employee
 
 
-def fetch_all_face_photos(debug: bool = False):
+def fetch_photos_via_fdsearch(debug: bool = False):
+    """Metodo 1: FDSearch con FDSearchCond (endpoint mas comun)."""
     url = f"http://{DEVICE_IP}/ISAPI/Intelligent/FDLib/FDSearch?format=json"
     photos = {}
     position = 0
     for _ in range(MAX_PAGES_FACES):
+        # Formato 1: FDID como string
         body = {
             "FDSearchCond": {
                 "searchResultPosition": position,
@@ -223,22 +222,180 @@ def fetch_all_face_photos(debug: bool = False):
                 timeout=20, stream=False,
             )
         except requests.RequestException as e:
-            log(f"  [FOTOS] error de conexion: {e}")
+            log(f"  [FOTOS-1] error: {e}")
             return photos
 
         if resp.status_code != 200:
-            log(f"  [FOTOS] no se pudieron obtener (status={resp.status_code}). "
-                f"Los empleados se subiran sin foto. Respuesta: {resp.text[:300]}")
-            return photos
+            if debug:
+                log(f"  [FOTOS-1] status={resp.status_code} resp={resp.text[:300]}")
+            # Intentar formato 2: FDID como array
+            body["FDSearchCond"]["FDID"] = [FACE_LIB_ID]
+            body["FDSearchCond"]["FPID"] = []
+            try:
+                resp = requests.post(
+                    url, json=body, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS),
+                    timeout=20, stream=False,
+                )
+            except requests.RequestException:
+                return photos
+            if resp.status_code != 200:
+                if debug:
+                    log(f"  [FOTOS-1b] status={resp.status_code} resp={resp.text[:300]}")
+                return photos
 
         batch = parse_multipart_faces(resp, debug=debug)
         if not batch:
             break
         photos.update(batch)
+        log(f"  [FOTOS-1] pagina {position // BATCH_SIZE + 1}: {len(batch)} fotos")
         if len(batch) < BATCH_SIZE:
             break
         position += BATCH_SIZE
 
+    return photos
+
+
+def fetch_photos_via_userinfo(debug: bool = False):
+    """Metodo 2: Buscar faceURL o faceData embebido en UserInfo/Search."""
+    url = f"http://{DEVICE_IP}/ISAPI/AccessControl/UserInfo/Search?format=json"
+    photos = {}
+    position = 0
+    for _ in range(MAX_PAGES_EMPLOYEES):
+        body = {
+            "UserInfoSearchCond": {
+                "searchID": "1",
+                "searchResultPosition": position,
+                "maxResults": BATCH_SIZE,
+            }
+        }
+        try:
+            resp = requests.post(url, json=body, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS), timeout=15)
+        except requests.RequestException as e:
+            log(f"  [FOTOS-2] error: {e}")
+            return photos
+        if resp.status_code != 200:
+            return photos
+
+        data = resp.json()
+        info_list = data.get("UserInfoSearch", {}).get("UserInfo", [])
+        if not info_list:
+            break
+
+        for u in info_list:
+            emp_no = str(u.get("employeeNo", "")).strip()
+            if not emp_no:
+                continue
+            # Algunos firmware incluyen faceURL o faceData en la respuesta
+            face_url = u.get("faceURL") or u.get("facePicUrl") or ""
+            face_data = u.get("faceData") or u.get("facePicData") or ""
+            if face_data:
+                # Ya viene en base64 o binario codificado
+                if not face_data.startswith("data:"):
+                    try:
+                        # Verificar si es base64 valido
+                        base64.b64decode(face_data)
+                        photos[emp_no] = face_data
+                    except Exception:
+                        pass
+            elif face_url:
+                # Descargar la foto del URL
+                try:
+                    if face_url.startswith("/"):
+                        face_url = f"http://{DEVICE_IP}{face_url}"
+                    img_resp = requests.get(face_url, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS), timeout=10)
+                    if img_resp.status_code == 200 and len(img_resp.content) > 100:
+                        photos[emp_no] = base64.b64encode(img_resp.content).decode("ascii")
+                except requests.RequestException:
+                    pass
+
+        num_matches = data.get("UserInfoSearch", {}).get("numOfMatches", len(info_list))
+        position += num_matches
+        status = data.get("UserInfoSearch", {}).get("responseStatusStrg", "OK")
+        if status != "MORE" or num_matches < BATCH_SIZE:
+            break
+
+    return photos
+
+
+def fetch_photos_per_user(employee_nos: list, debug: bool = False):
+    """Metodo 3: Bajar foto de rostro por cada empleado individualmente.
+    Usa el endpoint de captura de rostro o el endpoint de datos de rostro por usuario."""
+    photos = {}
+    for emp_no in employee_nos:
+        # Intentar GET /ISAPI/Intelligent/FDLib/{FDID}/faceDataPicture/{FPID}
+        # Necesitamos el FPID, pero no lo tenemos. Intentar con employeeNo directo.
+        endpoints = [
+            f"http://{DEVICE_IP}/ISAPI/AccessControl/UserInfo/{emp_no}/faceImage?format=json",
+            f"http://{DEVICE_IP}/ISAPI/Intelligent/FDLib/{FACE_LIB_ID}/faceDataPicture/{emp_no}",
+        ]
+        for url in endpoints:
+            try:
+                resp = requests.get(url, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS), timeout=10)
+                if resp.status_code == 200:
+                    content_type = resp.headers.get("Content-Type", "")
+                    if "image" in content_type:
+                        # Respuesta es la imagen JPEG directamente
+                        if len(resp.content) > 100:
+                            photos[emp_no] = base64.b64encode(resp.content).decode("ascii")
+                            break
+                    elif "multipart" in content_type:
+                        # Respuesta multipart, parsear
+                        batch = parse_multipart_faces(resp, debug=debug)
+                        if emp_no in batch:
+                            photos[emp_no] = batch[emp_no]
+                            break
+                    elif "application/json" in content_type:
+                        # Quizas trae un URL o base64 embebido
+                        data = resp.json()
+                        face_url = data.get("faceURL") or data.get("FaceURL") or ""
+                        face_data = data.get("faceData") or data.get("FaceData") or ""
+                        if face_data:
+                            photos[emp_no] = face_data if not face_data.startswith("data:") else face_data.split(",", 1)[-1]
+                            break
+                        elif face_url:
+                            if face_url.startswith("/"):
+                                face_url = f"http://{DEVICE_IP}{face_url}"
+                            img_resp = requests.get(face_url, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS), timeout=10)
+                            if img_resp.status_code == 200 and len(img_resp.content) > 100:
+                                photos[emp_no] = base64.b64encode(img_resp.content).decode("ascii")
+                                break
+            except requests.RequestException:
+                continue
+
+        if debug and emp_no not in photos:
+            log(f"  [FOTOS-3] sin foto para {emp_no}")
+
+    return photos
+
+
+def fetch_all_face_photos(users: list, debug: bool = False):
+    """Intenta multiples metodos para obtener fotos de rostro.
+    users: lista de dicts con 'employeeNo'."""
+    employee_nos = [u["employeeNo"] for u in users]
+
+    # Metodo 1: FDSearch (mas rapido, trae todo en lote)
+    log("  [FOTOS] Intentando FDSearch (metodo 1) ...")
+    photos = fetch_photos_via_fdsearch(debug=debug)
+    if photos:
+        log(f"  [FOTOS] FDSearch encontro {len(photos)} fotos.")
+        return photos
+
+    # Metodo 2: faceURL embebido en UserInfo/Search
+    log("  [FOTOS] FDSearch no funciono. Intentando UserInfo con faceURL (metodo 2) ...")
+    photos = fetch_photos_via_userinfo(debug=debug)
+    if photos:
+        log(f"  [FOTOS] UserInfo encontro {len(photos)} fotos.")
+        return photos
+
+    # Metodo 3: Bajar foto por usuario individual (mas lento pero mas compatible)
+    log("  [FOTOS] Intentando descarga individual por usuario (metodo 3) ...")
+    photos = fetch_photos_per_user(employee_nos, debug=debug)
+    if photos:
+        log(f"  [FOTOS] Descarga individual encontro {len(photos)} fotos.")
+        return photos
+
+    log("  [FOTOS] No se pudieron obtener fotos con ningun metodo.")
+    log("  [FOTOS] Los empleados se subiran sin foto. Corre con --debug para mas detalles.")
     return photos
 
 
@@ -259,7 +416,6 @@ def push_employees_to_cloud(rows: list):
 
 
 def sync_employees(sin_fotos: bool = False, debug: bool = False):
-    """Jala empleados de la lectora y los sube a la nube. Devuelve (creados, actualizados, fotos)."""
     log("=== Sincronizando EMPLEADOS ===")
     try:
         users = fetch_all_users(debug=debug)
@@ -272,7 +428,7 @@ def sync_employees(sin_fotos: bool = False, debug: bool = False):
     photos = {}
     if not sin_fotos:
         log("  Consultando fotos de rostro ...")
-        photos = fetch_all_face_photos(debug=debug)
+        photos = fetch_all_face_photos(users, debug=debug)
         log(f"  {len(photos)} fotos encontradas.")
 
     rows = []
@@ -338,7 +494,6 @@ def push_attendance_to_cloud(event: dict) -> bool:
 
 
 def sync_attendance(force_since: str | None = None):
-    """Jala eventos de asistencia desde la ultima vez y los sube. Devuelve (vistos, subidos)."""
     log("=== Sincronizando ASISTENCIA ===")
     state = load_state()
 
@@ -398,7 +553,6 @@ def sync_attendance(force_since: str | None = None):
 # -------------------- PARTE 3: REPARACION --------------------
 
 def call_cloud_endpoint(url: str, label: str):
-    """Llama un endpoint POST del servidor (backfill, normalize). No falla si no responde."""
     try:
         resp = requests.post(url, timeout=30)
         resp.raise_for_status()
@@ -409,7 +563,6 @@ def call_cloud_endpoint(url: str, label: str):
 
 
 def repair_attendance():
-    """Llama a backfill-metadata y normalize en el servidor para reparar checadas viejas."""
     log("=== Reparando checadas (backfill + normalize) ===")
     call_cloud_endpoint(CLOUD_BACKFILL_URL, "Backfill metadata")
     call_cloud_endpoint(CLOUD_NORMALIZE_URL, "Normalize limites diarios")
@@ -418,20 +571,10 @@ def repair_attendance():
 # -------------------- CICLO PRINCIPAL --------------------
 
 def run_cycle(sin_fotos: bool = False, debug: bool = False, force_since: str | None = None):
-    """Un ciclo completo: empleados -> asistencia -> reparacion."""
     log("------ INICIO DE CICLO ------")
-
-    # 1) Primero empleados: si hay nuevos, se dan de alta con nombre y foto
-    #    ANTES de que lleguen sus checadas, para que el nombre se cruce solo.
     sync_employees(sin_fotos=sin_fotos, debug=debug)
-
-    # 2) Luego asistencia: jala checadas nuevas desde el ultimo checkpoint
     sync_attendance(force_since=force_since)
-
-    # 3) Reparacion: cruza nombres de checadas viejas sin nombre con la ficha
-    #    ya actualizada, y respeta el limite de 2 checadas por dia.
     repair_attendance()
-
     log("------ CICLO COMPLETADO ------")
 
 

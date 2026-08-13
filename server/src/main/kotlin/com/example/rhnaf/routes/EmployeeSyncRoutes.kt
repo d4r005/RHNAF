@@ -38,17 +38,18 @@ data class EmployeeSyncResult(
 )
 
 /**
- * Separa un nombre completo en (firstName, lastName) usando la misma convencion
- * que ya usa la carga inicial en DatabaseFactory: la ULTIMA palabra es el nombre
- * de pila, todo lo anterior son apellidos (asi vienen en el software de la lectora,
- * ej. "Canizales Julian Carlos" -> apellidos "Canizales Julian", nombre "Carlos").
+ * Separa un nombre completo en (firstName, lastName).
+ * La lectora Hikvision manda el nombre como "NOMBRE APELLIDO" (ej. "Dario Robles"
+ * o "Miguel Angel Chavez"), asi que la PRIMERA palabra(s) es el nombre de pila
+ * y el resto son apellidos. El resultado se muestra como "firstName lastName"
+ * (ej. "Dario Robles") en el modulo de Empleados y Asistencia.
  */
 private fun splitName(fullName: String): Pair<String, String> {
     val trimmed = fullName.trim()
     if (trimmed.isBlank()) return "" to ""
     val parts = trimmed.split(" ").filter { it.isNotBlank() }
-    val firstName = parts.lastOrNull() ?: ""
-    val lastName = parts.dropLast(1).joinToString(" ")
+    val firstName = parts.firstOrNull() ?: ""
+    val lastName = parts.drop(1).joinToString(" ")
     return firstName to lastName
 }
 
