@@ -42,12 +42,28 @@ DEVICE_PASS = "Branco2025"          # <-- cambia si tu password es distinto
 
 CLOUD_URL = "https://d4r005-rhnaf-industrial.hf.space/api/v1/asistencia/hikvision"
 
+# Offset de zona horaria que exige la ISAPI de Hikvision en startTime/endTime
+# (ISO8601 completo). Mexico City ya no tiene horario de verano desde 2022,
+# se queda fijo en -06:00 todo el año.
+TZ_OFFSET = "-06:00"
+
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sync_state.json")
 BATCH_SIZE = 30          # eventos por página (ISAPI típico soporta 30)
 MAX_PAGES_PER_RUN = 50   # tope de páginas por corrida (=1500 eventos) para no tardar horas
 INTERVAL_SECONDS = 300   # cada 5 min en modo --loop
 DEFAULT_LOOKBACK_DAYS = 7  # si no hay estado previo, cuantos dias hacia atras jalar
 # ---------------------------------------------------------------
+
+
+def with_tz(ts: str) -> str:
+    """Le agrega el offset de zona horaria a un timestamp ISO8601 si no lo trae ya.
+    Hikvision RECHAZA (400 Bad Request) startTime/endTime que no incluyan el offset."""
+    if not ts:
+        return ts
+    tail = ts[10:]  # todo despues de "YYYY-MM-DD", ahi es donde vendria el offset
+    if "+" in tail or "-" in tail or tail.endswith("Z"):
+        return ts  # ya trae offset
+    return ts + TZ_OFFSET
 
 
 def load_state():
@@ -72,8 +88,8 @@ def fetch_events(start_time: str, end_time: str, position: int = 0):
             "maxResults": BATCH_SIZE,
             "major": 0,
             "minor": 0,
-            "startTime": start_time,
-            "endTime": end_time,
+            "startTime": with_tz(start_time),
+            "endTime": with_tz(end_time),
         }
     }
     resp = requests.post(
@@ -82,6 +98,9 @@ def fetch_events(start_time: str, end_time: str, position: int = 0):
         auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS),
         timeout=15,
     )
+    if resp.status_code == 400:
+        print(f"  [DEBUG] 400 Bad Request. Body enviado: {json.dumps(body)}")
+        print(f"  [DEBUG] Respuesta de la lectora: {resp.text[:500]}")
     resp.raise_for_status()
     return resp.json()
 
