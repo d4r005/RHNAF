@@ -391,15 +391,21 @@ def fetch_photos_per_user(employee_nos: list, debug: bool = False):
         if found_count > 0 and found_count % 10 == 0:
             log(f"  [FOTOS-3] progreso: {found_count}/{len(employee_nos)} fotos")
 
+        # Rellenar employeeNo con zeros a 10 digitos (formato que usa la lectora)
+        emp_padded = emp_no.zfill(10)
+
         # Endpoints en orden de probabilidad de exito:
         endpoints = [
-            # A) faceImage directo (acceso control terminal estandar)
+            # A) LOCALS/pic/enrlFace — URL directa descubierta en la lectora de la planta
+            #    Formato: http://10.141.1.230/LOCALS/pic/enrlFace/0/0000000001.jpg@WEB0000
+            (f"http://{DEVICE_IP}/LOCALS/pic/enrlFace/0/{emp_padded}.jpg@WEB0000", "GET"),
+            # B) faceImage directo (acceso control terminal estandar)
             (f"http://{DEVICE_IP}/ISAPI/AccessControl/UserInfo/{emp_no}/faceImage?format=json", "GET"),
-            # B) faceDataPicture por employeeNo
+            # C) faceDataPicture por employeeNo
             (f"http://{DEVICE_IP}/ISAPI/Intelligent/FDLib/{FACE_LIB_ID}/faceDataPicture/{emp_no}", "GET"),
-            # C) Capture resultado del rostro
+            # D) Capture resultado del rostro
             (f"http://{DEVICE_IP}/ISAPI/AccessControl/UserInfo/{emp_no}/faceDataRecord?format=json", "GET"),
-            # D) Multipart face image
+            # E) Multipart face image
             (f"http://{DEVICE_IP}/ISAPI/AccessControl/UserInfo/{emp_no}/faceImage", "GET"),
         ]
 

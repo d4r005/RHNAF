@@ -154,6 +154,29 @@ def parse_multipart_faces(resp: requests.Response, debug: bool = False):
     return photos_by_employee
 
 
+def fetch_photos_via_locals(employee_nos: list, debug: bool = False):
+    """Metodo directo: descarga la foto de cada empleado via LOCALS/pic/enrlFace.
+    URL descubierta en la lectora de la planta:
+        http://10.141.1.230/LOCALS/pic/enrlFace/0/0000000001.jpg@WEB0000
+    donde el employeeNo se rellena con zeros a 10 digitos."""
+    import base64
+    photos = {}
+    for i, emp_no in enumerate(employee_nos):
+        emp_padded = emp_no.zfill(10)
+        url = f"http://{DEVICE_IP}/LOCALS/pic/enrlFace/0/{emp_padded}.jpg@WEB0000"
+        try:
+            resp = requests.get(url, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS), timeout=10)
+        except requests.RequestException:
+            continue
+        if resp.status_code == 200 and len(resp.content) > 100 and "image" in resp.headers.get("Content-Type", ""):
+            photos[emp_no] = base64.b64encode(resp.content).decode("ascii")
+            if debug and i < 3:
+                print(f"  [FOTOS-LOCALS] {emp_no} OK ({len(resp.content)} bytes)")
+        elif debug and i < 3:
+            print(f"  [FOTOS-LOCALS] {emp_no} status={resp.status_code} ct={resp.headers.get('Content-Type','?')}")
+    return photos
+
+
 def fetch_all_face_photos(debug: bool = False):
     """Trae TODAS las fotos de rostro registradas en la lectora, indexadas por employeeNo."""
     url = f"http://{DEVICE_IP}/ISAPI/Intelligent/FDLib/FDSearch?format=json"
@@ -228,9 +251,16 @@ def main():
 
     photos = {}
     if not args.sin_fotos:
-        print("Consultando fotos de rostro registradas ...")
-        photos = fetch_all_face_photos(debug=args.debug)
-        print(f"  {len(photos)} fotos encontradas.")
+        # Metodo 0: LOCALS/pic/enrlFace (URL directa descubierta en la lectora de la planta)
+        employee_nos = [u["employeeNo"] for u in users]
+        print(f"Probando descarga directa LOCALS/pic/enrlFace ({len(employee_nos)} empleados) ...")
+        photos = fetch_photos_via_locals(employee_nos, debug=args.debug)
+        print(f"  {len(photos)} fotos encontradas via LOCALS.")
+
+        if not photos:
+            print("LOCALS no funciono. Intentando FDSearch ...")
+            photos = fetch_all_face_photos(debug=args.debug)
+            print(f"  {len(photos)} fotos encontradas via FDSearch.")
 
     rows = []
     for u in users:
