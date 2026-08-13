@@ -35,7 +35,7 @@ object DatabaseFactory {
         }
 
         transaction(database) {
-            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, SafetyIncidentTable, WorkPermitTable, PpeDeliveryTable, SafetyTrainingTable, EmergencyDrillTable, RiskMatrixTable, AccessAuditLogTable, EnvironmentalWasteTable, OccupationalHealthTable, ChemicalInventoryTable)
+            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, SafetyIncidentTable, WorkPermitTable, PpeDeliveryTable, SafetyTrainingTable, EmergencyDrillTable, RiskMatrixTable, AccessAuditLogTable, EnvironmentalWasteTable, OccupationalHealthTable, ChemicalInventoryTable, ShiftTable, AttendancePolicyTable, EmployeeShiftTable, JustificationTable, PrePayrollTable)
 
             // CARGA DE USUARIOS DEL SISTEMA (ADMIN/OPERACIONES)
             if (UserTable.selectAll().empty()) {

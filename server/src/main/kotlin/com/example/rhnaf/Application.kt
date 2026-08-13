@@ -15,6 +15,7 @@ import com.example.rhnaf.service.HuggingFaceService
 import com.example.rhnaf.service.AttendanceUseCase
 import com.example.rhnaf.routes.attendanceRouting
 import com.example.rhnaf.routes.warehouseRouting
+import com.example.rhnaf.routes.prePayrollRouting
 import com.example.rhnaf.routes.sapModulesRouting
 import io.ktor.server.request.*
 import io.ktor.server.plugins.cors.routing.*
@@ -57,6 +58,7 @@ fun Application.module() {
     routing {
         attendanceRouting(attendanceUseCase)
         warehouseRouting()
+        prePayrollRouting()
         sapModulesRouting()
 
         // Sirve la Web App (Compose HTML) desde una carpeta física
