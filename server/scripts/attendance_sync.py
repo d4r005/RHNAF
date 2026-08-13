@@ -78,16 +78,19 @@ def save_state(state):
         json.dump(state, f, indent=2)
 
 
-def fetch_events(start_time: str, end_time: str, position: int = 0):
-    """Un solo request de búsqueda de eventos a la ISAPI de la lectora."""
+def fetch_events(start_time: str, end_time: str, position: int = 0, major: int = 5, minor: int = 0):
+    """Un solo request de búsqueda de eventos a la ISAPI de la lectora.
+    major=5 = eventos de Control de Acceso (checadas reales). major=0 = TODOS
+    los tipos (incluye ruido de sistema: alarmas, aperturas de puerta, tamper, etc.
+    que no tienen employeeNoString y por eso nunca se suben)."""
     url = f"http://{DEVICE_IP}/ISAPI/AccessControl/AcsEvent?format=json"
     body = {
         "AcsEventCond": {
             "searchID": "1",
             "searchResultPosition": position,
             "maxResults": BATCH_SIZE,
-            "major": 0,
-            "minor": 0,
+            "major": major,
+            "minor": minor,
             "startTime": with_tz(start_time),
             "endTime": with_tz(end_time),
         }
@@ -105,10 +108,14 @@ def fetch_events(start_time: str, end_time: str, position: int = 0):
     return resp.json()
 
 
-def push_to_cloud(event: dict) -> bool:
+def push_to_cloud(event: dict, skip_reasons: dict) -> bool:
     """Manda un evento al servidor en la nube en el formato que ya espera."""
     employee_no = event.get("employeeNoString") or event.get("cardNo") or ""
     if not employee_no:
+        # Diagnostico: contamos por tipo de evento (major/minor) para saber
+        # que estamos descartando, sin spamear miles de lineas.
+        key = f"major={event.get('major')} minor={event.get('minor')}"
+        skip_reasons[key] = skip_reasons.get(key, 0) + 1
         return False
 
     payload = {
@@ -126,10 +133,11 @@ def push_to_cloud(event: dict) -> bool:
         return True
     except requests.RequestException as e:
         print(f"  [ERROR] no se pudo subir evento de empleado {employee_no}: {e}")
+        skip_reasons["push_failed"] = skip_reasons.get("push_failed", 0) + 1
         return False
 
 
-def run_once(force_since: str | None = None):
+def run_once(force_since: str | None = None, major: int = 5, minor: int = 0):
     state = load_state()
 
     if force_since:
@@ -143,16 +151,17 @@ def run_once(force_since: str | None = None):
 
     end_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
-    print(f"Sincronizando eventos de {start_time} a {end_time} ...")
+    print(f"Sincronizando eventos de {start_time} a {end_time} (major={major}, minor={minor}) ...")
 
     total_pushed = 0
     total_seen = 0
     position = 0
     latest_time_seen = start_time
+    skip_reasons: dict = {}
 
     for page in range(MAX_PAGES_PER_RUN):
         try:
-            data = fetch_events(start_time, end_time, position)
+            data = fetch_events(start_time, end_time, position, major=major, minor=minor)
         except requests.RequestException as e:
             print(f"[ERROR] no se pudo consultar la lectora: {e}")
             break
@@ -168,7 +177,7 @@ def run_once(force_since: str | None = None):
             ev_time = ev.get("time", "")
             if ev_time > latest_time_seen:
                 latest_time_seen = ev_time
-            if push_to_cloud(ev):
+            if push_to_cloud(ev, skip_reasons):
                 total_pushed += 1
 
         num_matches = acs.get("numOfMatches", len(info_list))
@@ -179,6 +188,10 @@ def run_once(force_since: str | None = None):
             break
 
     print(f"Listo. Vistos: {total_seen} | Subidos a la nube: {total_pushed}")
+    if skip_reasons:
+        print("Eventos descartados por tipo (no traian employeeNo/cardNo):")
+        for k, v in sorted(skip_reasons.items(), key=lambda x: -x[1]):
+            print(f"  {k}: {v}")
 
     # Avanza el checkpoint solo si vimos algo, para no repetir en la siguiente corrida
     if total_seen > 0:
@@ -193,16 +206,22 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--loop", action="store_true", help="Correr en bucle infinito")
     parser.add_argument("--since", type=str, default=None, help="Forzar fecha de inicio ISO8601")
+    parser.add_argument(
+        "--major", type=int, default=5,
+        help="Tipo de evento ISAPI a buscar. 5 = Control de Acceso (checadas reales, default). "
+             "0 = TODOS los tipos (incluye ruido de sistema sin employeeNo, util solo para diagnostico).",
+    )
+    parser.add_argument("--minor", type=int, default=0, help="Subtipo de evento ISAPI (default 0 = todos)")
     args = parser.parse_args()
 
     if args.loop:
         print(f"Modo continuo: cada {INTERVAL_SECONDS}s. Ctrl+C para detener.")
         while True:
-            run_once(force_since=args.since)
+            run_once(force_since=args.since, major=args.major, minor=args.minor)
             args.since = None  # solo se fuerza la primera vez
             time.sleep(INTERVAL_SECONDS)
     else:
-        run_once(force_since=args.since)
+        run_once(force_since=args.since, major=args.major, minor=args.minor)
 
 
 if __name__ == "__main__":
