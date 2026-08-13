@@ -282,7 +282,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             val deleted = attendanceUseCase.deleteLocalSyncForDay(day)
             call.respond(mapOf(
                 "dia" to day,
-                "registros_eliminados" to deleted,
+                "registros_eliminados" to deleted.toString(),
                 "mensaje" to "Se eliminaron " + deleted + " registros falsos de LOCAL-SYNC del dia " + day + "."
             ))
         }
