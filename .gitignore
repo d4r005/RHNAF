@@ -26,3 +26,4 @@ node_modules/
 /web/build/
 /app/build/
 incoming_files/
+server/scripts/sync_state.json

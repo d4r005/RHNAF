@@ -1,27 +1,26 @@
-# Walkthrough: Expansión de Módulo EHS
+# Walkthrough: Refinamiento de Asistencia (HIKVISIONWEB)
 
-He elevado el módulo de EHS a un nivel corporativo, integrando funcionalidades clave para la gestión ambiental y salud ocupacional.
+He implementado un filtrado estricto para eliminar los eventos "None" y he unificado la identificación de la lectora.
 
 ## Cambios Realizados
 
-### 1. Gestión Ambiental (Residuos)
-*   Se añadió la pestaña **"Medio Ambiente"**.
-*   Permite el registro de manifiestos de residuos (tipo, cantidad, transportista, destino final).
-*   Ideal para el cumplimiento de normativas de disposición de residuos industriales.
+### 1. Filtrado de Eventos Inválidos
+*   **Servidor**: El endpoint `/api/v1/asistencia/hikvision` ahora descarta automáticamente cualquier petición que contenga un ID de empleado como `"None"`, `"null"`, `"0"` o vacío.
+*   **Lógica de Negocio**: `AttendanceUseCase` también incluye esta validación como segunda capa de seguridad.
+*   **Script de Sincronización**: `attendance_sync.py` ahora filtra estos eventos localmente antes de intentar subirlos a la nube.
 
-### 2. Salud Ocupacional
-*   Se añadió la pestaña **"Salud Ocupacional"**.
-*   Módulo para rastrear exámenes médicos de ingreso, periódicos y seguimiento de citas médicas para los empleados.
+### 2. Renombrado a HIKVISIONWEB
+*   Se cambió el identificador por defecto de `"HIK-WEB"` y `"LOCAL-SYNC"` a **`HIKVISIONWEB`**.
+*   Ahora todos los registros provenientes de la terminal aparecerán con este nombre en la columna "Dispositivo" del portal.
 
-### 3. Gestión de Sustancias Químicas (MSDS)
-*   Se añadió la pestaña **"Químicos"**.
-*   Inventario de productos químicos utilizados en la planta con enlace directo a sus Hojas de Seguridad (MSDS) en PDF.
-*   Incluye clasificación de nivel de riesgo.
+### 3. Endpoint de Limpieza
+*   Se creó un nuevo endpoint técnico: `POST /api/v1/asistencia/cleanup-invalid`.
+*   Este comando borra retroactivamente cualquier registro basura que se haya colado previamente con IDs inválidos.
 
-### 4. Robustez de Infraestructura
-*   Se actualizó la persistencia para incluir 3 nuevas tablas en la base de datos de Supabase.
-*   Se implementaron los endpoints CRUD correspondientes en el servidor Ktor.
+## Verificación Final
+*   [x] Código compilado exitosamente.
+*   [x] Cambios subidos a GitHub (Commit `de3084f`).
+*   [ ] **Acción Requerida**: Una vez que el Space de Hugging Face esté "Running", los nuevos registros de "None" dejarán de aparecer.
 
-## Próximos Pasos Recomendados
-- Cargar los PDFs de las Hojas de Seguridad (MSDS) en un repositorio público o S3 y vincular los links en el módulo de Químicos.
-- Integrar reportes automáticos de indicadores de seguridad (TRIR, LTIR) basados en los incidentes registrados.
+> [!TIP]
+> Los eventos que viste como "None" en tu captura eran ruidos de la terminal (major=3, minor=112, etc.). Con este cambio, el portal solo mostrará checadas reales de personas.
