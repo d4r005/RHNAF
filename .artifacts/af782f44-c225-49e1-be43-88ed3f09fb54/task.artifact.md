@@ -1,15 +1,9 @@
-# Tareas: Implementación de Sincronización On-Demand (Opción A)
+# Tareas: Optimización UI y Visualización Histórica
 
-- `[x]` Backend (Servidor Ktor):
-    - `[x]` Crear `SystemTaskTable` en `SapModulesTables.kt`.
-    - `[x]` Registrar la tabla en `DatabaseFactory.kt`.
-    - `[x]` Implementar endpoints de tareas (`request-sync`, `poll-task`, `update-task`) en `AttendanceRoutes.kt`.
-- `[x]` Script (Python):
-    - `[x]` Añadir lógica de polling al servidor en `attendance_sync.py`.
-    - `[x]` Implementar ejecución automática de fetch ante órdenes externas.
-- `[x]` Frontend (Web Compose):
-    - `[x]` Vincular botón "Get Events" a la API de tareas.
-    - `[x]` Añadir feedback visual de sincronización en progreso.
+- `[/]` Backend (Servidor):
+    - `[ ]` Cambiar orden de registros a Ascendente (Antiguo a Nuevo) en `AttendanceRoutes.kt`.
+- `[/]` Frontend (Web):
+    - `[ ]` Fijar fecha inicial al `2026-01-01`.
+    - `[ ]` Rediseñar panel de búsqueda a layout de 3 columnas (compacto).
 - `[ ]` Verificación y Push:
-    - `[ ]` Probar flujo completo (Web -> Server -> Python -> Lectora -> Server -> Web).
-    - `[ ]` Realizar Commit and Push.
+    - `[ ]` Realizar Commit and Push final.

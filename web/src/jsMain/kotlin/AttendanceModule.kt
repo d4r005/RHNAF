@@ -21,7 +21,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
     
     // Filtros estilo iVMS-4200
     val today = Date().toISOString().substringBefore("T")
-    var startTime by remember { mutableStateOf("$today 00:00:00") }
+    var startTime by remember { mutableStateOf("2026-01-01 00:00:00") }
     var endTime by remember { mutableStateOf("$today 23:59:59") }
     var deptFilter by remember { mutableStateOf("") }
     var nameFilter by remember { mutableStateOf("") }
@@ -87,113 +87,69 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3({ style { margin(0.px, 0.px, 16.px, 0.px) } }) { Text("Search Events - Attendance Control") }
 
-        // PANEL DE BUSQUEDA ESTILO iVMS-4200
+        // PANEL DE BUSQUEDA ESTILO iVMS-4200 (COMPACTO)
         Div({
             style {
                 backgroundColor(Color("#2c3e50"))
-                padding(24.px)
+                padding(16.px)
                 borderRadius(8.px)
-                marginBottom(24.px)
+                marginBottom(16.px)
                 display(DisplayStyle.Grid)
-                property("grid-template-columns", "repeat(auto-fit, minmax(280.px, 1fr))")
-                gap(16.px)
+                property("grid-template-columns", "repeat(auto-fit, minmax(200.px, 1fr))")
+                gap(12.px)
                 color(Color.white)
+                fontSize(12.px)
             }
         }) {
-            // Columna 1
+            // Fila 1: Tiempos
             Div {
                 SearchLabel("Start Time")
                 Input(InputType.Text) {
                     value(startTime); onInput { startTime = it.value }
-                    style { 
-                        width(100.percent)
-                        padding(8.px)
-                        borderRadius(4.px)
-                        property("border", "1px solid #455a64")
-                        backgroundColor(Color("#34495e"))
-                        color(Color.white)
-                        property("margin-bottom", "12.px")
-                        property("outline", "none")
-                    }
-                }
-                SearchLabel("Department")
-                Select({
-                    style { 
-                        width(100.percent)
-                        padding(8.px)
-                        borderRadius(4.px)
-                        property("border", "1px solid #455a64")
-                        backgroundColor(Color("#34495e"))
-                        color(Color.white)
-                        property("margin-bottom", "12.px")
-                        property("outline", "none")
-                    }
-                    onChange { deptFilter = it.target?.asDynamic().value as String }
-                }) {
-                    Option("") { Text("North America Flooring (All)") }
-                    listOf("Producción", "Almacén", "RH", "Mantenimiento", "Seguridad").forEach {
-                        Option(it) { Text(it) }
-                    }
-                }
-                SearchLabel("Person ID")
-                Input(InputType.Text) {
-                    value(pidFilter); onInput { pidFilter = it.value }
-                    style { 
-                        width(100.percent)
-                        padding(8.px)
-                        borderRadius(4.px)
-                        property("border", "1px solid #455a64")
-                        backgroundColor(Color("#34495e"))
-                        color(Color.white)
-                        property("margin-bottom", "12.px")
-                        property("outline", "none")
-                    }
+                    style { SearchInputStyleCompact() }
                 }
             }
-
-            // Columna 2
             Div {
                 SearchLabel("End Time")
                 Input(InputType.Text) {
                     value(endTime); onInput { endTime = it.value }
-                    style { 
-                        width(100.percent)
-                        padding(8.px)
-                        borderRadius(4.px)
-                        property("border", "1px solid #455a64")
-                        backgroundColor(Color("#34495e"))
-                        color(Color.white)
-                        property("margin-bottom", "12.px")
-                        property("outline", "none")
+                    style { SearchInputStyleCompact() }
+                }
+            }
+            // Fila 1: Departamento
+            Div {
+                SearchLabel("Department")
+                Select({
+                    style { SearchInputStyleCompact() }
+                    onChange { deptFilter = it.target.asDynamic().value as String }
+                }) {
+                    Option("") { Text("All Departments") }
+                    listOf("Producción", "Almacén", "RH", "Mantenimiento", "Seguridad").forEach {
+                        Option(it) { Text(it) }
                     }
                 }
+            }
+
+            // Fila 2: Identidad
+            Div {
+                SearchLabel("Person ID")
+                Input(InputType.Text) {
+                    value(pidFilter); onInput { pidFilter = it.value }
+                    style { SearchInputStyleCompact() }
+                }
+            }
+            Div {
                 SearchLabel("Name")
                 Input(InputType.Text) {
                     value(nameFilter); onInput { nameFilter = it.value }
-                    style { 
-                        width(100.percent)
-                        padding(8.px)
-                        borderRadius(4.px)
-                        property("border", "1px solid #455a64")
-                        backgroundColor(Color("#34495e"))
-                        color(Color.white)
-                        property("margin-bottom", "12.px")
-                        property("outline", "none")
-                    }
+                    style { SearchInputStyleCompact() }
                 }
+            }
+            Div {
                 SearchLabel("Data Source")
                 Select({
-                    style { 
-                        width(100.percent)
-                        padding(8.px)
-                        borderRadius(4.px)
-                        property("border", "1px solid #455a64")
-                        backgroundColor(Color("#34495e"))
-                        color(Color.white)
-                        property("margin-bottom", "12.px")
-                        property("outline", "none")
-                    }
-                    onChange { sourceFilter = it.target?.asDynamic().value as String }
+                    style { SearchInputStyleCompact() }
+                    onChange { sourceFilter = it.target.asDynamic().value as String }
                 }) {
                     Option("") { Text("All Sources") }
                     Option("HIKVISIONWEB") { Text("HIKVISIONWEB") }
@@ -201,32 +157,25 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                 }
             }
 
-            // Botones de Accion
-            Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); justifyContent(JustifyContent.FlexEnd); gap(8.px) } }) {
+            // Botones de Accion (Alineados al final)
+            Div({ style { gridColumn("1 / -1"); display(DisplayStyle.Flex); gap(8.px); justifyContent(JustifyContent.FlexEnd); marginTop(4.px) } }) {
                 Button({
-                    style { 
-                        width(100.percent); padding(10.px); borderRadius(4.px); property("border", "none")
-                        backgroundColor(Color("#e74c3c")); color(Color.white); fontWeight("bold"); cursor("pointer")
-                    }
+                    style { ActionButtonStyle(Color("#e74c3c")) }
                     onClick { refreshKey++ }
                 }) { Text("Search") }
                 
                 Button({
-                    style { 
-                        width(100.percent); padding(10.px); borderRadius(4.px); property("border", "none")
-                        backgroundColor(Color("#34495e")); color(Color.white); fontWeight("bold"); cursor("pointer")
-                    }
+                    style { ActionButtonStyle(Color("#34495e")) }
                     onClick { 
-                        startTime = ""; endTime = ""; deptFilter = ""; nameFilter = ""; pidFilter = ""; sourceFilter = ""
+                        startTime = "2026-01-01 00:00:00"
+                        endTime = "$today 23:59:59"
+                        deptFilter = ""; nameFilter = ""; pidFilter = ""; sourceFilter = ""
                         refreshKey++ 
                     }
                 }) { Text("Reset") }
 
                 Button({
-                    style { 
-                        width(100.percent); padding(10.px); borderRadius(4.px); property("border", "none")
-                        backgroundColor(Color("#2980b9")); color(Color.white); fontWeight("bold"); cursor("pointer")
-                    }
+                    style { ActionButtonStyle(Color("#2980b9")) }
                     onClick { 
                         scope.launch {
                             try {
@@ -240,7 +189,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                         }
                     }
                 }) { 
-                    Text(if (activeTaskId != null) "Sync in Progress ($taskStatus)..." else "Get Events from Device") 
+                    Text(if (activeTaskId != null) "Sync ($taskStatus)..." else "Get Events") 
                 }
             }
         }
@@ -249,10 +198,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(16.px) } }) {
             Div({ style { display(DisplayStyle.Flex); gap(8.px) } }) {
                 Button({
-                    style { 
-                        padding(8.px, 16.px); borderRadius(6.px); property("border", "none")
-                        backgroundColor(Color("#27ae60")); color(Color.white); cursor("pointer"); fontSize(13.px)
-                    }
+                    style { ActionButtonStyle(Color("#27ae60")) }
                     onClick { 
                         val url = "$BACKEND_URL/api/v1/asistencia/export/raw/csv?" +
                             "from=${startTime.replace(" ", "T")}&to=${endTime.replace(" ", "T")}&pid=$pidFilter&name=$nameFilter&dept=$deptFilter"
@@ -260,10 +206,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                     }
                 }) { Text("Download CSV") }
                 Button({
-                    style { 
-                        padding(8.px, 16.px); borderRadius(6.px); property("border", "none")
-                        backgroundColor(Color("#c0392b")); color(Color.white); cursor("pointer"); fontSize(13.px)
-                    }
+                    style { ActionButtonStyle(Color("#c0392b")) }
                     onClick { 
                         val url = "$BACKEND_URL/api/v1/asistencia/export/pdf?" +
                             "from=${startTime.split(" ")[0]}&to=${endTime.split(" ")[0]}"
@@ -273,10 +216,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
             }
 
             Button({
-                style { 
-                    padding(8.px, 16.px); borderRadius(6.px); property("border", "none")
-                    backgroundColor(Color("#7f8c8d")); color(Color.white); cursor("pointer"); fontSize(13.px)
-                }
+                style { ActionButtonStyle(Color("#7f8c8d")) }
                 onClick {
                     if (window.confirm("¿ESTÁS SEGURO? Se borrarán TODOS los registros de asistencia de la base de datos.")) {
                         scope.launch {
@@ -369,7 +309,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
 
 @Composable
 fun SearchLabel(text: String) {
-    Label(attrs = { style { display(DisplayStyle.Block); fontSize(12.px); marginBottom(4.px); color(Color("#bdc3c7")) } }) { Text(text) }
+    Label(attrs = { style { display(DisplayStyle.Block); fontSize(11.px); marginBottom(2.px); color(Color("#bdc3c7")) } }) { Text(text) }
 }
 
 @Composable
@@ -388,4 +328,24 @@ fun AttStatCard(label: String, value: String) {
             Text(value)
         }
     }
+}
+
+fun StyleScope.SearchInputStyleCompact() {
+    width(100.percent)
+    padding(6.px)
+    borderRadius(4.px)
+    property("border", "1px solid #455a64")
+    backgroundColor(Color("#34495e"))
+    color(Color.white)
+    property("outline", "none")
+}
+
+fun StyleScope.ActionButtonStyle(bg: CSSColorValue) {
+    padding(8.px, 16.px)
+    borderRadius(6.px)
+    property("border", "none")
+    backgroundColor(bg)
+    color(Color.white)
+    cursor("pointer")
+    fontSize(13.px)
 }

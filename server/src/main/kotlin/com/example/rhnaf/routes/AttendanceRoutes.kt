@@ -264,7 +264,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                 if (!to.isNullOrBlank()) query.andWhere { AttendanceLogTable.timestamp lessEq to + "T23:59:59" }
                 if (!source.isNullOrBlank()) query.andWhere { AttendanceLogTable.deviceSerial eq source }
 
-                query.orderBy(AttendanceLogTable.id, SortOrder.DESC).map {
+                query.orderBy(AttendanceLogTable.timestamp, SortOrder.ASC).map {
                     AttendanceLog(
                         id = it[AttendanceLogTable.id].toString(),
                         employeeId = it[AttendanceLogTable.employeeId],

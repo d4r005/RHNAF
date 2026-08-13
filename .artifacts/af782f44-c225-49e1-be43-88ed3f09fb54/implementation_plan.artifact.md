@@ -1,44 +1,30 @@
-# Plan de Implementación: "Get Events from Device" (Opción A)
+# Plan de Optimización UI y Visualización Completa (Asistencia)
 
-Este plan detalla cómo hacer que el botón "Get Events from Device" de la página web active realmente el script de Python en tu PC de la planta para jalar los datos de la lectora bajo demanda.
+Este plan detalla los ajustes para compactar el panel de búsqueda, fijar el rango de fechas desde el inicio del año y cambiar el orden de visualización para ver los datos desde el más antiguo.
 
-## Análisis Técnico (Modo Puente)
+## Análisis de los Requerimientos
 
-Como el servidor en la nube no puede llegar a la lectora local, usaremos un sistema de **"Tareas Pendientes"**:
-1.  **Web**: Crea una tarea de sincronización en la base de datos.
-2.  **Servidor**: Guarda la orden como "PENDIENTE".
-3.  **Script Python**: Revisa el servidor periódicamente. Al ver una orden "PENDIENTE", la ejecuta (conecta a la lectora) y sube el resultado.
-4.  **Web**: Muestra que la sincronización ha terminado.
+1.  **Rango de Fechas**: El usuario necesita ver todo desde el **1 de enero de 2026** por defecto.
+2.  **Orden de Datos**: Cambiar la visualización para mostrar primero los registros más antiguos (orden cronológico ascendente).
+3.  **Espacio UI**: El panel de búsqueda actual es muy alto. Lo re-organizaremos para que sea más compacto y eficiente.
 
 ## Proposed Changes
-
-### [Server Component]
-
-#### [MODIFY] [SapModulesTables.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/database/SapModulesTables.kt)
-*   Añadir `SystemTaskTable` para gestionar órdenes remotas.
-    *   Campos: `id`, `task_type`, `status` (PENDING, BUSY, DONE, ERROR), `params`, `result`, `updated_at`.
-
-#### [MODIFY] [AttendanceRoutes.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/routes/AttendanceRoutes.kt)
-*   **POST `/api/v1/asistencia/request-sync`**: Crea la orden.
-*   **GET `/api/v1/asistencia/sync-status`**: Devuelve el estado de la última orden.
-*   **GET `/api/v1/asistencia/poll-task`**: (Para Python) Obtiene la siguiente tarea pendiente.
-*   **POST `/api/v1/asistencia/update-task`**: (Para Python) Actualiza el resultado.
-
-### [Script Component]
-
-#### [MODIFY] [attendance_sync.py](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/scripts/attendance_sync.py)
-*   Añadir lógica de escucha: el script consultará al servidor cada 5-10 segundos buscando tareas "PENDING".
-*   Al detectar una tarea, realizará el `fetch_events` de la lectora y reportará el éxito/error al servidor.
 
 ### [Web Component]
 
 #### [MODIFY] [AttendanceModule.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/web/src/jsMain/kotlin/AttendanceModule.kt)
-*   Vincular el botón "Get Events from Device" a la creación de la tarea.
-*   Mostrar un indicador de carga ("Sincronizando con planta...") mientras la tarea no esté en estado `DONE` o `ERROR`.
+*   **Fecha por Defecto**: Cambiar `startTime` inicial a `2026-01-01 00:00:00`.
+*   **Compactar Panel**: Re-organizar los filtros en un grid de 3 columnas para reducir el desplazamiento vertical.
+*   **Paginación**: Asegurar que la paginación funcione correctamente con el nuevo orden.
+
+### [Server Component]
+
+#### [MODIFY] [AttendanceRoutes.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/routes/AttendanceRoutes.kt)
+*   **Orden Ascendente**: Cambiar `.orderBy(AttendanceLogTable.id, SortOrder.DESC)` a `SortOrder.ASC` en el endpoint `/logs` para mostrar los datos desde el más antiguo.
 
 ## Verification Plan
 
 ### Manual Verification
-1.  **Activación**: Presionar el botón en la web.
-2.  **Respuesta**: Verificar en la consola de Python (en la planta) que el script detecta la orden y empieza a leer la lectora.
-3.  **Resultado**: Confirmar que los nuevos registros aparecen en la tabla de la web y el botón vuelve a su estado normal.
+1.  **Carga Inicial**: Al entrar, la tabla debe mostrar registros empezando por los de enero (si existen) o los primeros capturados.
+2.  **Visual**: Confirmar que el panel ya no requiere hacer scroll para ver la tabla.
+3.  **Filtros**: Verificar que al presionar "Reset" se regresa a la fecha del 1 de enero.
