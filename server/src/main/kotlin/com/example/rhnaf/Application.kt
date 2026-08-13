@@ -14,6 +14,7 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import com.example.rhnaf.service.HuggingFaceService
 import com.example.rhnaf.service.AttendanceUseCase
 import com.example.rhnaf.routes.attendanceRouting
+import com.example.rhnaf.routes.employeeSyncRouting
 import com.example.rhnaf.routes.warehouseRouting
 import com.example.rhnaf.routes.prePayrollRouting
 import com.example.rhnaf.routes.sapModulesRouting
@@ -57,6 +58,7 @@ fun Application.module() {
     
     routing {
         attendanceRouting(attendanceUseCase)
+        employeeSyncRouting()
         warehouseRouting()
         prePayrollRouting()
         sapModulesRouting()
@@ -104,6 +106,7 @@ fun Application.module() {
                             curp = it[EmployeeTable.curp],
                             nss = it[EmployeeTable.nss],
                             readerId = it[EmployeeTable.readerId],
+                            photoUrl = it[EmployeeTable.photoUrl],
                             attritionRisk = it[EmployeeTable.attritionRisk]
                         )
                     }
@@ -152,6 +155,7 @@ fun Application.module() {
                         it[curp] = emp.curp
                         it[nss] = emp.nss
                         it[readerId] = emp.readerId ?: emp.id
+                        it[photoUrl] = emp.photoUrl
                         it[attritionRisk] = emp.attritionRisk
                     }
                 }
@@ -172,6 +176,7 @@ fun Application.module() {
                         it[curp] = emp.curp
                         it[nss] = emp.nss
                         it[readerId] = emp.readerId
+                        it[photoUrl] = emp.photoUrl
                         it[attritionRisk] = emp.attritionRisk
                     }
                 }

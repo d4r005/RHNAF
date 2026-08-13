@@ -16,6 +16,7 @@ object EmployeeTable : Table("employees") {
     val nss = varchar("nss", 20).nullable()
     val email = varchar("email", 100).nullable()
     val readerId = varchar("reader_id", 50).nullable() 
+    val photoUrl = text("photo_url").nullable()
     val attritionRisk = double("attrition_risk").default(0.15)
     
     override val primaryKey = PrimaryKey(id)
