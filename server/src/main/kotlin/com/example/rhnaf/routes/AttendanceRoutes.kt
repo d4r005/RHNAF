@@ -145,6 +145,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
         var deviceId = "HIK-WEB"
         var verifyMode = "Face"
         var employeeName = ""
+        var eventTime = java.time.LocalDateTime.now().toString()
 
         // 1) Intentamos deserializar el JSON estructurado (formato ISAPI estándar)
         runCatching {
@@ -153,6 +154,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             deviceId = event.deviceID
             verifyMode = event.AccessControllerEvent.currentVerifyMode
             employeeName = event.AccessControllerEvent.name ?: ""
+            eventTime = event.dateTime
         }
 
         // 2) Si falla, caemos al parsing manual (JSON suelto o XML), como red de seguridad
@@ -163,6 +165,10 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                 rawBody.contains("<employeeNo>") ->
                     rawBody.substringAfter("<employeeNo>").substringBefore("</employeeNo>")
                 else -> null
+            }
+            // Intentamos extraer tambien la fecha si el parsing estructurado fallo
+            if (rawBody.contains("dateTime")) {
+                eventTime = rawBody.substringAfter("dateTime\"").substringAfter(":").substringAfter("\"").substringBefore("\"")
             }
         }
 
@@ -176,7 +182,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             try {
                 val saved = attendanceUseCase.registerCheckIn(
                     employeeId = employeeNo!!,
-                    timestamp = java.time.LocalDateTime.now().toString(),
+                    timestamp = eventTime,
                     deviceSerial = deviceId,
                     verifyMode = verifyMode,
                     name = employeeName
