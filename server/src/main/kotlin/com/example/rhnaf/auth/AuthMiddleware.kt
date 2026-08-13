@@ -4,7 +4,6 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.http.*
-import io.ktor.util.pipeline.*
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.UserTable
 import org.jetbrains.exposed.sql.selectAll
@@ -30,23 +29,17 @@ object Roles {
 
 /**
  * Extrae el rol del header Authorization "Bearer <token>".
- * 
- * Por ahora el login devuelve un mock-jwt fijo ("mock-jwt-token-nafconnect"),
- * pero buscamos el usuario en la DB por email para obtener su rol real.
- * Si el header viene con "Bearer <email>", usamos el email para buscar.
+ * Busca el usuario en la DB por email para obtener su rol real.
  */
-suspend fun PipelineContext<*, ApplicationCall>.requireRole(allowedRoles: Set<String>): String? {
+suspend fun requireRole(call: ApplicationCall, allowedRoles: Set<String>): String? {
     val authHeader = call.request.header(HttpHeaders.Authorization) ?: return null
-    
-    // El token puede ser "Bearer mock-jwt-token-nafconnect" o "Bearer <email>"
     val token = authHeader.removePrefix("Bearer ").trim()
     if (token.isBlank()) return null
-    
-    // Buscar el usuario por email (el email se usa como token temporal)
+
     val user = DatabaseFactory.dbQuery {
         UserTable.selectAll().where { UserTable.email eq token }.singleOrNull()
     }
-    
+
     if (user == null) return null
     val role = user[UserTable.role]
     if (role !in allowedRoles) return null
@@ -54,11 +47,11 @@ suspend fun PipelineContext<*, ApplicationCall>.requireRole(allowedRoles: Set<St
 }
 
 /**
- * Intercepta y responde 403 si el usuario no tiene el rol requerido.
+ * Responde 403 si el usuario no tiene el rol requerido.
  * Si tiene permiso, devuelve el rol.
  */
-suspend fun PipelineContext<*, ApplicationCall>.requireRoleOr403(allowedRoles: Set<String>): String? {
-    val role = requireRole(allowedRoles)
+suspend fun requireRoleOr403(call: ApplicationCall, allowedRoles: Set<String>): String? {
+    val role = requireRole(call, allowedRoles)
     if (role == null) {
         call.respond(HttpStatusCode.Forbidden, mapOf(
             "status" to "error",

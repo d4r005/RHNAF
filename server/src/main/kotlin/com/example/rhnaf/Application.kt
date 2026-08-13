@@ -135,7 +135,7 @@ fun Application.module() {
             // --- ESCRITURA / BAJA / ELIMINACIÓN (requiere rol) ---
 
             post("/user/add") {
-                if (requireRoleOr403(Roles.CAN_MANAGE_USERS) == null) return@post
+                if (requireRoleOr403(call, Roles.CAN_MANAGE_USERS) == null) return@post
                 val data = call.receive<Map<String, String>>()
                 DatabaseFactory.dbQuery {
                     UserTable.insert {
@@ -149,7 +149,7 @@ fun Application.module() {
             }
 
             post("/user/update") {
-                if (requireRoleOr403(Roles.CAN_MANAGE_USERS) == null) return@post
+                if (requireRoleOr403(call, Roles.CAN_MANAGE_USERS) == null) return@post
                 val data = call.receive<Map<String, String>>()
                 val email = data["email"] ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "email requerido"))
                 DatabaseFactory.dbQuery {
@@ -163,7 +163,7 @@ fun Application.module() {
             }
 
             delete("/user/{email}") {
-                if (requireRoleOr403(Roles.CAN_MANAGE_USERS) == null) return@delete
+                if (requireRoleOr403(call, Roles.CAN_MANAGE_USERS) == null) return@delete
                 val email = call.parameters["email"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
                 DatabaseFactory.dbQuery {
                     UserTable.deleteWhere { UserTable.email eq email }
@@ -172,7 +172,7 @@ fun Application.module() {
             }
 
             post("/employee/add") {
-                if (requireRoleOr403(Roles.CAN_MANAGE_EMPLOYEES) == null) return@post
+                if (requireRoleOr403(call, Roles.CAN_MANAGE_EMPLOYEES) == null) return@post
                 val emp = call.receive<Employee>()
                 DatabaseFactory.dbQuery {
                     EmployeeTable.insert {
@@ -195,7 +195,7 @@ fun Application.module() {
             }
 
             post("/employee/update") {
-                if (requireRoleOr403(Roles.CAN_MANAGE_EMPLOYEES) == null) return@post
+                if (requireRoleOr403(call, Roles.CAN_MANAGE_EMPLOYEES) == null) return@post
                 val emp = call.receive<Employee>()
                 DatabaseFactory.dbQuery {
                     EmployeeTable.update({ EmployeeTable.id eq emp.id }) {
@@ -217,7 +217,7 @@ fun Application.module() {
             }
 
             delete("/employee/{id}") {
-                if (requireRoleOr403(Roles.CAN_MANAGE_EMPLOYEES) == null) return@delete
+                if (requireRoleOr403(call, Roles.CAN_MANAGE_EMPLOYEES) == null) return@delete
                 val id = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
                 DatabaseFactory.dbQuery {
                     EmployeeTable.deleteWhere { EmployeeTable.id eq id }
