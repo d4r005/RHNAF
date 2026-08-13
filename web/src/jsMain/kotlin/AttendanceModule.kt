@@ -135,14 +135,14 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                                 }
                             }) {
                                 Td({ style { padding(8.px, 12.px); color(Color("#64748b")) } }) { Text(log.employeeId) }
-                                Td({ style { padding(8.px, 12.px); fontWeight("bold") }) {
+                                Td({ style { padding(8.px, 12.px); fontWeight("bold") } }) {
                                     Text(log.name.ifBlank { log.employeeId })
                                 }
                                 Td({ style { padding(8.px, 12.px); color(Color("#64748b")) } }) { Text(log.department) }
                                 Td({ style { padding(8.px, 12.px); color(Color("#475569")) } }) {
                                     Text(log.timestamp.replace("T", " ").substringBefore("."))
                                 }
-                                Td({ style { padding(8.px, 12.px) }) {
+                                Td({ style { padding(8.px, 12.px) } }) {
                                     val isCheckIn = log.attendanceStatus.contains("in", ignoreCase = true)
                                     Span({
                                         style {
