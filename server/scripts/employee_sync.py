@@ -161,10 +161,12 @@ def fetch_all_face_photos(debug: bool = False):
     position = 0
     for _ in range(MAX_PAGES):
         body = {
-            "searchResultPosition": position,
-            "maxResults": BATCH_SIZE,
-            "faceLibType": "staticFD",
-            "FDID": FACE_LIB_ID,
+            "FDSearchCond": {
+                "searchResultPosition": position,
+                "maxResults": BATCH_SIZE,
+                "faceLibType": "staticFD",
+                "FDID": FACE_LIB_ID,
+            }
         }
         try:
             resp = requests.post(
