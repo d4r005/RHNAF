@@ -113,7 +113,7 @@ def push_to_cloud(event: dict, skip_reasons: dict, skip_samples: dict) -> bool:
     employee_no = event.get("employeeNoString") or event.get("cardNo") or ""
 
     # Filtrado local de IDs invalidos (None, 0, vacios)
-    id_clean = str(employee_no).strip().lowercase()
+    id_clean = str(employee_no).strip().lower()
     if not employee_no or id_clean == "none" or id_clean == "null" or id_clean == "0":
         # Diagnostico: contamos por tipo de evento (major/minor) para saber
         # que estamos descartando, sin spamear miles de lineas. Ademas
