@@ -274,7 +274,7 @@ class Translations(val lang: Language) {
 enum class Module {
     DASHBOARD, EHS_AUDITS, GRC_SECURITY,
     CONTROLLING, PURCHASING, PRODUCTION, QUALITY, EXTENDED_WAREHOUSE, GTS_TRADE,
-    FINANCIAL_ACCOUNTING, PLANT_MAINTENANCE, RECRUITMENT_SAP, PRE_NOMINA,
+    FINANCIAL_ACCOUNTING, PLANT_MAINTENANCE, RECRUITMENT_SAP, ATTENDANCE, PRE_NOMINA,
     SETTINGS
 }
 
@@ -282,6 +282,7 @@ enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, AL
 
 fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
+    if (role == UserRole.RH) return module in listOf(Module.DASHBOARD, Module.ATTENDANCE, Module.PRE_NOMINA, Module.SETTINGS)
     return module in listOf(Module.DASHBOARD, Module.EHS_AUDITS, Module.SETTINGS)
 }
 
@@ -379,6 +380,7 @@ fun main() {
                             Module.FINANCIAL_ACCOUNTING -> FinancialAccountingModule(client, scope, t)
                             Module.PLANT_MAINTENANCE -> PlantMaintenanceModule(client, scope, t)
                             Module.RECRUITMENT_SAP -> RecruitmentSapModule(client, scope, t)
+                            Module.ATTENDANCE -> AttendanceModule(client, scope, t)
                             Module.PRE_NOMINA -> PreNominaModule(client, scope, t, userRole)
                             Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
                                 currentLang = it
@@ -439,6 +441,7 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
             if (isModuleVisible(Module.FINANCIAL_ACCOUNTING, role)) SidebarLink(t.get("financial_accounting"), Module.FINANCIAL_ACCOUNTING, active == Module.FINANCIAL_ACCOUNTING, onSelect)
             if (isModuleVisible(Module.PLANT_MAINTENANCE, role)) SidebarLink(t.get("plant_maintenance"), Module.PLANT_MAINTENANCE, active == Module.PLANT_MAINTENANCE, onSelect)
             if (isModuleVisible(Module.RECRUITMENT_SAP, role)) SidebarLink(t.get("recruitment_sap"), Module.RECRUITMENT_SAP, active == Module.RECRUITMENT_SAP, onSelect)
+            if (isModuleVisible(Module.ATTENDANCE, role)) SidebarLink("Asistencia", Module.ATTENDANCE, active == Module.ATTENDANCE, onSelect)
             if (isModuleVisible(Module.PRE_NOMINA, role)) SidebarLink("Pre-Nómina", Module.PRE_NOMINA, active == Module.PRE_NOMINA, onSelect)
             SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
         }
