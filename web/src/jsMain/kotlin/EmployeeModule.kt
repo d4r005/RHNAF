@@ -6,7 +6,15 @@ import org.jetbrains.compose.web.attributes.*
 import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.call.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
 import kotlinx.coroutines.launch
+
+/**
+ * Devuelve true si el rol puede editar/eliminar empleados (RH o ADMIN).
+ */
+fun canManageEmployees(role: UserRole): Boolean =
+    role == UserRole.ADMIN || role == UserRole.RH
 
 @Composable
 fun EmployeeModule(
@@ -14,11 +22,17 @@ fun EmployeeModule(
     client: HttpClient,
     scope: kotlinx.coroutines.CoroutineScope,
     t: Translations,
+    userRole: UserRole,
+    authToken: String,
     onEmployeesUpdated: (List<Employee>) -> Unit
 ) {
     var isLoading by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }
+    var selectedEmployee by remember { mutableStateOf<Employee?>(null) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showBajaDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     fun refresh() {
         scope.launch {
@@ -34,6 +48,44 @@ fun EmployeeModule(
         }
     }
 
+    fun updateEmployee(emp: Employee) {
+        scope.launch {
+            try {
+                val resp = client.post("$BACKEND_URL/api/employee/update") {
+                    contentType(ContentType.Application.Json)
+                    header(HttpHeaders.Authorization, "Bearer $authToken")
+                    setBody(emp)
+                }
+                if (resp.status == HttpStatusCode.OK) {
+                    refresh()
+                } else {
+                    val body: String = resp.bodyAsText()
+                    errorMsg = "Error al actualizar: $body"
+                }
+            } catch (e: Exception) {
+                errorMsg = "Error de conexión: ${e.message}"
+            }
+        }
+    }
+
+    fun deleteEmployee(id: String) {
+        scope.launch {
+            try {
+                val resp = client.delete("$BACKEND_URL/api/employee/$id") {
+                    header(HttpHeaders.Authorization, "Bearer $authToken")
+                }
+                if (resp.status == HttpStatusCode.OK) {
+                    refresh()
+                } else {
+                    val body: String = resp.bodyAsText()
+                    errorMsg = "Error al eliminar: $body"
+                }
+            } catch (e: Exception) {
+                errorMsg = "Error de conexión: ${e.message}"
+            }
+        }
+    }
+
     val withPhoto = employees.count { !it.photoUrl.isNullOrBlank() }
     val withoutPhoto = employees.size - withPhoto
 
@@ -43,6 +95,8 @@ fun EmployeeModule(
             "${e.firstName} ${e.lastName}".contains(searchQuery, ignoreCase = true) ||
             e.department.contains(searchQuery, ignoreCase = true)
     }
+
+    val canManage = canManageEmployees(userRole)
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3({ style { margin(0.px, 0.px, 4.px, 0.px) } }) { Text("Plantilla de Empleados") }
@@ -103,7 +157,11 @@ fun EmployeeModule(
                 }
             }) {
                 filtered.sortedBy { it.id }.forEach { emp ->
-                    EmployeeCard(emp)
+                    EmployeeCard(emp, canManage,
+                        onEdit = { selectedEmployee = emp; showEditDialog = true },
+                        onBaja = { selectedEmployee = emp; showBajaDialog = true },
+                        onDelete = { selectedEmployee = emp; showDeleteDialog = true }
+                    )
                 }
             }
 
@@ -114,10 +172,156 @@ fun EmployeeModule(
             }
         }
     }
+
+    // --- DIALOG: Editar empleado ---
+    if (showEditDialog && selectedEmployee != null) {
+        val emp = selectedEmployee!!
+        var firstName by remember { mutableStateOf(emp.firstName) }
+        var lastName by remember { mutableStateOf(emp.lastName) }
+        var position by remember { mutableStateOf(emp.position) }
+        var department by remember { mutableStateOf(emp.department) }
+
+        Div({
+            style {
+                position(Position.Fixed); top(0.px); left(0.px); width(100.vw); height(100.vh)
+                backgroundColor(Color("rgba(0,0,0,0.5)")); display(DisplayStyle.Flex)
+                alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); zIndex(999)
+            }
+        }) {
+            Div({
+                style {
+                    backgroundColor(Color.white); borderRadius(12.px); padding(32.px)
+                    width(420.px); maxWidth("90vw"); maxHeight("90vh"); overflowY("auto")
+                    property("box-shadow", "0 20px 25px -5px rgba(0,0,0,0.3)")
+                }
+            }) {
+                H3({ style { margin(0.px, 0.px, 20.px, 0.px) } }) { Text("Editar Empleado") }
+                P({ style { fontSize(12.px); color(Color("#64748b")); marginBottom(16.px) } }) { Text("ID: ${emp.id}") }
+                
+                EditField("Nombre(s)", firstName) { firstName = it }
+                EditField("Apellidos", lastName) { lastName = it }
+                EditField("Puesto", position) { position = it }
+                EditField("Departamento", department) { department = it }
+
+                Div({ style { display(DisplayStyle.Flex); gap(12.px); marginTop(24.px) } }) {
+                    Button({
+                        style {
+                            flex(1); padding(10.px); borderRadius(8.px); property("border", "none")
+                            backgroundColor(SidebarActiveColor); color(Color.white); cursor("pointer"); fontWeight("bold")
+                        }
+                        onClick {
+                            val updated = emp.copy(
+                                firstName = firstName, lastName = lastName,
+                                position = position, department = department
+                            )
+                            updateEmployee(updated)
+                            showEditDialog = false
+                        }
+                    }) { Text("Guardar") }
+                    Button({
+                        style {
+                            flex(1); padding(10.px); borderRadius(8.px)
+                            property("border", "1px solid #cbd5e1"); backgroundColor(Color.white); cursor("pointer")
+                        }
+                        onClick { showEditDialog = false }
+                    }) { Text("Cancelar") }
+                }
+            }
+        }
+    }
+
+    // --- DIALOG: Dar de baja ---
+    if (showBajaDialog && selectedEmployee != null) {
+        val emp = selectedEmployee!!
+        Div({
+            style {
+                position(Position.Fixed); top(0.px); left(0.px); width(100.vw); height(100.vh)
+                backgroundColor(Color("rgba(0,0,0,0.5)")); display(DisplayStyle.Flex)
+                alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); zIndex(999)
+            }
+        }) {
+            Div({
+                style {
+                    backgroundColor(Color.white); borderRadius(12.px); padding(32.px)
+                    width(400.px); maxWidth("90vw")
+                    property("box-shadow", "0 20px 25px -5px rgba(0,0,0,0.3)")
+                }
+            }) {
+                H3({ style { margin(0.px, 0.px, 16.px, 0.px); color(Color("#991b1b")) } }) { Text("Dar de Baja") }
+                P({ style { fontSize(14.px); color(Color("#475569")); marginBottom(24.px) } }) {
+                    Text("¿Confirmas el cambio de estatus de ${emp.firstName} ${emp.lastName} a INACTIVO?")
+                }
+                Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
+                    Button({
+                        style {
+                            flex(1); padding(10.px); borderRadius(8.px); property("border", "none")
+                            backgroundColor(Color("#991b1b")); color(Color.white); cursor("pointer"); fontWeight("bold")
+                        }
+                        onClick {
+                            val updated = emp.copy(status = EmployeeStatus.INACTIVE)
+                            updateEmployee(updated)
+                            showBajaDialog = false
+                        }
+                    }) { Text("Confirmar Baja") }
+                    Button({
+                        style {
+                            flex(1); padding(10.px); borderRadius(8.px)
+                            property("border", "1px solid #cbd5e1"); backgroundColor(Color.white); cursor("pointer")
+                        }
+                        onClick { showBajaDialog = false }
+                    }) { Text("Cancelar") }
+                }
+            }
+        }
+    }
+
+    // --- DIALOG: Eliminar ---
+    if (showDeleteDialog && selectedEmployee != null) {
+        val emp = selectedEmployee!!
+        Div({
+            style {
+                position(Position.Fixed); top(0.px); left(0.px); width(100.vw); height(100.vh)
+                backgroundColor(Color("rgba(0,0,0,0.5)")); display(DisplayStyle.Flex)
+                alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); zIndex(999)
+            }
+        }) {
+            Div({
+                style {
+                    backgroundColor(Color.white); borderRadius(12.px); padding(32.px)
+                    width(400.px); maxWidth("90vw")
+                    property("box-shadow", "0 20px 25px -5px rgba(0,0,0,0.3)")
+                }
+            }) {
+                H3({ style { margin(0.px, 0.px, 16.px, 0.px); color(Color("#991b1b")) } }) { Text("Eliminar Empleado") }
+                P({ style { fontSize(14.px); color(Color("#475569")); marginBottom(24.px) } }) {
+                    Text("¿Eliminar definitivamente a ${emp.firstName} ${emp.lastName}? Esta acción no se puede deshacer.")
+                }
+                Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
+                    Button({
+                        style {
+                            flex(1); padding(10.px); borderRadius(8.px); property("border", "none")
+                            backgroundColor(Color("#991b1b")); color(Color.white); cursor("pointer"); fontWeight("bold")
+                        }
+                        onClick {
+                            deleteEmployee(emp.id)
+                            showDeleteDialog = false
+                        }
+                    }) { Text("Eliminar") }
+                    Button({
+                        style {
+                            flex(1); padding(10.px); borderRadius(8.px)
+                            property("border", "1px solid #cbd5e1"); backgroundColor(Color.white); cursor("pointer")
+                        }
+                        onClick { showDeleteDialog = false }
+                    }) { Text("Cancelar") }
+                }
+            }
+        }
+    }
 }
 
 @Composable
-fun EmployeeCard(emp: Employee) {
+fun EmployeeCard(emp: Employee, canManage: Boolean, onEdit: () -> Unit, onBaja: () -> Unit, onDelete: () -> Unit) {
     Div({
         style {
             padding(16.px); borderRadius(10.px)
@@ -158,6 +362,65 @@ fun EmployeeCard(emp: Employee) {
             }
         }) { Text(emp.department.ifBlank { "Sin depto" }) }
         P({ style { margin(0.px); fontSize(11.px); color(Color("#94a3b8")) } }) { Text(emp.position) }
+
+        // Chip de estatus
+        val (statusColor, statusBg) = when (emp.status) {
+            EmployeeStatus.ACTIVE -> Color("#166534") to Color("#dcfce7")
+            EmployeeStatus.VACATION -> Color("#854d0e") to Color("#fef9c3")
+            EmployeeStatus.INACTIVE -> Color("#991b1b") to Color("#fee2e2")
+            else -> Color("#475569") to Color("#f1f5f9")
+        }
+        Span({
+            style {
+                padding(2.px, 10.px); borderRadius(99.px); fontSize(10.px); fontWeight("bold")
+                backgroundColor(statusBg); color(statusColor)
+            }
+        }) { Text(emp.status.name) }
+
+        // Botones de gestión (solo RH y ADMIN)
+        if (canManage) {
+            Div({ style { display(DisplayStyle.Flex); gap(6.px); marginTop(8.px) } }) {
+                Button({
+                    style {
+                        padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
+                        property("border", "1px solid #2563eb"); backgroundColor(Color.white); color(Color("#2563eb"))
+                    }
+                    onClick { onEdit() }
+                }) { Text("Editar") }
+                if (emp.status == EmployeeStatus.ACTIVE) {
+                    Button({
+                        style {
+                            padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
+                            property("border", "1px solid #f59e0b"); backgroundColor(Color.white); color(Color("#f59e0b"))
+                        }
+                        onClick { onBaja() }
+                    }) { Text("Baja") }
+                }
+                Button({
+                    style {
+                        padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
+                        property("border", "1px solid #ef4444"); backgroundColor(Color.white); color(Color("#ef4444"))
+                    }
+                    onClick { onDelete() }
+                }) { Text("Eliminar") }
+            }
+        }
+    }
+}
+
+@Composable
+fun EditField(label: String, value: String, onChange: (String) -> Unit) {
+    Div({ style { marginBottom(12.px) } }) {
+        Label { Text(label) }
+        Input(InputType.Text) {
+            style {
+                width(100.percent); padding(8.px, 12.px); marginTop(4.px)
+                borderRadius(6.px); property("border", "1px solid #cbd5e1")
+                property("box-sizing", "border-box"); property("outline", "none")
+            }
+            this.value(value)
+            onInput { onChange(it.value) }
+        }
     }
 }
 

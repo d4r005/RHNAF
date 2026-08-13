@@ -16,9 +16,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.rhnaf.shared.model.Employee
 import com.example.rhnaf.shared.model.EmployeeStatus
 import com.example.rhnaf.ui.ViewModelFactory
@@ -121,7 +123,8 @@ fun EmployeeCard(employee: Employee, onClick: () -> Unit) {
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar Placeholder
+            // Foto del empleado desde la lectora Hikvision (base64 data URI),
+            // con fallback a iniciales si no hay foto.
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -129,11 +132,23 @@ fun EmployeeCard(employee: Employee, onClick: () -> Unit) {
                     .background(IndustrialLight),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "${employee.firstName.take(1)}${employee.lastName.take(1)}",
-                    fontWeight = FontWeight.Bold,
-                    color = IndustrialBlue
-                )
+                val photo = employee.photoUrl
+                if (!photo.isNullOrBlank()) {
+                    AsyncImage(
+                        model = photo,
+                        contentDescription = "Foto de ${employee.firstName}",
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = "${employee.firstName.take(1)}${employee.lastName.take(1)}",
+                        fontWeight = FontWeight.Bold,
+                        color = IndustrialBlue
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))

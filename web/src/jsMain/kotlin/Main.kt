@@ -275,7 +275,7 @@ enum class Module {
     DASHBOARD, EHS_AUDITS, GRC_SECURITY,
     CONTROLLING, PURCHASING, PRODUCTION, QUALITY, EXTENDED_WAREHOUSE, GTS_TRADE,
     FINANCIAL_ACCOUNTING, PLANT_MAINTENANCE, RECRUITMENT_SAP, EMPLOYEES, ATTENDANCE, PRE_NOMINA,
-    SETTINGS
+    SETTINGS, USER_MGMT
 }
 
 enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, ALMACEN, IMPORT_EXPORT, FINANZAS }
@@ -306,6 +306,7 @@ fun main() {
         var currentLang by remember { mutableStateOf(Language.valueOf(window.localStorage.getItem("naf_lang") ?: "ES")) }
         val t = Translations(currentLang)
 
+        var authToken by remember { mutableStateOf("") }
         val scope = rememberCoroutineScope()
 
         if (!isLoggedIn) {
@@ -326,6 +327,7 @@ fun main() {
                             val name = body["name"] ?: "Colaborador"
                             val role = try { UserRole.valueOf(roleFromServer) } catch (e: Exception) { UserRole.EMPLEADO }
                             userRole = role
+                            authToken = body["token"] ?: ""
 
                             // Siempre sobreescribimos el nombre mostrado con el que regresa el
                             // servidor para esta cuenta (evita que quede pegado el nombre de otra
@@ -380,9 +382,10 @@ fun main() {
                             Module.FINANCIAL_ACCOUNTING -> FinancialAccountingModule(client, scope, t)
                             Module.PLANT_MAINTENANCE -> PlantMaintenanceModule(client, scope, t)
                             Module.RECRUITMENT_SAP -> RecruitmentSapModule(client, scope, t)
-                            Module.EMPLOYEES -> EmployeeModule(employees, client, scope, t) { employees = it }
+                            Module.EMPLOYEES -> EmployeeModule(employees, client, scope, t, userRole, authToken) { employees = it }
                             Module.ATTENDANCE -> AttendanceModule(client, scope, t)
                             Module.PRE_NOMINA -> PreNominaModule(client, scope, t, userRole)
+                            Module.USER_MGMT -> UserMgmtModule(client, scope, t, authToken)
                             Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
                                 currentLang = it
                                 window.localStorage.setItem("naf_lang", it.name)
@@ -445,6 +448,7 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
             if (isModuleVisible(Module.EMPLOYEES, role)) SidebarLink("Empleados", Module.EMPLOYEES, active == Module.EMPLOYEES, onSelect)
             if (isModuleVisible(Module.ATTENDANCE, role)) SidebarLink("Asistencia", Module.ATTENDANCE, active == Module.ATTENDANCE, onSelect)
             if (isModuleVisible(Module.PRE_NOMINA, role)) SidebarLink("Pre-Nómina", Module.PRE_NOMINA, active == Module.PRE_NOMINA, onSelect)
+            if (isModuleVisible(Module.USER_MGMT, role)) SidebarLink(t.get("user_mgmt"), Module.USER_MGMT, active == Module.USER_MGMT, onSelect)
             SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
         }
 

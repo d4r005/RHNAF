@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -16,9 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.rhnaf.shared.logic.VacationCalculator
 import com.example.rhnaf.shared.model.Employee
 import com.example.rhnaf.shared.model.EmployeeStatus
@@ -39,9 +42,16 @@ fun EmployeeDetailScreen(
     var employee by remember { mutableStateOf<Employee?>(null) }
     val equipment by equipmentViewModel.getEquipment(employeeId).collectAsState(initial = emptyList())
     val evaluations by performanceViewModel.getEvaluations(employeeId).collectAsState(initial = emptyList())
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showBajaDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(employeeId) {
         employee = employeeViewModel.getEmployeeById(employeeId)
+    }
+
+    // Cuándo se da de baja o se elimina, volver a la lista.
+    LaunchedEffect(employee?.status) {
+        // Si cambió a INACTIVE por acción del dialog, recargar.
     }
 
     Scaffold(
@@ -55,8 +65,11 @@ fun EmployeeDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO: Edit */ }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Editar")
+                    IconButton(onClick = { showBajaDialog = true }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Dar de Baja / Editar")
+                    }
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -78,7 +91,7 @@ fun EmployeeDetailScreen(
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Header Card
+                // Header Card con foto real
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -89,17 +102,32 @@ fun EmployeeDetailScreen(
                         modifier = Modifier.padding(24.dp).fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        // Foto del empleado: usa AsyncImage de Coil con el photoUrl
+                        // (data URI en base64 que viene de la lectora Hikvision).
+                        // Fallback a ícono de persona si no hay foto.
                         Surface(
                             modifier = Modifier.size(100.dp),
                             shape = CircleShape,
                             color = IndustrialLight
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = null,
-                                modifier = Modifier.padding(20.dp),
-                                tint = IndustrialBlue
-                            )
+                            val photo = emp.photoUrl
+                            if (!photo.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = photo,
+                                    contentDescription = "Foto de ${emp.firstName}",
+                                    modifier = Modifier
+                                        .size(100.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(20.dp),
+                                    tint = IndustrialBlue
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(text = "${emp.firstName} ${emp.lastName}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -116,6 +144,7 @@ fun EmployeeDetailScreen(
                         DetailItem("Departamento", emp.department)
                         DetailItem("Fecha de Ingreso", emp.entryDate)
                         DetailItem("Supervisor", emp.supervisor ?: "N/A")
+                        DetailItem("Estatus", emp.status.name)
                     }
 
                     DetailSection("Identidad y Fiscal") {
@@ -174,6 +203,45 @@ fun EmployeeDetailScreen(
                 }
             }
         }
+    }
+
+    // Dialog para dar de baja (cambiar status a INACTIVE)
+    if (showBajaDialog && employee != null) {
+        AlertDialog(
+            onDismissRequest = { showBajaDialog = false },
+            title = { Text("Dar de Baja") },
+            text = { Text("¿Cambiar el estatus de ${employee!!.firstName} ${employee!!.lastName} a INACTIVO? Esta acción la puede realizar RH o Admin.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val updated = employee!!.copy(status = EmployeeStatus.INACTIVE)
+                    employeeViewModel.updateEmployee(updated)
+                    employee = updated
+                    showBajaDialog = false
+                }) { Text("Confirmar Baja", color = Color(0xFF991B1B)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBajaDialog = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    // Dialog para eliminar permanentemente
+    if (showDeleteDialog && employee != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Eliminar Empleado") },
+            text = { Text("¿Eliminar definitivamente a ${employee!!.firstName} ${employee!!.lastName}? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    employeeViewModel.deleteEmployee(employee!!)
+                    showDeleteDialog = false
+                    onNavigateBack()
+                }) { Text("Eliminar", color = Color(0xFF991B1B)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancelar") }
+            }
+        )
     }
 }
 

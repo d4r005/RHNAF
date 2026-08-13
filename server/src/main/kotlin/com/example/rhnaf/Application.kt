@@ -9,6 +9,7 @@ import com.example.rhnaf.shared.model.Employee
 import com.example.rhnaf.shared.model.EmployeeStatus
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.EmployeeTable
+import com.example.rhnaf.database.UserTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import com.example.rhnaf.service.HuggingFaceService
@@ -18,6 +19,8 @@ import com.example.rhnaf.routes.employeeSyncRouting
 import com.example.rhnaf.routes.warehouseRouting
 import com.example.rhnaf.routes.prePayrollRouting
 import com.example.rhnaf.routes.sapModulesRouting
+import com.example.rhnaf.auth.Roles
+import com.example.rhnaf.auth.requireRoleOr403
 import io.ktor.server.request.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.http.*
@@ -73,23 +76,25 @@ fun Application.module() {
                 val password = credentials["password"] ?: ""
                 
                 val user = DatabaseFactory.dbQuery {
-                    com.example.rhnaf.database.UserTable.selectAll().where { 
-                        (com.example.rhnaf.database.UserTable.email eq username) and 
-                        (com.example.rhnaf.database.UserTable.password eq password) 
+                    UserTable.selectAll().where { 
+                        (UserTable.email eq username) and 
+                        (UserTable.password eq password) 
                     }.singleOrNull()
                 }
                 
                 if (user != null) {
                     call.respond(mapOf(
                         "status" to "success", 
-                        "token" to "mock-jwt-token-nafconnect",
-                        "role" to user[com.example.rhnaf.database.UserTable.role],
-                        "name" to user[com.example.rhnaf.database.UserTable.name]
+                        "token" to user[UserTable.email],
+                        "role" to user[UserTable.role],
+                        "name" to user[UserTable.name]
                     ))
                 } else {
                     call.respond(HttpStatusCode.Unauthorized, mapOf("status" to "error", "message" to "Credenciales incorrectas"))
                 }
             }
+
+            // --- LECTURA (sin restricción de rol) ---
 
             get("/employees") {
                 val employees = DatabaseFactory.dbQuery {
@@ -116,21 +121,24 @@ fun Application.module() {
 
             get("/users") {
                 val users = DatabaseFactory.dbQuery {
-                    com.example.rhnaf.database.UserTable.selectAll().map {
+                    UserTable.selectAll().map {
                         mapOf(
-                            "email" to it[com.example.rhnaf.database.UserTable.email],
-                            "role" to it[com.example.rhnaf.database.UserTable.role],
-                            "name" to it[com.example.rhnaf.database.UserTable.name]
+                            "email" to it[UserTable.email],
+                            "role" to it[UserTable.role],
+                            "name" to it[UserTable.name]
                         )
                     }
                 }
                 call.respond(users)
             }
 
+            // --- ESCRITURA / BAJA / ELIMINACIÓN (requiere rol) ---
+
             post("/user/add") {
+                if (requireRoleOr403(Roles.CAN_MANAGE_USERS) == null) return@post
                 val data = call.receive<Map<String, String>>()
                 DatabaseFactory.dbQuery {
-                    com.example.rhnaf.database.UserTable.insert {
+                    UserTable.insert {
                         it[email] = data["email"] ?: ""
                         it[password] = data["password"] ?: ""
                         it[role] = data["role"] ?: "EMPLEADO"
@@ -140,7 +148,31 @@ fun Application.module() {
                 call.respond(HttpStatusCode.Created, mapOf("status" to "success"))
             }
 
+            post("/user/update") {
+                if (requireRoleOr403(Roles.CAN_MANAGE_USERS) == null) return@post
+                val data = call.receive<Map<String, String>>()
+                val email = data["email"] ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "email requerido"))
+                DatabaseFactory.dbQuery {
+                    UserTable.update({ UserTable.email eq email }) {
+                        if (data.containsKey("role")) it[role] = data["role"]!!
+                        if (data.containsKey("name")) it[name] = data["name"]!!
+                        if (data.containsKey("password")) it[password] = data["password"]!!
+                    }
+                }
+                call.respond(mapOf("status" to "success"))
+            }
+
+            delete("/user/{email}") {
+                if (requireRoleOr403(Roles.CAN_MANAGE_USERS) == null) return@delete
+                val email = call.parameters["email"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
+                DatabaseFactory.dbQuery {
+                    UserTable.deleteWhere { UserTable.email eq email }
+                }
+                call.respond(mapOf("status" to "success"))
+            }
+
             post("/employee/add") {
+                if (requireRoleOr403(Roles.CAN_MANAGE_EMPLOYEES) == null) return@post
                 val emp = call.receive<Employee>()
                 DatabaseFactory.dbQuery {
                     EmployeeTable.insert {
@@ -163,6 +195,7 @@ fun Application.module() {
             }
 
             post("/employee/update") {
+                if (requireRoleOr403(Roles.CAN_MANAGE_EMPLOYEES) == null) return@post
                 val emp = call.receive<Employee>()
                 DatabaseFactory.dbQuery {
                     EmployeeTable.update({ EmployeeTable.id eq emp.id }) {
@@ -184,6 +217,7 @@ fun Application.module() {
             }
 
             delete("/employee/{id}") {
+                if (requireRoleOr403(Roles.CAN_MANAGE_EMPLOYEES) == null) return@delete
                 val id = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
                 DatabaseFactory.dbQuery {
                     EmployeeTable.deleteWhere { EmployeeTable.id eq id }
@@ -191,13 +225,14 @@ fun Application.module() {
                 call.respond(mapOf("status" to "success"))
             }
 
+            // --- SIN RESTRICCIÓN ---
+
             post("/attendance/biometric") {
                 val data = call.receive<Map<String, String>>()
                 val employeeId = data["employeeNo"] ?: data["userId"] ?: "UNKNOWN"
                 val authType = data["authType"] ?: "Face"
                 val deviceSerial = data["deviceSerial"] ?: "MOBILE_APP"
                 
-                // AHORA SÍ GUARDAMOS EN LA DB CENTRAL
                 attendanceUseCase.registerCheckIn(
                     employeeId = employeeId,
                     timestamp = java.time.LocalDateTime.now().toString(),
@@ -221,7 +256,6 @@ fun Application.module() {
                 call.respond(mapOf("analysis" to analysis))
             }
 
-            // PANEL DE INCIDENCIAS
             get("/incidents/week/{week}") {
                 val week = call.parameters["week"]?.toIntOrNull() ?: 1
                 val incidents = DatabaseFactory.dbQuery {

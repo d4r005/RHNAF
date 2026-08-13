@@ -24,6 +24,18 @@ class EmployeeViewModel(private val repository: EmployeeRepository) : ViewModel(
         }
     }
 
+    fun updateEmployee(employee: Employee) {
+        viewModelScope.launch {
+            repository.updateEmployee(employee)
+        }
+    }
+
+    fun deleteEmployee(employee: Employee) {
+        viewModelScope.launch {
+            repository.deleteEmployee(employee)
+        }
+    }
+
     suspend fun getEmployeeById(id: String): Employee? {
         return repository.getEmployeeById(id)
     }
