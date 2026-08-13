@@ -49,7 +49,7 @@ TZ_OFFSET = "-06:00"
 
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sync_state.json")
 BATCH_SIZE = 30          # eventos por página (ISAPI típico soporta 30)
-MAX_PAGES_PER_RUN = 50   # tope de páginas por corrida (=1500 eventos) para no tardar horas
+MAX_PAGES_PER_RUN = 30   # reducido para no saturar
 INTERVAL_SECONDS = 300   # cada 5 min en modo --loop
 DEFAULT_LOOKBACK_DAYS = 7  # si no hay estado previo, cuantos dias hacia atras jalar
 # ---------------------------------------------------------------
@@ -115,12 +115,6 @@ def push_to_cloud(event: dict, skip_reasons: dict, skip_samples: dict) -> bool:
     # Filtrado local de IDs invalidos (None, 0, vacios)
     id_clean = str(employee_no).strip().lower()
     if not employee_no or id_clean == "none" or id_clean == "null" or id_clean == "0":
-        # Diagnostico: contamos por tipo de evento (major/minor) para saber
-        # que estamos descartando, sin spamear miles de lineas. Ademas
-        # guardamos UN evento crudo de ejemplo por tipo para poder ver
-        # exactamente que campos trae (asi identificamos si es una checada
-        # fallida, alarma, apertura remota, etc. sin tener que correr un
-        # script de diagnostico aparte).
         key = f"major={event.get('major')} minor={event.get('minor')}"
         skip_reasons[key] = skip_reasons.get(key, 0) + 1
         if key not in skip_samples:
@@ -136,14 +130,29 @@ def push_to_cloud(event: dict, skip_reasons: dict, skip_samples: dict) -> bool:
         },
     }
 
-    try:
-        resp = requests.post(CLOUD_URL, json=payload, timeout=15)
-        resp.raise_for_status()
-        return True
-    except requests.RequestException as e:
-        print(f"  [ERROR] no se pudo subir evento de empleado {employee_no}: {e}")
-        skip_reasons["push_failed"] = skip_reasons.get("push_failed", 0) + 1
-        return False
+    # Mecanismo de reintento suave para evitar errores 503 en Hugging Face
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # Pausa obligatoria para no ametrallar el servidor gratuito
+            time.sleep(0.15)
+
+            resp = requests.post(CLOUD_URL, json=payload, timeout=20)
+            if resp.status_code in [500, 502, 503, 504]:
+                print(f"  [AVISO] Servidor ocupado (Intento {attempt+1}/{max_retries}). Esperando...")
+                time.sleep(2 * (attempt + 1))
+                continue
+
+            resp.raise_for_status()
+            return True
+        except requests.RequestException as e:
+            if attempt == max_retries - 1:
+                print(f"  [ERROR] no se pudo subir empleado {employee_no} tras {max_retries} intentos: {e}")
+                skip_reasons["push_failed"] = skip_reasons.get("push_failed", 0) + 1
+                return False
+            time.sleep(2)
+
+    return False
 
 
 def run_once(force_since: str | None = None, major: int = 5, minor: int = 0):
