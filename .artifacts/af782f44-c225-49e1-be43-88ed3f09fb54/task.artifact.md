@@ -1,10 +1,8 @@
-# Tareas de Expansión EHS (Nivel EHSSoft)
+# Tareas de Refinamiento de Asistencia (Hikvision)
 
-- `[x]` Robustecer `parsePostgresUrl` en `DatabaseFactory.kt`.
-- `[x]` Mejorar la configuración de `HikariCP`.
-- `[x]` Implementar expansión EHS:
-    - `[x]` Modelos Shared (Residuos, Salud, Químicos).
-    - `[x]` Tablas Server.
-    - `[x]` Endpoints API.
-    - `[x]` UI Web (Nuevas Pestañas).
-- `[ ]` Realizar Commit and Push final.
+- `[/]` Implementar filtrado y renombrado:
+    - `[ ]` Actualizar `AttendanceRoutes.kt` (Filtrado "None" + Renombrar a HIKVISIONWEB).
+    - `[ ]` Actualizar `AttendanceUseCase.kt` (Validación de IDs).
+    - `[ ]` Actualizar `attendance_sync.py` (Payload HIKVISIONWEB).
+- `[ ]` Limpieza de base de datos (Borrar registros "None" actuales).
+- `[ ]` Realizar Commit and Push.

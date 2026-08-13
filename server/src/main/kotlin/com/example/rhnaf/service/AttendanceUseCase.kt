@@ -48,6 +48,12 @@ class AttendanceUseCase {
         department: String = "",
         customName: String = ""
     ): Boolean {
+        // Validacion defensiva contra IDs invalidos (ruido de sistema Hikvision)
+        val idClean = employeeId.trim().lowercase()
+        if (idClean.isEmpty() || idClean == "none" || idClean == "null" || idClean == "0") {
+            return true // Respondemos true para que la lectora no reintente, pero no guardamos nada
+        }
+
         val day = timestamp.substringBefore("T").substringBefore(" ")
 
         return DatabaseFactory.dbQuery {

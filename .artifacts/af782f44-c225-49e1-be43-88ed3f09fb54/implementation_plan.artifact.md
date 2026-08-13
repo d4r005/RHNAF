@@ -1,62 +1,34 @@
-# Plan de Mejora EHS: Expansión a Nivel EHSSoft
+# Plan de Refinamiento de Asistencia (Hikvision)
 
-Este plan detalla la expansión del módulo de EHS para incluir Gestión Ambiental, Salud Ocupacional y Manejo de Sustancias Químicas, alineando RHNAF con estándares internacionales (ISO 45001/14001).
+Este plan detalla los ajustes para filtrar eventos inválidos ("None") de la lectora y asegurar que el origen de los datos se identifique correctamente como "HIKVISIONWEB".
 
-## Análisis de la Expansión
+## Análisis del Problema
 
-Para competir con soluciones como EHSSoft, añadiremos tres pilares fundamentales:
-1.  **Ambiente**: Control de residuos y cumplimiento ambiental.
-2.  **Salud**: Vigilancia médica y exámenes periódicos.
-3.  **Químicos**: Inventario de Hojas de Seguridad (MSDS) para cumplimiento legal.
-
-## Proposed Changes
-
-### [Shared Component]
-Actualizar modelos de datos serializables.
-#### [MODIFY] [SapModules.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/shared/src/commonMain/kotlin/com/example/rhnaf/shared/model/SapModules.kt)
-*   Añadir `WasteManifest`, `MedicalExam`, y `ChemicalProduct`.
-
----
-
-### [Server Component]
-Persistencia y APIs.
-#### [MODIFY] [SapModulesTables.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/database/SapModulesTables.kt)
-*   Crear `EnvironmentalWasteTable`, `OccupationalHealthTable` y `ChemicalInventoryTable`.
-#### [MODIFY] [DatabaseFactory.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/database/DatabaseFactory.kt)
-*   Inicializar las nuevas tablas en `SchemaUtils.createMissingTablesAndColumns`.
-#### [MODIFY] [SapModulesRoutes.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/routes/SapModulesRoutes.kt)
-*   Implementar los endpoints CRUD para los nuevos módulos.
-
----
-
-### [Web Component]
-Interfaz de usuario.
-#### [MODIFY] [SapModulesUi.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/web/src/jsMain/kotlin/SapModulesUi.kt)
-*   Añadir las pestañas: "Medio Ambiente", "Salud Ocupacional" y "Sustancias Químicas".
-*   Implementar tablas y formularios de registro para cada una.
-
-## Verification Plan
-
-### Automated Tests
-*   Ejecutar build local para asegurar que los modelos @Serializable compilan correctamente.
-*   Verificar que las rutas del servidor responden (Mocking HttpClient).
-
-### Manual Verification
-*   Confirmar que al entrar al módulo EHS aparecen las nuevas 3 pestañas.
-*   Probar el registro de un residuo ambiental y un examen médico.
-*   **Finalización**: Realizar `git commit` y `git push` como se solicitó.
+1.  **Eventos "None"**: La lectora envía eventos de sistema (aperturas de puerta, alarmas) que no están asociados a un empleado. Estos aparecen como "None" en el portal y deben ser ignorados.
+2.  **Identificación de Origen**: El usuario solicita que los registros provenientes de la lectora se identifiquen como "HIKVISIONWEB" (o similar).
+3.  **Filtrado de Eventos**: Solo se deben procesar checadas válidas de "Check-in" y "Check-out".
 
 ## Proposed Changes
 
 ### [Server Component]
 
-#### [MODIFY] [DatabaseFactory.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/database/DatabaseFactory.kt)
-*   Actualizar la lógica de parsing de URL.
-*   Mejorar la configuración de HikariCP para entornos cloud.
+#### [MODIFY] [AttendanceRoutes.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/routes/AttendanceRoutes.kt)
+*   Actualizar `handleHikvisionRequest` para ignorar peticiones donde el ID de empleado sea `"None"`, `"null"`, `"0"` o esté vacío.
+*   Cambiar el valor por defecto de `deviceId` a `"HIKVISIONWEB"`.
+
+#### [MODIFY] [AttendanceUseCase.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/service/AttendanceUseCase.kt)
+*   Añadir una validación en `registerCheckIn` para descartar IDs inválidos antes de intentar la inserción.
+*   Si el nombre del empleado no se encuentra, pero el registro viene de la lectora, asignar un nombre descriptivo por defecto.
+
+### [Script Component]
+
+#### [MODIFY] [attendance_sync.py](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/scripts/attendance_sync.py)
+*   Cambiar `"LOCAL-SYNC"` por `"HIKVISIONWEB"` en el payload enviado a la nube.
+*   Robustecer el filtrado local para no enviar eventos que no tengan un ID de empleado válido.
 
 ## Verification Plan
 
 ### Manual Verification
-1.  Pedir al usuario que verifique el estado del proyecto en Supabase.
-2.  Desplegar los cambios a GitHub (que dispararán el sync a HF).
-3.  Revisar los logs en tiempo real de Hugging Face para confirmar que el pool de conexiones se inicializa correctamente.
+1.  **Limpieza de Base de Datos**: Ejecutar un comando para borrar los registros basura actuales (`employee_id = 'None'`).
+2.  **Prueba de Envío**: Enviar un evento manual con ID "None" y verificar que el servidor lo ignore (respondiendo 200 OK para no bloquear la terminal, pero sin guardar en DB).
+3.  **Verificación en Portal**: Confirmar que en la tabla de asistencia ya no aparecen filas con "None" y que la columna "Dispositivo" muestra "HIKVISIONWEB".

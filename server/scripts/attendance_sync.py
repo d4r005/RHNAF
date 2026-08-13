@@ -111,7 +111,10 @@ def fetch_events(start_time: str, end_time: str, position: int = 0, major: int =
 def push_to_cloud(event: dict, skip_reasons: dict, skip_samples: dict) -> bool:
     """Manda un evento al servidor en la nube en el formato que ya espera."""
     employee_no = event.get("employeeNoString") or event.get("cardNo") or ""
-    if not employee_no:
+
+    # Filtrado local de IDs invalidos (None, 0, vacios)
+    id_clean = str(employee_no).strip().lowercase()
+    if not employee_no or id_clean == "none" or id_clean == "null" or id_clean == "0":
         # Diagnostico: contamos por tipo de evento (major/minor) para saber
         # que estamos descartando, sin spamear miles de lineas. Ademas
         # guardamos UN evento crudo de ejemplo por tipo para poder ver
@@ -126,7 +129,7 @@ def push_to_cloud(event: dict, skip_reasons: dict, skip_samples: dict) -> bool:
 
     payload = {
         "dateTime": event.get("time", datetime.now().isoformat()),
-        "deviceID": event.get("deviceName", "LOCAL-SYNC"),
+        "deviceID": event.get("deviceName", "HIKVISIONWEB"),
         "AccessControllerEvent": {
             "employeeNoString": employee_no,
             "currentVerifyMode": event.get("currentVerifyMode", "unknown"),

@@ -18,6 +18,7 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 
 private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -142,7 +143,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
         }
 
         var employeeNo: String? = null
-        var deviceId = "HIK-WEB"
+        var deviceId = "HIKVISIONWEB"
         var verifyMode = "Face"
         var employeeName = ""
         var eventTime = java.time.LocalDateTime.now().toString()
@@ -172,7 +173,10 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             }
         }
 
-        if (!employeeNo.isNullOrBlank()) {
+        if (!employeeNo.isNullOrBlank() && 
+            employeeNo!!.lowercase() != "none" && 
+            employeeNo!!.lowercase() != "null" && 
+            employeeNo!! != "0") {
             // IMPORTANTE: nunca dejamos que una excepcion aqui tumbe la respuesta con un 500.
             // Si algo truena (ej. un valor demasiado largo para una columna, un campo
             // inesperado, etc.) lo atrapamos, lo dejamos escrito en DebugLogTable con el
@@ -298,6 +302,19 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
         post("/backfill-metadata") {
             val updated = attendanceUseCase.backfillMissingMetadata()
             call.respond(mapOf("registros_actualizados" to updated.toString(), "mensaje" to "Se completaron Name/Department/Attendance Status faltantes en registros historicos."))
+        }
+
+        // Limpia registros invalidos ("None", "null", vacios) que se colaron por ruido de sistema
+        post("/cleanup-invalid") {
+            val deleted = DatabaseFactory.dbQuery {
+                AttendanceLogTable.deleteWhere { 
+                    (employeeId eq "") or 
+                    (employeeId.lowerCase() eq "none") or 
+                    (employeeId.lowerCase() eq "null") or 
+                    (employeeId eq "0")
+                }
+            }
+            call.respond(mapOf("registros_eliminados" to deleted.toString(), "mensaje" to "Se eliminaron registros con IDs invalidos."))
         }
 
         // ========== EXPORTACION PARA NOMINA / AUDITORIA ==========
