@@ -64,9 +64,10 @@ TZ_OFFSET = "-06:00"
 
 # Paginacion ISAPI
 BATCH_SIZE = 30
+FACE_SEARCH_SIZE = 5          # FDSearch: la lectora rechaza maxResults>5
 MAX_PAGES_ATTENDANCE = 50
 MAX_PAGES_EMPLOYEES = 100
-MAX_PAGES_FACES = 100
+MAX_PAGES_FACES = 250         # mas paginas porque FACE_SEARCH_SIZE es chico
 FACE_LIB_ID = "1"
 
 # Loop
@@ -202,16 +203,48 @@ def parse_multipart_faces(resp: requests.Response, debug: bool = False):
 
 
 def fetch_photos_via_fdsearch(debug: bool = False):
-    """Metodo 1: FDSearch con FDSearchCond (endpoint mas comun)."""
+    """Metodo 1: FDSearch con FDSearchCond (endpoint mas comun).
+    
+    Nota: la lectora de la planta rechaza maxResults>5 con
+    errorMsg='maxResults', asi que usamos FACE_SEARCH_SIZE=5.
+    Tambien probamos con FDID como string y como array.
+    """
     url = f"http://{DEVICE_IP}/ISAPI/Intelligent/FDLib/FDSearch?format=json"
     photos = {}
     position = 0
+
+    # Primero preguntar capabilities para saber el maxResults soportado
+    try:
+        cap_resp = requests.get(
+            f"http://{DEVICE_IP}/ISAPI/Intelligent/FDLib/capabilities?format=json",
+            auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS), timeout=10,
+        )
+        if cap_resp.status_code == 200:
+            cap_data = cap_resp.json()
+            if debug:
+                log(f"  [FOTOS-1] capabilities: {json.dumps(cap_data, indent=2)[:500]}")
+            # Intentar extraer el maxResults soportado
+            fd_cap = cap_data.get("FDLibCap", cap_data)
+            max_res = fd_cap.get("maxResults", fd_cap.get("MaxResults"))
+            if max_res and isinstance(max_res, int) and max_res > 0:
+                search_size = min(max_res, 30)
+                log(f"  [FOTOS-1] capabilities dice maxResults={max_res}, usando {search_size}")
+            else:
+                search_size = FACE_SEARCH_SIZE
+        else:
+            if debug:
+                log(f"  [FOTOS-1] capabilities status={cap_resp.status_code}")
+            search_size = FACE_SEARCH_SIZE
+    except Exception:
+        search_size = FACE_SEARCH_SIZE
+
     for _ in range(MAX_PAGES_FACES):
-        # Formato 1: FDID como string
+        # Formato 1: FDID como string, con searchID
         body = {
             "FDSearchCond": {
+                "searchID": "1",
                 "searchResultPosition": position,
-                "maxResults": BATCH_SIZE,
+                "maxResults": search_size,
                 "faceLibType": "staticFD",
                 "FDID": FACE_LIB_ID,
             }
@@ -228,12 +261,20 @@ def fetch_photos_via_fdsearch(debug: bool = False):
         if resp.status_code != 200:
             if debug:
                 log(f"  [FOTOS-1] status={resp.status_code} resp={resp.text[:300]}")
-            # Intentar formato 2: FDID como array
-            body["FDSearchCond"]["FDID"] = [FACE_LIB_ID]
-            body["FDSearchCond"]["FPID"] = []
+            # Intentar formato 2: FDID como array + FPID vacio
+            body2 = {
+                "FDSearchCond": {
+                    "searchID": "1",
+                    "searchResultPosition": position,
+                    "maxResults": search_size,
+                    "faceLibType": "staticFD",
+                    "FDID": [FACE_LIB_ID],
+                    "FPID": [],
+                }
+            }
             try:
                 resp = requests.post(
-                    url, json=body, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS),
+                    url, json=body2, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS),
                     timeout=20, stream=False,
                 )
             except requests.RequestException:
@@ -241,16 +282,36 @@ def fetch_photos_via_fdsearch(debug: bool = False):
             if resp.status_code != 200:
                 if debug:
                     log(f"  [FOTOS-1b] status={resp.status_code} resp={resp.text[:300]}")
-                return photos
+                # Intentar formato 3: sin faceLibType, maxResults muy chico
+                body3 = {
+                    "FDSearchCond": {
+                        "searchID": "1",
+                        "searchResultPosition": position,
+                        "maxResults": 1,
+                        "FDID": FACE_LIB_ID,
+                    }
+                }
+                try:
+                    resp = requests.post(
+                        url, json=body3, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS),
+                        timeout=20, stream=False,
+                    )
+                except requests.RequestException:
+                    return photos
+                if resp.status_code != 200:
+                    if debug:
+                        log(f"  [FOTOS-1c] status={resp.status_code} resp={resp.text[:300]}")
+                    return photos
 
         batch = parse_multipart_faces(resp, debug=debug)
         if not batch:
             break
         photos.update(batch)
-        log(f"  [FOTOS-1] pagina {position // BATCH_SIZE + 1}: {len(batch)} fotos")
-        if len(batch) < BATCH_SIZE:
+        if debug:
+            log(f"  [FOTOS-1] pagina {position // search_size + 1}: {len(batch)} fotos")
+        if len(batch) < search_size:
             break
-        position += BATCH_SIZE
+        position += search_size
 
     return photos
 
@@ -319,51 +380,108 @@ def fetch_photos_via_userinfo(debug: bool = False):
 
 def fetch_photos_per_user(employee_nos: list, debug: bool = False):
     """Metodo 3: Bajar foto de rostro por cada empleado individualmente.
-    Usa el endpoint de captura de rostro o el endpoint de datos de rostro por usuario."""
+    
+    Este es el metodo mas confiable para terminales de control de acceso
+    (DS-K1T series) que no soportan FDSearch en lote. Probamos varios
+    endpoints por cada employeeNo hasta encontrar el que jala.
+    """
     photos = {}
-    for emp_no in employee_nos:
-        # Intentar GET /ISAPI/Intelligent/FDLib/{FDID}/faceDataPicture/{FPID}
-        # Necesitamos el FPID, pero no lo tenemos. Intentar con employeeNo directo.
+    found_count = 0
+    for i, emp_no in enumerate(employee_nos):
+        if found_count > 0 and found_count % 10 == 0:
+            log(f"  [FOTOS-3] progreso: {found_count}/{len(employee_nos)} fotos")
+
+        # Endpoints en orden de probabilidad de exito:
         endpoints = [
-            f"http://{DEVICE_IP}/ISAPI/AccessControl/UserInfo/{emp_no}/faceImage?format=json",
-            f"http://{DEVICE_IP}/ISAPI/Intelligent/FDLib/{FACE_LIB_ID}/faceDataPicture/{emp_no}",
+            # A) faceImage directo (acceso control terminal estandar)
+            (f"http://{DEVICE_IP}/ISAPI/AccessControl/UserInfo/{emp_no}/faceImage?format=json", "GET"),
+            # B) faceDataPicture por employeeNo
+            (f"http://{DEVICE_IP}/ISAPI/Intelligent/FDLib/{FACE_LIB_ID}/faceDataPicture/{emp_no}", "GET"),
+            # C) Capture resultado del rostro
+            (f"http://{DEVICE_IP}/ISAPI/AccessControl/UserInfo/{emp_no}/faceDataRecord?format=json", "GET"),
+            # D) Multipart face image
+            (f"http://{DEVICE_IP}/ISAPI/AccessControl/UserInfo/{emp_no}/faceImage", "GET"),
         ]
-        for url in endpoints:
+
+        for url, method in endpoints:
             try:
                 resp = requests.get(url, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS), timeout=10)
-                if resp.status_code == 200:
-                    content_type = resp.headers.get("Content-Type", "")
-                    if "image" in content_type:
-                        # Respuesta es la imagen JPEG directamente
-                        if len(resp.content) > 100:
-                            photos[emp_no] = base64.b64encode(resp.content).decode("ascii")
-                            break
-                    elif "multipart" in content_type:
-                        # Respuesta multipart, parsear
-                        batch = parse_multipart_faces(resp, debug=debug)
-                        if emp_no in batch:
-                            photos[emp_no] = batch[emp_no]
-                            break
-                    elif "application/json" in content_type:
-                        # Quizas trae un URL o base64 embebido
-                        data = resp.json()
-                        face_url = data.get("faceURL") or data.get("FaceURL") or ""
-                        face_data = data.get("faceData") or data.get("FaceData") or ""
-                        if face_data:
-                            photos[emp_no] = face_data if not face_data.startswith("data:") else face_data.split(",", 1)[-1]
-                            break
-                        elif face_url:
-                            if face_url.startswith("/"):
-                                face_url = f"http://{DEVICE_IP}{face_url}"
-                            img_resp = requests.get(face_url, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS), timeout=10)
-                            if img_resp.status_code == 200 and len(img_resp.content) > 100:
-                                photos[emp_no] = base64.b64encode(img_resp.content).decode("ascii")
-                                break
             except requests.RequestException:
                 continue
 
-        if debug and emp_no not in photos:
-            log(f"  [FOTOS-3] sin foto para {emp_no}")
+            if resp.status_code != 200:
+                if debug and resp.status_code != 404:
+                    log(f"  [FOTOS-3] {emp_no} endpoint={url.split('/ISAPI')[-1][:60]} -> {resp.status_code}")
+                continue
+
+            content_type = resp.headers.get("Content-Type", "")
+
+            # Caso 1: respuesta es la imagen JPEG directamente
+            if "image" in content_type and len(resp.content) > 100:
+                photos[emp_no] = base64.b64encode(resp.content).decode("ascii")
+                found_count += 1
+                break
+
+            # Caso 2: respuesta multipart (JSON + JPEG)
+            if "multipart" in content_type:
+                batch = parse_multipart_faces(resp, debug=debug)
+                if emp_no in batch:
+                    photos[emp_no] = batch[emp_no]
+                    found_count += 1
+                    break
+                # A veces el employeeNo no matchea pero hay foto
+                if batch:
+                    # Tomar la primera foto disponible
+                    first_key = next(iter(batch))
+                    photos[emp_no] = batch[first_key]
+                    found_count += 1
+                    break
+
+            # Caso 3: JSON con faceURL o faceData embebido
+            if "application/json" in content_type:
+                try:
+                    data = resp.json()
+                except Exception:
+                    break
+
+                # Buscar faceURL o faceData en varios niveles
+                face_url = data.get("faceURL") or data.get("FaceURL") or ""
+                face_data = data.get("faceData") or data.get("FaceData") or ""
+
+                # Buscar dentro de FaceInfo / UserInfo anidados
+                if not face_url and not face_data:
+                    for key in ("FaceInfo", "UserInfo", "FaceDataRecord"):
+                        nested = data.get(key, {})
+                        if isinstance(nested, dict):
+                            face_url = face_url or nested.get("faceURL") or nested.get("FaceURL") or ""
+                            face_data = face_data or nested.get("faceData") or nested.get("FaceData") or ""
+
+                if face_data:
+                    if face_data.startswith("data:"):
+                        face_data = face_data.split(",", 1)[-1]
+                    try:
+                        base64.b64decode(face_data)
+                        photos[emp_no] = face_data
+                        found_count += 1
+                        break
+                    except Exception:
+                        pass
+
+                if face_url:
+                    if face_url.startswith("/"):
+                        face_url = f"http://{DEVICE_IP}{face_url}"
+                    try:
+                        img_resp = requests.get(face_url, auth=HTTPDigestAuth(DEVICE_USER, DEVICE_PASS), timeout=10)
+                        if img_resp.status_code == 200 and len(img_resp.content) > 100:
+                            photos[emp_no] = base64.b64encode(img_resp.content).decode("ascii")
+                            found_count += 1
+                            break
+                    except requests.RequestException:
+                        pass
+
+        # Si ningun endpoint funciono para este empleado
+        if debug and emp_no not in photos and i < 3:
+            log(f"  [FOTOS-3] sin foto para {emp_no} (probados {len(endpoints)} endpoints)")
 
     return photos
 
@@ -388,7 +506,7 @@ def fetch_all_face_photos(users: list, debug: bool = False):
         return photos
 
     # Metodo 3: Bajar foto por usuario individual (mas lento pero mas compatible)
-    log("  [FOTOS] Intentando descarga individual por usuario (metodo 3) ...")
+    log(f"  [FOTOS] Intentando descarga individual por usuario (metodo 3, {len(employee_nos)} empleados) ...")
     photos = fetch_photos_per_user(employee_nos, debug=debug)
     if photos:
         log(f"  [FOTOS] Descarga individual encontro {len(photos)} fotos.")
