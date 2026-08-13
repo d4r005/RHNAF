@@ -229,3 +229,47 @@ data class AccessAuditLog(
     val modulo: String = "",
     val resultado: String = ""
 )
+
+// --- EXPANSION EHS (Nivel EHSSoft) ---
+
+// EHS-Ambiente. Gestion de Residuos
+@Serializable
+data class WasteManifest(
+    val id: Int = 0,
+    val fecha: String,
+    val residuo: String,
+    val tipo: String = "", // Peligroso, No peligroso, Reciclable
+    val cantidad: String = "",
+    val unidad: String = "kg",
+    val transportista: String = "",
+    val destinoFinal: String = "",
+    val numeroManifiesto: String = "",
+    val estado: String = "Pendiente"
+)
+
+// EHS-Salud. Vigilancia Medica
+@Serializable
+data class MedicalExam(
+    val id: Int = 0,
+    val empleadoId: String,
+    val nombreEmpleado: String = "",
+    val fecha: String,
+    val tipoExamen: String = "", // Ingreso, Periodico, Egreso
+    val resultado: String = "", // Apto, Apto con restricciones, No apto
+    val observaciones: String = "",
+    val proximaCita: String = "",
+    val medico: String = ""
+)
+
+// EHS-Quimicos. Inventario MSDS
+@Serializable
+data class ChemicalProduct(
+    val id: Int = 0,
+    val nombre: String,
+    val fabricante: String = "",
+    val areaUso: String = "",
+    val nivelRiesgo: String = "", // 0-4 NFPA
+    val hojaSeguridadUrl: String = "",
+    val estado: String = "Activo",
+    val ultimaRevision: String = ""
+)

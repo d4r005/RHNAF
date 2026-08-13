@@ -18,6 +18,9 @@ import com.example.rhnaf.database.SafetyTrainingTable
 import com.example.rhnaf.database.EmergencyDrillTable
 import com.example.rhnaf.database.RiskMatrixTable
 import com.example.rhnaf.database.AccessAuditLogTable
+import com.example.rhnaf.database.EnvironmentalWasteTable
+import com.example.rhnaf.database.OccupationalHealthTable
+import com.example.rhnaf.database.ChemicalInventoryTable
 import com.example.rhnaf.shared.model.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -763,6 +766,143 @@ fun Route.sapModulesRouting() {
             val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
             DatabaseFactory.dbQuery {
                 AccessAuditLogTable.deleteWhere { AccessAuditLogTable.id eq id }
+            }
+            call.respond(mapOf("status" to "ok"))
+        }
+    }
+
+    // --- ENDPOINTS EXPANSION EHS ---
+
+    // 8. Gestion Ambiental (Residuos)
+    route("/api/v1/sap/ehs/residuos") {
+        get {
+            val items = DatabaseFactory.dbQuery {
+                EnvironmentalWasteTable.selectAll().map {
+                    WasteManifest(
+                        id = it[EnvironmentalWasteTable.id],
+                        fecha = it[EnvironmentalWasteTable.fecha],
+                        residuo = it[EnvironmentalWasteTable.residuo],
+                        tipo = it[EnvironmentalWasteTable.tipo],
+                        cantidad = it[EnvironmentalWasteTable.cantidad],
+                        unidad = it[EnvironmentalWasteTable.unidad],
+                        transportista = it[EnvironmentalWasteTable.transportista],
+                        destinoFinal = it[EnvironmentalWasteTable.destinoFinal],
+                        numeroManifiesto = it[EnvironmentalWasteTable.numeroManifiesto],
+                        estado = it[EnvironmentalWasteTable.estado]
+                    )
+                }
+            }
+            call.respond(items)
+        }
+        post {
+            val item = call.receive<WasteManifest>()
+            DatabaseFactory.dbQuery {
+                EnvironmentalWasteTable.insert {
+                    it[fecha] = item.fecha
+                    it[residuo] = item.residuo
+                    it[tipo] = item.tipo
+                    it[cantidad] = item.cantidad
+                    it[unidad] = item.unidad
+                    it[transportista] = item.transportista
+                    it[destinoFinal] = item.destinoFinal
+                    it[numeroManifiesto] = item.numeroManifiesto
+                    it[estado] = item.estado
+                }
+            }
+            call.respond(HttpStatusCode.Created, mapOf("status" to "ok"))
+        }
+        delete("/{id}") {
+            val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
+            DatabaseFactory.dbQuery {
+                EnvironmentalWasteTable.deleteWhere { EnvironmentalWasteTable.id eq id }
+            }
+            call.respond(mapOf("status" to "ok"))
+        }
+    }
+
+    // 9. Salud Ocupacional (Examenes Medicos)
+    route("/api/v1/sap/ehs/salud") {
+        get {
+            val items = DatabaseFactory.dbQuery {
+                OccupationalHealthTable.selectAll().map {
+                    MedicalExam(
+                        id = it[OccupationalHealthTable.id],
+                        empleadoId = it[OccupationalHealthTable.empleadoId],
+                        nombreEmpleado = it[OccupationalHealthTable.nombreEmpleado],
+                        fecha = it[OccupationalHealthTable.fecha],
+                        tipoExamen = it[OccupationalHealthTable.tipoExamen],
+                        resultado = it[OccupationalHealthTable.resultado],
+                        observaciones = it[OccupationalHealthTable.observaciones],
+                        proximaCita = it[OccupationalHealthTable.proximaCita],
+                        medico = it[OccupationalHealthTable.medico]
+                    )
+                }
+            }
+            call.respond(items)
+        }
+        post {
+            val item = call.receive<MedicalExam>()
+            DatabaseFactory.dbQuery {
+                OccupationalHealthTable.insert {
+                    it[empleadoId] = item.empleadoId
+                    it[nombreEmpleado] = item.nombreEmpleado
+                    it[fecha] = item.fecha
+                    it[tipoExamen] = item.tipoExamen
+                    it[resultado] = item.resultado
+                    it[observaciones] = item.observaciones
+                    it[proximaCita] = item.proximaCita
+                    it[medico] = item.medico
+                }
+            }
+            call.respond(HttpStatusCode.Created, mapOf("status" to "ok"))
+        }
+        delete("/{id}") {
+            val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
+            DatabaseFactory.dbQuery {
+                OccupationalHealthTable.deleteWhere { OccupationalHealthTable.id eq id }
+            }
+            call.respond(mapOf("status" to "ok"))
+        }
+    }
+
+    // 10. Inventario de Quimicos (MSDS)
+    route("/api/v1/sap/ehs/quimicos") {
+        get {
+            val items = DatabaseFactory.dbQuery {
+                ChemicalInventoryTable.selectAll().map {
+                    ChemicalProduct(
+                        id = it[ChemicalInventoryTable.id],
+                        nombre = it[ChemicalInventoryTable.nombre],
+                        fabricante = it[ChemicalInventoryTable.fabricante],
+                        areaUso = it[ChemicalInventoryTable.areaUso],
+                        nivelRiesgo = it[ChemicalInventoryTable.nivelRiesgo],
+                        hojaSeguridadUrl = it[ChemicalInventoryTable.hojaSeguridadUrl],
+                        estado = it[ChemicalInventoryTable.estado],
+                        ultimaRevision = it[ChemicalInventoryTable.ultimaRevision]
+                    )
+                }
+            }
+            call.respond(items)
+        }
+        post {
+            val item = call.receive<ChemicalProduct>()
+            DatabaseFactory.dbQuery {
+                ChemicalInventoryTable.insert {
+                    it[nombre] = item.nombre
+                    it[fabricante] = item.fabricante
+                    it[areaUso] = item.areaUso
+                    it[nivelRiesgo] = item.nivelRiesgo
+                    it[hojaSeguridadUrl] = item.hojaSeguridadUrl
+                    it[estado] = item.estado
+                    it[ultimaRevision] = item.ultimaRevision
+                }
+            }
+            call.respond(HttpStatusCode.Created, mapOf("status" to "ok"))
+        }
+        delete("/{id}") {
+            val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
+            DatabaseFactory.dbQuery {
+                ChemicalInventoryTable.deleteWhere { ChemicalInventoryTable.id eq id }
             }
             call.respond(mapOf("status" to "ok"))
         }

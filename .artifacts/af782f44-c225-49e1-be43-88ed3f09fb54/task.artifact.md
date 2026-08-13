@@ -1,6 +1,10 @@
-# Tareas de Migración y Robustez de Base de Datos
+# Tareas de Expansión EHS (Nivel EHSSoft)
 
-- `[x]` Robustecer `parsePostgresUrl` en `DatabaseFactory.kt` para soportar caracteres especiales.
-- `[x]` Mejorar la configuración de `HikariCP` para entornos Cloud (Hugging Face).
-- `[ ]` Verificar consistencia de usuarios del sistema en `DatabaseFactory.kt`.
-- `[ ]` Confirmar despliegue y estado 200 en el servidor.
+- `[x]` Robustecer `parsePostgresUrl` en `DatabaseFactory.kt`.
+- `[x]` Mejorar la configuración de `HikariCP`.
+- `[x]` Implementar expansión EHS:
+    - `[x]` Modelos Shared (Residuos, Salud, Químicos).
+    - `[x]` Tablas Server.
+    - `[x]` Endpoints API.
+    - `[x]` UI Web (Nuevas Pestañas).
+- `[ ]` Realizar Commit and Push final.

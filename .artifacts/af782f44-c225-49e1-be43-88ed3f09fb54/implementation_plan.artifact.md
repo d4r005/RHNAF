@@ -1,25 +1,50 @@
-# Plan de Corrección y Migración: Nueva Supabase (`vrqxemvsizitimvvqttd`)
+# Plan de Mejora EHS: Expansión a Nivel EHSSoft
 
-El servidor está fallando (error 503) debido a que el proyecto de Supabase anterior (`tudxbophpebusvnkyzcz`) no es accesible. Vamos a migrar la base de datos a la nueva instancia proporcionada.
+Este plan detalla la expansión del módulo de EHS para incluir Gestión Ambiental, Salud Ocupacional y Manejo de Sustancias Químicas, alineando RHNAF con estándares internacionales (ISO 45001/14001).
 
-## Análisis de la Migración
+## Análisis de la Expansión
 
-1.  **Nueva Instancia**: `https://vrqxemvsizitimvvqttd.supabase.co`.
-2.  **Identificador de Proyecto**: `vrqxemvsizitimvvqttd`.
-3.  **Información Faltante**: Para la conexión JDBC del servidor Ktor, se necesita la **Contraseña de la Base de Datos** (la que definiste al crear el proyecto en Supabase). La `anon key` proporcionada es para el cliente web/móvil y no sirve para la conexión directa de base de datos que usa el servidor.
-4.  **Robustez del Parsing**: La función `parsePostgresUrl` actual falla si la contraseña tiene el carácter `@`. Corregiremos esto usando `lastIndexOf`.
+Para competir con soluciones como EHSSoft, añadiremos tres pilares fundamentales:
+1.  **Ambiente**: Control de residuos y cumplimiento ambiental.
+2.  **Salud**: Vigilancia médica y exámenes periódicos.
+3.  **Químicos**: Inventario de Hojas de Seguridad (MSDS) para cumplimiento legal.
 
-## User Review Required
+## Proposed Changes
 
-> [!IMPORTANT]
-> Para completar la migración, necesito que configures la nueva `DATABASE_URL` en los **Settings > Secrets** de tu Hugging Face Space. El formato debe ser:
-> `postgresql://postgres.[PROYECTO]:[PASSWORD]@aws-1-us-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true`
-> (Sustituyendo `[PROYECTO]` por `vrqxemvsizitimvvqttd` y `[PASSWORD]` por tu contraseña real).
+### [Shared Component]
+Actualizar modelos de datos serializables.
+#### [MODIFY] [SapModules.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/shared/src/commonMain/kotlin/com/example/rhnaf/shared/model/SapModules.kt)
+*   Añadir `WasteManifest`, `MedicalExam`, y `ChemicalProduct`.
 
-## Open Questions
+---
 
-*   **¿Tienes la contraseña de la base de datos?** Sin ella, el servidor no podrá conectar aunque actualicemos el código.
-*   **¿Deseas que también configuremos el cliente Android/Web para usar la Supabase directamente?** Por ahora, solo se usa como almacenamiento del servidor.
+### [Server Component]
+Persistencia y APIs.
+#### [MODIFY] [SapModulesTables.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/database/SapModulesTables.kt)
+*   Crear `EnvironmentalWasteTable`, `OccupationalHealthTable` y `ChemicalInventoryTable`.
+#### [MODIFY] [DatabaseFactory.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/database/DatabaseFactory.kt)
+*   Inicializar las nuevas tablas en `SchemaUtils.createMissingTablesAndColumns`.
+#### [MODIFY] [SapModulesRoutes.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/routes/SapModulesRoutes.kt)
+*   Implementar los endpoints CRUD para los nuevos módulos.
+
+---
+
+### [Web Component]
+Interfaz de usuario.
+#### [MODIFY] [SapModulesUi.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/web/src/jsMain/kotlin/SapModulesUi.kt)
+*   Añadir las pestañas: "Medio Ambiente", "Salud Ocupacional" y "Sustancias Químicas".
+*   Implementar tablas y formularios de registro para cada una.
+
+## Verification Plan
+
+### Automated Tests
+*   Ejecutar build local para asegurar que los modelos @Serializable compilan correctamente.
+*   Verificar que las rutas del servidor responden (Mocking HttpClient).
+
+### Manual Verification
+*   Confirmar que al entrar al módulo EHS aparecen las nuevas 3 pestañas.
+*   Probar el registro de un residuo ambiental y un examen médico.
+*   **Finalización**: Realizar `git commit` y `git push` como se solicitó.
 
 ## Proposed Changes
 

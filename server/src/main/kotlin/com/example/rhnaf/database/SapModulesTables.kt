@@ -248,3 +248,50 @@ object AccessAuditLogTable : Table("grc_access_audit_log") {
 
     override val primaryKey = PrimaryKey(id)
 }
+
+// --- EXPANSION EHS (Nivel EHSSoft) ---
+
+// EHS-Ambiente. Gestion de Residuos
+object EnvironmentalWasteTable : Table("ehs_environmental_waste") {
+    val id = integer("id").autoIncrement()
+    val fecha = varchar("fecha", 50)
+    val residuo = varchar("residuo", 200)
+    val tipo = varchar("tipo", 100).default("")
+    val cantidad = varchar("cantidad", 50).default("")
+    val unidad = varchar("unidad", 20).default("kg")
+    val transportista = varchar("transportista", 200).default("")
+    val destinoFinal = varchar("destino_final", 200).default("")
+    val numeroManifiesto = varchar("numero_manifiesto", 100).default("")
+    val estado = varchar("estado", 50).default("Pendiente")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+// EHS-Salud. Vigilancia Medica
+object OccupationalHealthTable : Table("ehs_occupational_health") {
+    val id = integer("id").autoIncrement()
+    val empleadoId = varchar("empleado_id", 50)
+    val nombreEmpleado = varchar("nombre_empleado", 200).default("")
+    val fecha = varchar("fecha", 50)
+    val tipoExamen = varchar("tipo_examen", 100).default("")
+    val resultado = varchar("resultado", 100).default("")
+    val observaciones = varchar("observaciones", 500).default("")
+    val proximaCita = varchar("proxima_cita", 50).default("")
+    val medico = varchar("medico", 200).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+// EHS-Quimicos. Inventario MSDS
+object ChemicalInventoryTable : Table("ehs_chemical_inventory") {
+    val id = integer("id").autoIncrement()
+    val nombre = varchar("nombre", 200)
+    val fabricante = varchar("fabricante", 200).default("")
+    val areaUso = varchar("area_uso", 200).default("")
+    val nivelRiesgo = varchar("nivel_riesgo", 50).default("")
+    val hojaSeguridadUrl = varchar("hoja_seguridad_url", 500).default("")
+    val estado = varchar("estado", 50).default("Activo")
+    val ultimaRevision = varchar("ultima_revision", 50).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}

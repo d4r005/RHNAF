@@ -529,7 +529,7 @@ fun GtsTradeModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope,
 @Composable
 fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
     var activeTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Inspecciones", "Incidentes", "Permisos Trabajo", "EPP", "Capacitaciones", "Simulacros", "Matriz Riesgos")
+    val tabs = listOf("Inspecciones", "Incidentes", "Permisos Trabajo", "EPP", "Capacitaciones", "Simulacros", "Matriz Riesgos", "Medio Ambiente", "Salud Ocupacional", "Químicos")
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3({ style { margin(0.px); marginBottom(16.px) } }) { Text("EHS \u00b7 Seguridad, Salud y Ambiente") }
@@ -556,6 +556,159 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             4 -> EhsTrainingsTab(client, scope)
             5 -> EhsDrillsTab(client, scope)
             6 -> EhsRiskMatrixTab(client, scope)
+            7 -> EhsEnvironmentTab(client, scope)
+            8 -> EhsOccupationalHealthTab(client, scope)
+            9 -> EhsChemicalsTab(client, scope)
+        }
+    }
+}
+
+// EHS-8. Medio Ambiente (Residuos)
+@Composable
+fun EhsEnvironmentTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var items by remember { mutableStateOf(emptyList<WasteManifest>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+    LaunchedEffect(refreshKey) {
+        isLoading = true
+        try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/residuos").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
+    }
+    fun refresh() { refreshKey++ }
+
+    var f_fecha by remember { mutableStateOf("") }
+    var f_residuo by remember { mutableStateOf("") }
+    var f_tipo by remember { mutableStateOf("") }
+    var f_cantidad by remember { mutableStateOf("") }
+    var f_transportista by remember { mutableStateOf("") }
+    var f_destino by remember { mutableStateOf("") }
+    var f_manifiesto by remember { mutableStateOf("") }
+
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} manifiestos registrados") }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Residuo *"); value(f_residuo); onInput { f_residuo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
+        Input(InputType.Text) { placeholder("Tipo"); value(f_tipo); onInput { f_tipo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Cant"); value(f_cantidad); onInput { f_cantidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(80.px) } }
+        Input(InputType.Text) { placeholder("Transportista"); value(f_transportista); onInput { f_transportista = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        Input(InputType.Text) { placeholder("Destino Final"); value(f_destino); onInput { f_destino = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        Input(InputType.Text) { placeholder("No. Manifiesto"); value(f_manifiesto); onInput { f_manifiesto = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Button({
+            style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+            onClick {
+                if (f_fecha.isNotBlank() && f_residuo.isNotBlank()) {
+                    scope.launch {
+                        client.post("$BACKEND_URL/api/v1/sap/ehs/residuos") {
+                            contentType(ContentType.Application.Json)
+                            setBody(WasteManifest(fecha = f_fecha, residuo = f_residuo, tipo = f_tipo, cantidad = f_cantidad, transportista = f_transportista, destinoFinal = f_destino, numeroManifiesto = f_manifiesto))
+                        }
+                        f_fecha = ""; f_residuo = ""; f_tipo = ""; f_cantidad = ""; f_transportista = ""; f_destino = ""; f_manifiesto = ""; refresh()
+                    }
+                }
+            }
+        }) { Text("+ Registrar") }
+    }
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Residuo") }; Th { Text("Tipo") }; Th { Text("Cant") }; Th { Text("Transportista") }; Th { Text("Destino") }; Th { Text("Manifiesto") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.residuo) }; Td { Text(row.tipo) }; Td { Text(row.cantidad) }; Td { Text(row.transportista) }; Td { Text(row.destinoFinal) }; Td { Text(row.numeroManifiesto) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/residuos/${row.id}"); refresh() } } }) { Text("X") } } } } }
+        }
+    }
+}
+
+// EHS-9. Salud Ocupacional (Examenes)
+@Composable
+fun EhsOccupationalHealthTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var items by remember { mutableStateOf(emptyList<MedicalExam>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+    LaunchedEffect(refreshKey) {
+        isLoading = true
+        try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/salud").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
+    }
+    fun refresh() { refreshKey++ }
+
+    var f_empId by remember { mutableStateOf("") }
+    var f_nombre by remember { mutableStateOf("") }
+    var f_fecha by remember { mutableStateOf("") }
+    var f_tipo by remember { mutableStateOf("") }
+    var f_resultado by remember { mutableStateOf("") }
+    var f_prox by remember { mutableStateOf("") }
+
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} examenes registrados") }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("ID Empleado *"); value(f_empId); onInput { f_empId = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Nombre"); value(f_nombre); onInput { f_nombre = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
+        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Tipo (Ingreso/Periodico)"); value(f_tipo); onInput { f_tipo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        Input(InputType.Text) { placeholder("Resultado (Apto/...)"); value(f_resultado); onInput { f_resultado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Prox. Cita"); value(f_prox); onInput { f_prox = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Button({
+            style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+            onClick {
+                if (f_empId.isNotBlank() && f_fecha.isNotBlank()) {
+                    scope.launch {
+                        client.post("$BACKEND_URL/api/v1/sap/ehs/salud") {
+                            contentType(ContentType.Application.Json)
+                            setBody(MedicalExam(empleadoId = f_empId, nombreEmpleado = f_nombre, fecha = f_fecha, tipoExamen = f_tipo, resultado = f_resultado, proximaCita = f_prox))
+                        }
+                        f_empId = ""; f_nombre = ""; f_fecha = ""; f_tipo = ""; f_resultado = ""; f_prox = ""; refresh()
+                    }
+                }
+            }
+        }) { Text("+ Registrar") }
+    }
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("ID Emp") }; Th { Text("Nombre") }; Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Resultado") }; Th { Text("Prox. Cita") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.empleadoId) }; Td { Text(row.nombreEmpleado) }; Td { Text(row.fecha) }; Td { Text(row.tipoExamen) }; Td { Text(row.resultado) }; Td { Text(row.proximaCita) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/salud/${row.id}"); refresh() } } }) { Text("X") } } } } }
+        }
+    }
+}
+
+// EHS-10. Quimicos (MSDS)
+@Composable
+fun EhsChemicalsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var items by remember { mutableStateOf(emptyList<ChemicalProduct>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+    LaunchedEffect(refreshKey) {
+        isLoading = true
+        try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/quimicos").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
+    }
+    fun refresh() { refreshKey++ }
+
+    var f_nombre by remember { mutableStateOf("") }
+    var f_fabricante by remember { mutableStateOf("") }
+    var f_area by remember { mutableStateOf("") }
+    var f_riesgo by remember { mutableStateOf("") }
+    var f_url by remember { mutableStateOf("") }
+
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} productos químicos") }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("Producto *"); value(f_nombre); onInput { f_nombre = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
+        Input(InputType.Text) { placeholder("Fabricante"); value(f_fabricante); onInput { f_fabricante = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        Input(InputType.Text) { placeholder("Area uso"); value(f_area); onInput { f_area = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Nivel Riesgo (0-4)"); value(f_riesgo); onInput { f_riesgo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("URL Hoja Seguridad"); value(f_url); onInput { f_url = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+        Button({
+            style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+            onClick {
+                if (f_nombre.isNotBlank()) {
+                    scope.launch {
+                        client.post("$BACKEND_URL/api/v1/sap/ehs/quimicos") {
+                            contentType(ContentType.Application.Json)
+                            setBody(ChemicalProduct(nombre = f_nombre, fabricante = f_fabricante, areaUso = f_area, nivelRiesgo = f_riesgo, hojaSeguridadUrl = f_url))
+                        }
+                        f_nombre = ""; f_fabricante = ""; f_area = ""; f_riesgo = ""; f_url = ""; refresh()
+                    }
+                }
+            }
+        }) { Text("+ Agregar") }
+    }
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Producto") }; Th { Text("Fabricante") }; Th { Text("Area") }; Th { Text("Riesgo") }; Th { Text("MSDS") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.nombre) }; Td { Text(row.fabricante) }; Td { Text(row.areaUso) }; Td { Text(row.nivelRiesgo) }; Td { if(row.hojaSeguridadUrl.isNotEmpty()) A(href = row.hojaSeguridadUrl) { Text("Ver PDF") } else Text("-") }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/quimicos/${row.id}"); refresh() } } }) { Text("X") } } } } }
         }
     }
 }
