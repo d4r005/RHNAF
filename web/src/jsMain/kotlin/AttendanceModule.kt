@@ -11,28 +11,10 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.launch
 import kotlinx.browser.window
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.builtins.ListSerializer
-
-private val attJson = Json { ignoreUnknownKeys = true; isLenient = true }
-
-@Serializable
-data class AttendanceLogWeb(
-    val id: String = "",
-    val employeeId: String = "",
-    val name: String = "",
-    val department: String = "",
-    val timestamp: String = "",
-    val attendanceStatus: String = "",
-    val deviceSerial: String = "",
-    val verifyMode: String = "",
-    val customName: String = ""
-)
 
 @Composable
 fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
-    var logs by remember { mutableStateOf(emptyList<AttendanceLogWeb>()) }
+    var logs by remember { mutableStateOf(emptyList<AttendanceLog>()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }
@@ -45,8 +27,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
         try {
             val resp = client.get("$BACKEND_URL/api/v1/asistencia/logs")
             if (resp.status == HttpStatusCode.OK) {
-                val text = resp.bodyAsText()
-                logs = attJson.decodeFromString(ListSerializer(AttendanceLogWeb.serializer()), text)
+                logs = resp.body()
             } else {
                 errorMsg = "El servidor respondio ${resp.status}"
             }
@@ -62,7 +43,6 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
             Text("Checadas registradas desde la lectora Hikvision, importacion CSV y app movil")
         }
 
-        // Barra de controles
         Div({ style { display(DisplayStyle.Flex); gap(12.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
             Input(InputType.Text) {
                 style {
@@ -108,7 +88,6 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                 }
             }
         } else {
-            // Estadisticas rapidas
             val filtered = logs.filter { log ->
                 (searchQuery.isBlank() ||
                     log.name.contains(searchQuery, ignoreCase = true) ||
@@ -126,7 +105,6 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                 AttStatCard("Check-outs", checkOuts.toString())
             }
 
-            // Tabla de registros
             Div({ style { overflowX("auto"); property("border", "1px solid #e2e8f0"); borderRadius(8.px) } }) {
                 Table({
                     style {
