@@ -1,53 +1,44 @@
-# Plan de Reingeniería del Módulo de Asistencia (Estilo iVMS-4200)
+# Plan de Implementación: "Get Events from Device" (Opción A)
 
-Este plan detalla la transformación del módulo de asistencia para permitir la visualización de todos los eventos, filtrado avanzado profesional, paginación y exportación de datos en bruto.
+Este plan detalla cómo hacer que el botón "Get Events from Device" de la página web active realmente el script de Python en tu PC de la planta para jalar los datos de la lectora bajo demanda.
 
-## Análisis del Problema
+## Análisis Técnico (Modo Puente)
 
-1.  **Visibilidad Limitada**: Actualmente el sistema limita la vista a 200 registros y aplica una lógica de consolidación que oculta eventos intermedios necesarios para pruebas.
-2.  **Filtrado Básico**: Se requiere un panel de búsqueda que replique la funcionalidad del iVMS-4200 (Rango de tiempo, Departamento, Nombre, ID de Persona, Origen).
-3.  **Gestión de Datos**: El usuario necesita un "borrón y cuenta nueva" (Clear Database) para reiniciar pruebas de sincronización.
-4.  **Reportes**: Se requiere exportar la información *filtrada* tanto en PDF como en CSV.
+Como el servidor en la nube no puede llegar a la lectora local, usaremos un sistema de **"Tareas Pendientes"**:
+1.  **Web**: Crea una tarea de sincronización en la base de datos.
+2.  **Servidor**: Guarda la orden como "PENDIENTE".
+3.  **Script Python**: Revisa el servidor periódicamente. Al ver una orden "PENDIENTE", la ejecuta (conecta a la lectora) y sube el resultado.
+4.  **Web**: Muestra que la sincronización ha terminado.
 
 ## Proposed Changes
 
 ### [Server Component]
 
-#### [MODIFY] [AttendanceUseCase.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/service/AttendanceUseCase.kt)
-*   Añadir `deleteAllAttendance()`: Comando para vaciar la tabla `attendance_logs`.
-*   Añadir `getFilteredLogs(...)`: Método flexible que acepte parámetros de búsqueda y devuelva una lista paginada de eventos.
+#### [MODIFY] [SapModulesTables.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/database/SapModulesTables.kt)
+*   Añadir `SystemTaskTable` para gestionar órdenes remotas.
+    *   Campos: `id`, `task_type`, `status` (PENDING, BUSY, DONE, ERROR), `params`, `result`, `updated_at`.
 
 #### [MODIFY] [AttendanceRoutes.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/routes/AttendanceRoutes.kt)
-*   **DELETE `/api/v1/asistencia/all`**: Nuevo endpoint para limpieza total.
-*   **GET `/api/v1/asistencia/logs`**: Actualizar para recibir `start`, `end`, `dept`, `name`, `pid`, `source`, `limit`, `offset`.
-*   **GET `/api/v1/asistencia/export/raw/csv`**: Exportación de datos filtrados en bruto.
-*   **GET `/api/v1/asistencia/export/raw/pdf`**: Generación de reporte PDF con el mismo estilo profesional.
+*   **POST `/api/v1/asistencia/request-sync`**: Crea la orden.
+*   **GET `/api/v1/asistencia/sync-status`**: Devuelve el estado de la última orden.
+*   **GET `/api/v1/asistencia/poll-task`**: (Para Python) Obtiene la siguiente tarea pendiente.
+*   **POST `/api/v1/asistencia/update-task`**: (Para Python) Actualiza el resultado.
+
+### [Script Component]
+
+#### [MODIFY] [attendance_sync.py](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/scripts/attendance_sync.py)
+*   Añadir lógica de escucha: el script consultará al servidor cada 5-10 segundos buscando tareas "PENDING".
+*   Al detectar una tarea, realizará el `fetch_events` de la lectora y reportará el éxito/error al servidor.
 
 ### [Web Component]
 
 #### [MODIFY] [AttendanceModule.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/web/src/jsMain/kotlin/AttendanceModule.kt)
-*   **Panel de Búsqueda**: Crear una interfaz oscura/profesional arriba de la tabla con los campos:
-    *   Start Time / End Time (Inputs de texto con formato).
-    *   Department (Dropdown dinámico).
-    *   Name e ID (Inputs de búsqueda).
-    *   Data Source (HIKVISIONWEB, CSV, App Movil).
-*   **Tabla de Datos**:
-    *   Mostrar todos los eventos (sin consolidación de Check-in/out por ahora, para pruebas).
-    *   Implementar **Paginación** (Botones de Página Anterior/Siguiente y Número de Página).
-*   **Acciones**:
-    *   Botón "Search" (Lupa).
-    *   Botón "Reset" (Limpiar filtros).
-    *   Botón "Clear Database" (Rojo, con confirmación).
-    *   Botones de descarga (PDF/CSV) vinculados a los filtros actuales.
+*   Vincular el botón "Get Events from Device" a la creación de la tarea.
+*   Mostrar un indicador de carga ("Sincronizando con planta...") mientras la tarea no esté en estado `DONE` o `ERROR`.
 
 ## Verification Plan
 
-### Automated Tests
-*   Verificar que el servidor compila y los endpoints responden con JSON vacío tras un `DELETE /all`.
-
 ### Manual Verification
-1.  **Limpieza**: Presionar "Clear Database", confirmar, y verificar que la tabla queda vacía.
-2.  **Sincronización**: Correr el script de Python y verificar que aparecen cientos de registros.
-3.  **Filtrado**: Probar el filtro de "Person ID" y "Rango de fechas" para asegurar que la tabla se actualiza.
-4.  **Paginación**: Navegar entre páginas para ver registros antiguos.
-5.  **Exportación**: Descargar el PDF y verificar que contiene solo los datos filtrados en la pantalla.
+1.  **Activación**: Presionar el botón en la web.
+2.  **Respuesta**: Verificar en la consola de Python (en la planta) que el script detecta la orden y empieza a leer la lectora.
+3.  **Resultado**: Confirmar que los nuevos registros aparecen en la tabla de la web y el botón vuelve a su estado normal.

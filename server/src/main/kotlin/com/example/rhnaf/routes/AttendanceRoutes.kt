@@ -5,6 +5,7 @@ import com.example.rhnaf.database.AttendanceLogTable
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.DebugLogTable
 import com.example.rhnaf.database.EmployeeTable
+import com.example.rhnaf.database.SystemTaskTable
 import com.example.rhnaf.domain.model.AttendanceLog
 import com.example.rhnaf.domain.model.ImportResult
 import com.example.rhnaf.domain.model.SyncResult
@@ -337,6 +338,66 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                 }
             }
             call.respond(mapOf("registros_eliminados" to deleted.toString(), "mensaje" to "Se eliminaron registros con IDs invalidos."))
+        }
+
+        // --- GESTION DE TAREAS REMOTAS (PUENTE NUBE-PLANTA) ---
+
+        // Crea una peticion de sincronizacion para que el script local la ejecute
+        post("/request-sync") {
+            val taskId = DatabaseFactory.dbQuery {
+                SystemTaskTable.insert {
+                    it[taskType] = "SYNC_ATTENDANCE"
+                    it[status] = "PENDING"
+                    it[updatedAt] = java.time.LocalDateTime.now().toString()
+                } get SystemTaskTable.id
+            }
+            call.respond(mapOf("taskId" to taskId.toString(), "status" to "PENDING"))
+        }
+
+        // Obtiene la ultima tarea pendiente (usado por el script de Python)
+        get("/poll-task") {
+            val task = DatabaseFactory.dbQuery {
+                SystemTaskTable.selectAll()
+                    .where { SystemTaskTable.status eq "PENDING" }
+                    .orderBy(SystemTaskTable.id, SortOrder.ASC)
+                    .limit(1)
+                    .map {
+                        mapOf(
+                            "id" to it[SystemTaskTable.id].toString(),
+                            "type" to it[SystemTaskTable.taskType],
+                            "params" to it[SystemTaskTable.params]
+                        )
+                    }.firstOrNull()
+            }
+            if (task != null) call.respond(task) else call.respond(HttpStatusCode.NoContent)
+        }
+
+        // Actualiza el estado de una tarea (usado por el script de Python)
+        post("/update-task") {
+            val data = call.receive<Map<String, String>>()
+            val id = data["id"]?.toIntOrNull() ?: return@post call.respond(HttpStatusCode.BadRequest)
+            val newStatus = data["status"] ?: "DONE"
+            val resultMsg = data["result"] ?: ""
+
+            DatabaseFactory.dbQuery {
+                SystemTaskTable.update({ SystemTaskTable.id eq id }) {
+                    it[status] = newStatus
+                    it[result] = resultMsg
+                    it[updatedAt] = java.time.LocalDateTime.now().toString()
+                }
+            }
+            call.respond(HttpStatusCode.OK)
+        }
+
+        // Consulta el estado de una tarea especifica (usado por la Web)
+        get("/task-status/{id}") {
+            val id = call.parameters["id"]?.toIntOrNull() ?: return@get call.respond(HttpStatusCode.BadRequest)
+            val status = DatabaseFactory.dbQuery {
+                SystemTaskTable.selectAll().where { SystemTaskTable.id eq id }.map {
+                    mapOf("status" to it[SystemTaskTable.status], "result" to it[SystemTaskTable.result])
+                }.firstOrNull()
+            }
+            if (status != null) call.respond(status) else call.respond(HttpStatusCode.NotFound)
         }
 
         // ========== EXPORTACION PARA NOMINA / AUDITORIA ==========

@@ -31,6 +31,10 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
     var currentPage by remember { mutableStateOf(1) }
     val pageSize = 50
     var refreshKey by remember { mutableStateOf(0) }
+    
+    // Estado de la sincronizacion remota
+    var activeTaskId by remember { mutableStateOf<String?>(null) }
+    var taskStatus by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(refreshKey) {
         isLoading = true
@@ -56,6 +60,28 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
             errorMsg = "Error: ${e.message}"
         }
         isLoading = false
+    }
+
+    // Polling del estado de la tarea si hay una activa
+    LaunchedEffect(activeTaskId) {
+        if (activeTaskId != null) {
+            while (taskStatus != "DONE" && taskStatus != "ERROR") {
+                try {
+                    val resp = client.get("$BACKEND_URL/api/v1/asistencia/task-status/$activeTaskId")
+                    val body: Map<String, String> = resp.body()
+                    taskStatus = body["status"]
+                    if (taskStatus == "DONE") {
+                        refreshKey++
+                        window.alert("Sincronización terminada exitosamente.")
+                        activeTaskId = null
+                    } else if (taskStatus == "ERROR") {
+                        window.alert("Error en la sincronización: ${body["result"]}")
+                        activeTaskId = null
+                    }
+                } catch (e: Exception) {}
+                kotlinx.coroutines.delay(2000)
+            }
+        }
     }
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
@@ -202,10 +228,20 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                         backgroundColor(Color("#2980b9")); color(Color.white); fontWeight("bold"); cursor("pointer")
                     }
                     onClick { 
-                        scope.launch { client.post("$BACKEND_URL/api/v1/asistencia/sync") }
-                        window.alert("Sincronización iniciada...")
+                        scope.launch {
+                            try {
+                                val resp = client.post("$BACKEND_URL/api/v1/asistencia/request-sync")
+                                val body: Map<String, String> = resp.body()
+                                activeTaskId = body["taskId"]
+                                taskStatus = "PENDING"
+                            } catch (e: Exception) {
+                                window.alert("No se pudo solicitar la sincronización.")
+                            }
+                        }
                     }
-                }) { Text("Get Events from Device") }
+                }) { 
+                    Text(if (activeTaskId != null) "Sync in Progress ($taskStatus)..." else "Get Events from Device") 
+                }
             }
         }
 

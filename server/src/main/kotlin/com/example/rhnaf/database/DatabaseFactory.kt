@@ -35,7 +35,7 @@ object DatabaseFactory {
         }
 
         transaction(database) {
-            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, SafetyIncidentTable, WorkPermitTable, PpeDeliveryTable, SafetyTrainingTable, EmergencyDrillTable, RiskMatrixTable, AccessAuditLogTable, EnvironmentalWasteTable, OccupationalHealthTable, ChemicalInventoryTable, ShiftTable, AttendancePolicyTable, EmployeeShiftTable, JustificationTable, PrePayrollTable)
+            SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, SafetyIncidentTable, WorkPermitTable, PpeDeliveryTable, SafetyTrainingTable, EmergencyDrillTable, RiskMatrixTable, AccessAuditLogTable, EnvironmentalWasteTable, OccupationalHealthTable, ChemicalInventoryTable, ShiftTable, AttendancePolicyTable, EmployeeShiftTable, JustificationTable, PrePayrollTable, SystemTaskTable)
 
             // MIGRACION: createMissingTablesAndColumns NO amplia columnas ya existentes,
             // solo agrega tablas/columnas faltantes. attendance_logs.device_serial y

@@ -295,3 +295,15 @@ object ChemicalInventoryTable : Table("ehs_chemical_inventory") {
 
     override val primaryKey = PrimaryKey(id)
 }
+
+// --- INFRAESTRUCTURA DE TAREAS REMOTAS (Puente Nube-Planta) ---
+object SystemTaskTable : Table("system_tasks") {
+    val id = integer("id").autoIncrement()
+    val taskType = varchar("task_type", 100) // e.g. "SYNC_ATTENDANCE"
+    val status = varchar("status", 50).default("PENDING") // PENDING, BUSY, DONE, ERROR
+    val params = varchar("params", 500).default("")
+    val result = varchar("result", 500).default("")
+    val updatedAt = varchar("updated_at", 100).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}

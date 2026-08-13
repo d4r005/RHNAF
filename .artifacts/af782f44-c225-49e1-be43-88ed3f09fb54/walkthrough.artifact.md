@@ -1,26 +1,32 @@
-# Walkthrough: Refinamiento de Asistencia (HIKVISIONWEB)
+# Walkthrough: Sincronización Real-Time bajo demanda (Opción A)
 
-He implementado un filtrado estricto para eliminar los eventos "None" y he unificado la identificación de la lectora.
+He implementado el "Puente de Comunicación" que permite que el botón **"Get Events from Device"** de la página web active realmente la sincronización en tu computadora de la planta.
 
 ## Cambios Realizados
 
-### 1. Filtrado de Eventos Inválidos
-*   **Servidor**: El endpoint `/api/v1/asistencia/hikvision` ahora descarta automáticamente cualquier petición que contenga un ID de empleado como `"None"`, `"null"`, `"0"` o vacío.
-*   **Lógica de Negocio**: `AttendanceUseCase` también incluye esta validación como segunda capa de seguridad.
-*   **Script de Sincronización**: `attendance_sync.py` ahora filtra estos eventos localmente antes de intentar subirlos a la nube.
+### 1. Sistema de Tareas Remotas
+*   **Servidor**: Se creó una nueva tabla `system_tasks` para gestionar órdenes de trabajo.
+*   **API**: Se añadieron endpoints para solicitar tareas, consultarlas (polling) y actualizarlas.
 
-### 2. Renombrado a HIKVISIONWEB
-*   Se cambió el identificador por defecto de `"HIK-WEB"` y `"LOCAL-SYNC"` a **`HIKVISIONWEB`**.
-*   Ahora todos los registros provenientes de la terminal aparecerán con este nombre en la columna "Dispositivo" del portal.
+### 2. Script de Python Inteligente
+*   El script `attendance_sync.py` ahora funciona en un modo dual:
+    *   **Automático**: Sincroniza cada 5 minutos.
+    *   **Bajo Demanda**: Revisa el servidor cada 5 segundos buscando órdenes que tú envíes desde la web.
+*   Al detectar una orden, el script se comunica con la lectora Hikvision local e informa del progreso a la nube.
 
-### 3. Endpoint de Limpieza
-*   Se creó un nuevo endpoint técnico: `POST /api/v1/asistencia/cleanup-invalid`.
-*   Este comando borra retroactivamente cualquier registro basura que se haya colado previamente con IDs inválidos.
+### 3. Interfaz Web Interactiva
+*   El botón **"Get Events from Device"** ahora envía una orden real.
+*   Muestra el estado en tiempo real: `PENDING`, `BUSY` (Ocupado procesando) y `DONE`.
+*   Avisa con una alerta cuando la sincronización ha terminado exitosamente.
 
-## Verificación Final
-*   [x] Código compilado exitosamente.
-*   [x] Cambios subidos a GitHub (Commit `de3084f`).
-*   [ ] **Acción Requerida**: Una vez que el Space de Hugging Face esté "Running", los nuevos registros de "None" dejarán de aparecer.
+## Cómo usarlo
+
+1.  **En la Planta**: Mantén abierto el script de Python en modo bucle:
+    ```powershell
+    python attendance_sync.py --loop
+    ```
+2.  **En la Web**: Presiona el botón **"Get Events from Device"**.
+3.  **Observa la magia**: Verás que la consola de Python en tu PC detecta la orden inmediatamente, lee la lectora y los datos aparecen en tu pantalla web en segundos.
 
 > [!TIP]
-> Los eventos que viste como "None" en tu captura eran ruidos de la terminal (major=3, minor=112, etc.). Con este cambio, el portal solo mostrará checadas reales de personas.
+> Este método es el más robusto ya que no requiere abrir puertos en el router de la planta ni usar túneles VPN complejos.

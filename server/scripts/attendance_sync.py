@@ -51,6 +51,7 @@ STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sync_stat
 BATCH_SIZE = 30          # eventos por página (ISAPI típico soporta 30)
 MAX_PAGES_PER_RUN = 30   # reducido para no saturar
 INTERVAL_SECONDS = 300   # cada 5 min en modo --loop
+POLL_INTERVAL = 5       # cada 5 seg revisa si hay tareas de la web
 DEFAULT_LOOKBACK_DAYS = 7  # si no hay estado previo, cuantos dias hacia atras jalar
 # ---------------------------------------------------------------
 
@@ -223,6 +224,37 @@ def run_once(force_since: str | None = None, major: int = 5, minor: int = 0):
         state.setdefault("last_synced_time", start_time)
 
     save_state(state)
+    return total_pushed
+
+
+def poll_and_execute_tasks():
+    """Revisa si hay tareas pendientes en el servidor de la nube."""
+    poll_url = "https://d4r005-rhnaf-industrial.hf.space/api/v1/asistencia/poll-task"
+    update_url = "https://d4r005-rhnaf-industrial.hf.space/api/v1/asistencia/update-task"
+
+    try:
+        resp = requests.get(poll_url, timeout=10)
+        if resp.status_code == 200:
+            task = resp.json()
+            task_id = task["id"]
+            print(f"\n[ORDEN REMOTA] Detectada tarea ID {task_id}: {task['type']}")
+
+            # Marcar como ocupado
+            requests.post(update_url, json={"id": task_id, "status": "BUSY"})
+
+            # Ejecutar (por ahora solo SYNC_ATTENDANCE)
+            if task["type"] == "SYNC_ATTENDANCE":
+                pushed = run_once()
+                requests.post(update_url, json={
+                    "id": task_id,
+                    "status": "DONE",
+                    "result": f"Sincronización terminada. {pushed} eventos subidos."
+                })
+                print(f"[ORDEN REMOTA] Tarea {task_id} completada exitosamente.")
+
+    except Exception as e:
+        # Silencioso en polling para no llenar la consola si la red parpadea
+        pass
 
 
 def main():
@@ -238,13 +270,29 @@ def main():
     args = parser.parse_args()
 
     if args.loop:
-        print(f"Modo continuo: cada {INTERVAL_SECONDS}s. Ctrl+C para detener.")
+        print(f"MODO PUENTE ACTIVO: Revisando lectora cada {INTERVAL_SECONDS}s y portal cada {POLL_INTERVAL}s.")
+        print("Usa Ctrl+C para detener.")
+
+        last_full_sync = 0
         while True:
-            run_once(force_since=args.since, major=args.major, minor=args.minor)
-            args.since = None  # solo se fuerza la primera vez
-            time.sleep(INTERVAL_SECONDS)
+            current_time = time.time()
+
+            # 1. Revisar si hay ordenes de la WEB (Polling rapido)
+            poll_and_execute_tasks()
+
+            # 2. Sincronizacion periodica automatica
+            if current_time - last_full_sync > INTERVAL_SECONDS:
+                run_once(force_since=args.since, major=args.major, minor=args.minor)
+                last_full_sync = current_time
+                args.since = None # solo se fuerza la primera vez
+
+            time.sleep(POLL_INTERVAL)
     else:
         run_once(force_since=args.since, major=args.major, minor=args.minor)
+
+
+if __name__ == "__main__":
+    main()
 
 
 if __name__ == "__main__":

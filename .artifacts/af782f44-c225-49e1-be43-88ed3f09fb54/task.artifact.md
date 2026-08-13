@@ -1,14 +1,15 @@
-# Tareas: Reingeniería del Módulo de Asistencia (Estilo iVMS)
+# Tareas: Implementación de Sincronización On-Demand (Opción A)
 
-- `[/]` Backend (Servidor Ktor):
-    - `[ ]` Añadir endpoint `DELETE /api/v1/asistencia/all` para limpieza total.
-    - `[ ]` Actualizar `GET /api/v1/asistencia/logs` con soporte para filtros dinámicos (fecha, depto, id, nombre).
-    - `[ ]` Implementar endpoints de exportación `GET /export/raw/csv` y `GET /export/raw/pdf`.
-- `[ ]` Frontend (Web Compose):
-    - `[ ]` Crear el nuevo panel de búsqueda estilo iVMS-4200.
-    - `[ ]` Implementar lógica de paginación en la tabla.
-    - `[ ]` Añadir botones de descarga vinculados a los filtros.
-    - `[ ]` Añadir botón de "Clear Database" con advertencia.
+- `[x]` Backend (Servidor Ktor):
+    - `[x]` Crear `SystemTaskTable` en `SapModulesTables.kt`.
+    - `[x]` Registrar la tabla en `DatabaseFactory.kt`.
+    - `[x]` Implementar endpoints de tareas (`request-sync`, `poll-task`, `update-task`) en `AttendanceRoutes.kt`.
+- `[x]` Script (Python):
+    - `[x]` Añadir lógica de polling al servidor en `attendance_sync.py`.
+    - `[x]` Implementar ejecución automática de fetch ante órdenes externas.
+- `[x]` Frontend (Web Compose):
+    - `[x]` Vincular botón "Get Events" a la API de tareas.
+    - `[x]` Añadir feedback visual de sincronización en progreso.
 - `[ ]` Verificación y Push:
-    - `[ ]` Probar limpieza y re-sincronización.
+    - `[ ]` Probar flujo completo (Web -> Server -> Python -> Lectora -> Server -> Web).
     - `[ ]` Realizar Commit and Push.
