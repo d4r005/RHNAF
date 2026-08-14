@@ -57,8 +57,17 @@ class AttendanceUseCase {
         val day = timestamp.substringBefore("T").substringBefore(" ")
 
         return DatabaseFactory.dbQuery {
-            // Solo contamos eventos que NO sean duplicados de la misma hora+minuto,
-            // porque la lectora a veces dispara 2-3 veces en segundos y eso no es un Check-out.
+            // DEDUPLICACION: si ya existe un registro con el mismo employeeId y timestamp,
+            // no insertamos otro (el sync script puede re-subir el mismo evento).
+            val existing = AttendanceLogTable
+                .selectAll()
+                .where {
+                    (AttendanceLogTable.employeeId eq employeeId) and
+                        (AttendanceLogTable.timestamp eq timestamp)
+                }
+                .count()
+            if (existing > 0) return@dbQuery true // Ya existe, no duplicar
+
             val todayEvents = AttendanceLogTable
                 .selectAll()
                 .where {
@@ -266,13 +275,36 @@ class AttendanceUseCase {
 
             var deleted = 0
             for ((_, records) in grouped) {
-                if (records.size <= 2) continue
-
                 val sorted = records.sortedBy { rec -> rec.timestamp }
                 val checkInId = sorted.first().recordId
                 val checkOutId = sorted.last().recordId
-                // Borrar SOLO duplicados que estan a menos de 5 minutos del evento anterior
-                // (ruido de la lectora leyendo la cara 2-3 veces en segundos)
+                val totalGap = computeGapMinutes(sorted.first().timestamp, sorted.last().timestamp)
+
+                if (records.size == 2 && totalGap < 5) {
+                    // Solo 2 eventos y a menos de 5 min: es un duplicado de la lectora
+                    // Borramos el segundo y dejamos solo el Check-in
+                    AttendanceLogTable.update({ AttendanceLogTable.id eq checkInId }) {
+                        it[attendanceStatus] = "Check-in"
+                    }
+                    AttendanceLogTable.deleteWhere { AttendanceLogTable.id eq checkOutId }
+                    deleted += 1
+                    continue
+                }
+
+                if (records.size <= 2) {
+                    // 1 o 2 eventos reales: marcar primero como Check-in
+                    AttendanceLogTable.update({ AttendanceLogTable.id eq checkInId }) {
+                        it[attendanceStatus] = "Check-in"
+                    }
+                    if (records.size == 2) {
+                        AttendanceLogTable.update({ AttendanceLogTable.id eq checkOutId }) {
+                            it[attendanceStatus] = if (totalGap >= 240) "Check-out" else "Event"
+                        }
+                    }
+                    continue
+                }
+
+                // 3+ eventos: borrar duplicados < 5min, marcar primero y ultimo
                 val idsToDelete = mutableListOf<Int>()
                 for (i in 1 until sorted.size) {
                     val gap = computeGapMinutes(sorted[i - 1].timestamp, sorted[i].timestamp)
@@ -284,8 +316,6 @@ class AttendanceUseCase {
                 AttendanceLogTable.update({ AttendanceLogTable.id eq checkInId }) {
                     it[attendanceStatus] = "Check-in"
                 }
-                // Solo marcar como Check-out si el ultimo evento esta a mas de 4 horas del primero
-                val totalGap = computeGapMinutes(sorted.first().timestamp, sorted.last().timestamp)
                 AttendanceLogTable.update({ AttendanceLogTable.id eq checkOutId }) {
                     it[attendanceStatus] = if (totalGap >= 240) "Check-out" else "Event"
                 }
