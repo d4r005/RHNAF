@@ -29,15 +29,21 @@ class AttendanceUseCase {
     }
 
     /**
-     * NUEVA REGLA: Acepta TODAS las checadas. No rechaza ninguna.
-     * Cada evento se guarda con su timestamp real. Al exportar (CSV/PDF),
-     * se toma el check-in mas temprano y el check-out mas tardio del dia.
+     * Registra una checada del personal. SOLO acepta eventos reales de la lectora
+     * Hikvision — no datos inventados, no "none", no ruido de sistema.
      *
-     * El campo attendanceStatus se asigna asi:
-     * - Si es el primer evento del dia para ese empleado: "Check-in"
-     * - Si ya hay eventos previos: "Check-out" (y se actualiza el anterior a "Check-in" si era el unico)
-     *
-     * Devuelve true siempre (el evento se guardo).
+     * REGLAS:
+     * 1) IDs invalidos (none, null, 0, vacio) → se descartan (no se guardan).
+     * 2) Anti-ruido: si el mismo empleado tiene un evento hace menos de 2 minutos,
+     *    es la misma deteccion de cara disparada varias veces en segundos. Se descarta.
+     *    A partir de 2 minutos, se guarda (puede ser una segunda checada real).
+     * 3) NUNCA se asigna "Check-out" si el ultimo evento fue hace menos de 4 horas.
+     * 4) Status: solo "Check-in" o "Check-out".
+     *    - Si el evento trae attendanceStatus explicito (del checkpoint): se usa tal cual.
+     *    - Primer evento del dia: "Check-in".
+     *    - Si el ultimo evento fue hace 4+ horas: "Check-out".
+     *    - Resto: "Check-in" (regreso de lunch, segunda entrada, etc.).
+     * 5) Deduplicacion exacta: mismo employeeId + mismo timestamp = no insertar otro.
      */
     suspend fun registerCheckIn(
         employeeId: String,
@@ -58,8 +64,7 @@ class AttendanceUseCase {
         val day = timestamp.substringBefore("T").substringBefore(" ")
 
         return DatabaseFactory.dbQuery {
-            // DEDUPLICACION: si ya existe un registro con el mismo employeeId y timestamp,
-            // no insertamos otro (el sync script puede re-subir el mismo evento).
+            // DEDUPLICACION EXACTA: mismo employeeId + mismo timestamp = no insertar
             val existing = AttendanceLogTable
                 .selectAll()
                 .where {
@@ -67,54 +72,75 @@ class AttendanceUseCase {
                         (AttendanceLogTable.timestamp eq timestamp)
                 }
                 .count()
-            if (existing > 0) return@dbQuery true // Ya existe, no duplicar
+            if (existing > 0) return@dbQuery true
 
-            val todayEvents = AttendanceLogTable
+            // ANTI-RUIDO: si el ultimo evento fue hace menos de 2 minutos, es la misma
+            // deteccion de cara (la lectora dispara varias veces en segundos).
+            // Se descarta para no ensuciar. 2+ minutos = segunda checada real.
+            val recentEvents = AttendanceLogTable
                 .selectAll()
                 .where {
                     (AttendanceLogTable.employeeId eq employeeId) and
-                        (AttendanceLogTable.timestamp greaterEq day) and (AttendanceLogTable.timestamp lessEq day + "T23:59:59.999999999")
+                        (AttendanceLogTable.timestamp greaterEq day) and
+                        (AttendanceLogTable.timestamp lessEq day + "T23:59:59.999999999")
                 }
-                .orderBy(AttendanceLogTable.timestamp, SortOrder.ASC)
+                .orderBy(AttendanceLogTable.timestamp, SortOrder.DESC)
+                .limit(1)
                 .toList()
 
-            val countToday = todayEvents.size
-
-            // Lógica de asignación de status:
-            // PRIORIDAD 1: Si el evento trae attendanceStatus desde el checkpoint
-            //   (inferido del nombre del lector: Entrance=Check-in, Exit=Check-out),
-            //   lo usamos directamente — igual que IVMS-4200.
-            // PRIORIDAD 2: Si no trae status, usamos la lógica de gap de tiempo:
-            // - Primer evento del día: "Check-in"
-            // - Último evento fue hace menos de 5 minutos: ruido (Duplicate)
-            // - Último evento fue hace más de 4 horas: Check-out
-            // - Caso intermedio: "Event"
-            val slot = if (attendanceStatus.isNotBlank()) {
-                attendanceStatus
-            } else if (countToday == 0) {
-                "Check-in"
-            } else {
-                val lastTs = todayEvents.last()[AttendanceLogTable.timestamp]
-                val gapMinutes = computeGapMinutes(lastTs, timestamp)
-                if (gapMinutes >= 240) {
-                    "Check-out"
-                } else if (gapMinutes < 5) {
-                    "Duplicate"
-                } else {
-                    "Event"
+            if (recentEvents.isNotEmpty()) {
+                val lastTs = recentEvents.first()[AttendanceLogTable.timestamp]
+                val gapSeconds = computeGapMinutes(lastTs, timestamp) * 60
+                if (gapSeconds < 120) {
+                    // Misma deteccion disparada varias veces en < 2 min. Descartar.
+                    return@dbQuery true
                 }
             }
 
+            // ASIGNACION DE STATUS: solo "Check-in" o "Check-out"
+            val countToday = AttendanceLogTable
+                .selectAll()
+                .where {
+                    (AttendanceLogTable.employeeId eq employeeId) and
+                        (AttendanceLogTable.timestamp greaterEq day) and
+                        (AttendanceLogTable.timestamp lessEq day + "T23:59:59.999999999")
+                }
+                .count()
+
+            val slot = if (attendanceStatus.isNotBlank()) {
+                // PRIORIDAD 1: el evento trae status explicito (del checkpoint de la lectora)
+                // PERO: si el status es "Check-out" y el ultimo evento fue hace menos de
+                // 4 horas, lo cambiamos a "Check-in" — no puede haber un check-out segundos
+                // despues de un check-in.
+                if (attendanceStatus.equals("Check-out", ignoreCase = true) && recentEvents.isNotEmpty()) {
+                    val lastTs = recentEvents.first()[AttendanceLogTable.timestamp]
+                    val gapMin = computeGapMinutes(lastTs, timestamp)
+                    if (gapMin < 240) "Check-in" else "Check-out"
+                } else {
+                    attendanceStatus
+                }
+            } else if (countToday == 0) {
+                // PRIORIDAD 2: primer evento del dia
+                "Check-in"
+            } else {
+                // PRIORIDAD 3: gap de tiempo desde el ultimo evento
+                // NUNCA Check-out si el gap es < 4 horas
+                val lastTs = recentEvents.first()[AttendanceLogTable.timestamp]
+                val gapMinutes = computeGapMinutes(lastTs, timestamp)
+                if (gapMinutes >= 240) {
+                    "Check-out"
+                } else {
+                    "Check-in"
+                }
+            }
+
+            // Buscar nombre/departamento del empleado si no vienen en el evento
             val (resolvedName, resolvedDept) = if (name.isBlank() || department.isBlank()) {
                 val (empName, empDept) = lookupEmployeeInfo(employeeId)
                 (name.ifBlank { empName }) to (department.ifBlank { empDept })
             } else name to department
 
-            // Truncamos defensivamente a los limites de columna (ver AttendanceLogTable):
-            // la lectora real manda valores de deviceName/currentVerifyMode mas largos
-            // que los de prueba, y un insert que excede el varchar tumba la request con
-            // un 500 "value too long for type character varying". Mejor recortar que
-            // que se pierda el registro completo.
+            // Truncar defensivamente a los limites de columna
             AttendanceLogTable.insert {
                 it[AttendanceLogTable.employeeId] = employeeId.take(100)
                 it[AttendanceLogTable.timestamp] = timestamp
@@ -131,20 +157,18 @@ class AttendanceUseCase {
 
     /**
      * Calcula la diferencia en minutos entre dos timestamps ISO (formato yyyy-MM-ddTHH:mm:ss).
-     * Usado para decidir si un evento consecutivo es un Check-out real (> 4h) o ruido (< 5min).
      */
     private fun computeGapMinutes(oldTs: String, newTs: String): Long {
         return runCatching {
             val oldLocal = java.time.LocalDateTime.parse(oldTs.substring(0, 19))
             val newLocal = java.time.LocalDateTime.parse(newTs.substring(0, 19))
             java.time.Duration.between(oldLocal, newLocal).toMinutes()
-        }.getOrDefault(9999L) // si no se puede parsear, asumimos gap grande
+        }.getOrDefault(9999L)
     }
 
     /**
      * Exportacion para nomina/auditoria: agrupa por (empleado, dia) y devuelve
      * solo el check-in mas temprano y el check-out mas tardio de cada dia.
-     * Si un empleado solo tiene una checada en el dia, se marca como Check-in.
      */
     data class DailySummary(
         val employeeId: String,
@@ -173,7 +197,6 @@ class AttendanceUseCase {
                     )
                 }
 
-            // Agrupar por (empleado, dia)
             val grouped = rows.groupBy { (empId, _, ts) ->
                 empId to ts.substringBefore("T").substringBefore(" ")
             }
@@ -186,7 +209,6 @@ class AttendanceUseCase {
                 val latest = sorted.last().third
                 val name = sorted.first().second
 
-                // Buscar departamento del empleado
                 val dept = EmployeeTable
                     .selectAll()
                     .where { (EmployeeTable.readerId eq empId) or (EmployeeTable.id eq empId) }
@@ -210,12 +232,10 @@ class AttendanceUseCase {
     }
 
     /**
-     * Elimina todos los registros de un dia especifico que vinieron de LOCAL-SYNC
-     * (sincronizacion historica) para que no ensucien el dia con checadas falsas.
+     * Elimina todos los registros de un dia especifico que vinieron de LOCAL-SYNC.
      */
     suspend fun deleteLocalSyncForDay(day: String): Int {
         return DatabaseFactory.dbQuery {
-            // Seleccionamos los IDs de los registros LOCAL-SYNC del dia y borramos por ID
             val ids = AttendanceLogTable
                 .select(AttendanceLogTable.id)
                 .where {
@@ -231,102 +251,96 @@ class AttendanceUseCase {
         }
     }
 
-    /**
-     * Borra TODOS los registros de la tabla de asistencia.
-     * Útil para reiniciar pruebas de sincronización.
-     */
     suspend fun deleteAllAttendance(): Int {
         return DatabaseFactory.dbQuery {
             AttendanceLogTable.deleteAll()
         }
     }
 
-    /**
-     * Borra TODOS los registros de un dia especifico, sin importar el origen.
-     */
-    suspend fun deleteAllForDay(day: String): Int {
-        return DatabaseFactory.dbQuery {
-            val ids = AttendanceLogTable
-                .select(AttendanceLogTable.id)
-                .where {
-                    AttendanceLogTable.timestamp like "$day%"
-                }
-                .map { it[AttendanceLogTable.id] }
-            if (ids.isNotEmpty()) {
-                AttendanceLogTable.deleteWhere { AttendanceLogTable.id inList ids }
-            } else {
-                0
-            }
-        }
-    }
-
-    /**
-     * Limpieza retroactiva: para cada (empleado, dia) que tenga MAS de 2 checadas,
-     * conserva solo la mas temprana (Check-in) y la mas tardia (Check-out).
-     */
     private data class LogRecord(val recordId: Int, val employeeId: String, val timestamp: String)
 
+    /**
+     * Normaliza los eventos del dia: marca el mas temprano como "Check-in" y el
+     * mas tardio como "Check-out" (solo si hay 4+ horas de diferencia). Los eventos
+     * intermedios se eliminan para dejar el dia limpio. Si todos los eventos estan
+     * dentro de 4 horas, solo se deja el primero como "Check-in".
+     */
     suspend fun normalizeDailyLimits(): Int {
         return DatabaseFactory.dbQuery {
-            val all = AttendanceLogTable
+            // Agrupar por (employeeId, dia)
+            val allRows = AttendanceLogTable
                 .selectAll()
-                .orderBy(AttendanceLogTable.employeeId, SortOrder.ASC)
+                .orderBy(AttendanceLogTable.timestamp, SortOrder.ASC)
                 .map { row ->
-                    LogRecord(row[AttendanceLogTable.id], row[AttendanceLogTable.employeeId], row[AttendanceLogTable.timestamp])
+                    LogRecord(
+                        row[AttendanceLogTable.id],
+                        row[AttendanceLogTable.employeeId],
+                        row[AttendanceLogTable.timestamp]
+                    )
                 }
 
-            val grouped = all.groupBy { rec -> rec.employeeId to rec.timestamp.substringBefore("T").substringBefore(" ") }
+            val grouped = allRows.groupBy { rec ->
+                rec.employeeId to rec.timestamp.substringBefore("T").substringBefore(" ")
+            }
 
             var deleted = 0
             for ((_, records) in grouped) {
-                val sorted = records.sortedBy { rec -> rec.timestamp }
-                val checkInId = sorted.first().recordId
-                val checkOutId = sorted.last().recordId
-                val totalGap = computeGapMinutes(sorted.first().timestamp, sorted.last().timestamp)
-
-                if (records.size == 2 && totalGap < 5) {
-                    // Solo 2 eventos y a menos de 5 min: es un duplicado de la lectora
-                    // Borramos el segundo y dejamos solo el Check-in
-                    AttendanceLogTable.update({ AttendanceLogTable.id eq checkInId }) {
-                        it[attendanceStatus] = "Check-in"
-                    }
-                    AttendanceLogTable.deleteWhere { AttendanceLogTable.id eq checkOutId }
-                    deleted += 1
-                    continue
-                }
-
-                if (records.size <= 2) {
-                    // 1 o 2 eventos reales: marcar primero como Check-in
-                    AttendanceLogTable.update({ AttendanceLogTable.id eq checkInId }) {
-                        it[attendanceStatus] = "Check-in"
-                    }
-                    if (records.size == 2) {
-                        AttendanceLogTable.update({ AttendanceLogTable.id eq checkOutId }) {
-                            it[attendanceStatus] = if (totalGap >= 240) "Check-out" else "Event"
+                val sorted = records.sortedBy { it.timestamp }
+                if (sorted.size <= 2) {
+                    // 1 o 2 eventos: marcar primero como Check-in, ultimo como Check-out
+                    if (sorted.size == 1) {
+                        AttendanceLogTable.update({ AttendanceLogTable.id eq sorted[0].recordId }) {
+                            it[attendanceStatus] = "Check-in"
+                        }
+                    } else {
+                        val totalGap = computeGapMinutes(sorted.first().timestamp, sorted.last().timestamp)
+                        AttendanceLogTable.update({ AttendanceLogTable.id eq sorted.first().recordId }) {
+                            it[attendanceStatus] = "Check-in"
+                        }
+                        AttendanceLogTable.update({ AttendanceLogTable.id eq sorted.last().recordId }) {
+                            it[attendanceStatus] = if (totalGap >= 240) "Check-out" else "Check-in"
                         }
                     }
                     continue
                 }
 
-                // 3+ eventos: borrar duplicados < 5min, marcar primero y ultimo
-                val idsToDelete = mutableListOf<Int>()
-                for (i in 1 until sorted.size) {
-                    val gap = computeGapMinutes(sorted[i - 1].timestamp, sorted[i].timestamp)
-                    if (gap < 5 && sorted[i].recordId != checkInId && sorted[i].recordId != checkOutId) {
-                        idsToDelete.add(sorted[i].recordId)
+                // 3+ eventos: quedar con el primero (Check-in) y el ultimo (Check-out
+                // solo si hay 4+ horas de gap). Borrar el resto.
+                val checkInId = sorted.first().recordId
+                val checkOutId = sorted.last().recordId
+                val totalGap = computeGapMinutes(sorted.first().timestamp, sorted.last().timestamp)
+
+                if (totalGap >= 240) {
+                    // Hay jornada completa: Check-in + Check-out
+                    val idsToDelete = sorted
+                        .filter { it.recordId != checkInId && it.recordId != checkOutId }
+                        .map { it.recordId }
+
+                    AttendanceLogTable.update({ AttendanceLogTable.id eq checkInId }) {
+                        it[attendanceStatus] = "Check-in"
                     }
-                }
+                    AttendanceLogTable.update({ AttendanceLogTable.id eq checkOutId }) {
+                        it[attendanceStatus] = "Check-out"
+                    }
 
-                AttendanceLogTable.update({ AttendanceLogTable.id eq checkInId }) {
-                    it[attendanceStatus] = "Check-in"
-                }
-                AttendanceLogTable.update({ AttendanceLogTable.id eq checkOutId }) {
-                    it[attendanceStatus] = if (totalGap >= 240) "Check-out" else "Event"
-                }
+                    if (idsToDelete.isNotEmpty()) {
+                        AttendanceLogTable.deleteWhere { AttendanceLogTable.id inList idsToDelete }
+                        deleted += idsToDelete.size
+                    }
+                } else {
+                    // Todos los eventos estan en menos de 4 horas: solo dejar el primero como Check-in
+                    val idsToDelete = sorted
+                        .filter { it.recordId != checkInId }
+                        .map { it.recordId }
 
-                if (idsToDelete.isNotEmpty()) {
-                    AttendanceLogTable.deleteWhere { AttendanceLogTable.id inList idsToDelete }
-                    deleted += idsToDelete.size
+                    AttendanceLogTable.update({ AttendanceLogTable.id eq checkInId }) {
+                        it[attendanceStatus] = "Check-in"
+                    }
+
+                    if (idsToDelete.isNotEmpty()) {
+                        AttendanceLogTable.deleteWhere { AttendanceLogTable.id inList idsToDelete }
+                        deleted += idsToDelete.size
+                    }
                 }
             }
             deleted
@@ -337,6 +351,7 @@ class AttendanceUseCase {
         return DatabaseFactory.dbQuery {
             var updated = 0
 
+            // Llenar status vacios
             val missingStatusRows = AttendanceLogTable
                 .selectAll()
                 .where { AttendanceLogTable.attendanceStatus eq "" }
@@ -356,6 +371,7 @@ class AttendanceUseCase {
                 }
             }
 
+            // Llenar nombre/departamento faltantes
             val missingInfoRows = AttendanceLogTable
                 .selectAll()
                 .where { (AttendanceLogTable.name eq "") or (AttendanceLogTable.department eq "") }
