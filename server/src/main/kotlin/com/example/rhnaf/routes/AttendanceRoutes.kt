@@ -176,8 +176,8 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             }
         }
 
-        // Inferir Check-in/Check-out del nombre del checkpoint si no viene explicito
-        // (igual que IVMS-4200: "Entrance" = Check-in, "Exit" = Check-out)
+        // Inferir del NOMBRE del checkpoint fisico (config de la lectora, no inventado):
+        // "Entrance" = Check-in, "Exit" = Check-out. Si no hay info, queda vacio.
         if (attendanceStatus.isBlank() && deviceId.isNotBlank()) {
             val devLower = deviceId.lowercase()
             attendanceStatus = when {
