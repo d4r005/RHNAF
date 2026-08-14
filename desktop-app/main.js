@@ -298,7 +298,7 @@ async function syncEmployees(cfg, onProgress) {
 // ------------------------------------------------------------------
 async function runSync(cfg, onProgress) {
   const state = loadState();
-  const startTime = state.last_synced_time || isoLocalNoMs(new Date(Date.now() - 7 * 24 * 3600 * 1000));
+  const startTime = state.last_synced_time || '2026-01-01T00:00:00';
   const endTime = isoLocalNoMs(new Date());
 
   let totalPushed = 0;

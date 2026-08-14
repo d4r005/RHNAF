@@ -25,7 +25,7 @@ function injectFloatingWidget() {
 
   const btnFull = document.createElement('button');
   btnFull.id = 'rhnaf-sync-btn';
-  btnFull.textContent = '\uD83D\uDD04 Sincronizar Todo';
+  btnFull.textContent = '\uD83D\uDD04 Sync Todo';
   btnFull.style.cssText = `
     background: #2563eb; color: white; border: none; padding: 13px 22px;
     border-radius: 999px; font-weight: bold; font-size: 13px; cursor: pointer;
@@ -36,7 +36,7 @@ function injectFloatingWidget() {
 
   const btnEmp = document.createElement('button');
   btnEmp.id = 'rhnaf-sync-emp-btn';
-  btnEmp.textContent = '\uD83D\uDC65 Empleados';
+  btnEmp.textContent = '\uD83D\uDD04 Sync Checadas';
   btnEmp.style.cssText = `
     background: #059669; color: white; border: none; padding: 13px 16px;
     border-radius: 999px; font-weight: bold; font-size: 13px; cursor: pointer;
@@ -64,8 +64,8 @@ function injectFloatingWidget() {
     } finally {
       btn.disabled = false;
       btn.style.opacity = '1';
-      btnFull.textContent = '\uD83D\uDD04 Sincronizar Todo';
-      btnEmp.textContent = '\uD83D\uDC65 Empleados';
+      btnFull.textContent = '\uD83D\uDD04 Sync Todo';
+      btnEmp.textContent = '\uD83D\uDD04 Sync Checadas';
       setTimeout(() => { status.style.display = 'none'; }, 10000);
     }
   }

@@ -58,6 +58,8 @@ CLOUD_ATTENDANCE_URL = f"{CLOUD_BASE}/api/v1/asistencia/hikvision"
 CLOUD_EMPLOYEE_SYNC_URL = f"{CLOUD_BASE}/api/v1/empleados/sync-device"
 CLOUD_BACKFILL_URL = f"{CLOUD_BASE}/api/v1/asistencia/backfill-metadata"
 CLOUD_NORMALIZE_URL = f"{CLOUD_BASE}/api/v1/asistencia/normalize"
+CLOUD_POLL_TASK_URL = f"{CLOUD_BASE}/api/v1/asistencia/poll-task"
+CLOUD_UPDATE_TASK_URL = f"{CLOUD_BASE}/api/v1/asistencia/update-task"
 
 # Offset de zona horaria (CDMX, fijo -06:00 desde 2022)
 TZ_OFFSET = "-06:00"
@@ -72,7 +74,7 @@ FACE_LIB_ID = "1"
 
 # Loop
 DEFAULT_INTERVAL = 300       # 5 minutos
-DEFAULT_LOOKBACK_DAYS = 7
+DEFAULT_LOOKBACK_DAYS = 365  # ~1 año para cubrir desde enero 2026
 
 # Archivo de estado (checkpoint de la ultima checada subida)
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sync_state.json")
@@ -694,6 +696,49 @@ def repair_attendance():
 
 # -------------------- CICLO PRINCIPAL --------------------
 
+def poll_and_run_remote_task():
+    """Revisa si la web solicito una sincronizacion (tarea PENDING).
+    Si existe, la ejecuta y marca como DONE. Asi el boton 'Get' de la web
+    funciona como espejo del boton 'Sincronizar Todo' del desktop."""
+    try:
+        resp = requests.get(CLOUD_POLL_TASK_URL, timeout=10)
+        if resp.status_code == 204:
+            return False  # No hay tareas pendientes
+        if resp.status_code != 200:
+            return False
+        task = resp.json()
+        task_id = task.get("id")
+        task_type = task.get("type", "")
+        log(f"  [TASK] Tarea remota #{task_id} tipo {task_type} recibida de la web")
+
+        # Marcar como IN_PROGRESS
+        requests.post(CLOUD_UPDATE_TASK_URL, json={"id": task_id, "status": "IN_PROGRESS"}, timeout=10)
+
+        # Ejecutar sincronizacion completa
+        result = run_cycle(force_since="2026-01-01T00:00:00")
+
+        # Marcar como DONE
+        requests.post(CLOUD_UPDATE_TASK_URL, json={
+            "id": task_id,
+            "status": "DONE",
+            "result": "Sincronizacion completada desde la lectora local"
+        }, timeout=10)
+        log(f"  [TASK] Tarea #{task_id} completada")
+        return True
+    except Exception as e:
+        log(f"  [TASK] Error procesando tarea remota: {e}")
+        try:
+            if 'task_id' in dir():
+                requests.post(CLOUD_UPDATE_TASK_URL, json={
+                    "id": task_id,
+                    "status": "ERROR",
+                    "result": str(e)
+                }, timeout=10)
+        except:
+            pass
+        return False
+
+
 def run_cycle(sin_fotos: bool = False, debug: bool = False, force_since: str | None = None):
     log("------ INICIO DE CICLO ------")
     sync_employees(sin_fotos=sin_fotos, debug=debug)
@@ -721,19 +766,25 @@ def main():
         log(f"Modo continuo: cada {args.interval}s. Ctrl+C para detener.")
         first = True
         while True:
-            run_cycle(
-                sin_fotos=args.sin_fotos,
-                debug=args.debug,
-                force_since=args.since if first else None,
-            )
+            # Primero revisar si la web solicito sync (espejo)
+            handled = poll_and_run_remote_task()
+            if not handled:
+                # Si no hay tarea remota, correr ciclo normal
+                run_cycle(
+                    sin_fotos=args.sin_fotos,
+                    debug=args.debug,
+                    force_since=args.since if first else None,
+                )
             first = False
             time.sleep(args.interval)
     else:
-        run_cycle(
-            sin_fotos=args.sin_fotos,
-            debug=args.debug,
-            force_since=args.since,
-        )
+        # Corrida unica: primero revisar tarea remota, luego ciclo normal
+        if not poll_and_run_remote_task():
+            run_cycle(
+                sin_fotos=args.sin_fotos,
+                debug=args.debug,
+                force_since=args.since,
+            )
 
 
 if __name__ == "__main__":

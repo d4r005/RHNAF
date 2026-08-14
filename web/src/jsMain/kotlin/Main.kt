@@ -393,8 +393,8 @@ fun main() {
                         }
                     }
                 }
-                // FLOATING AI ASSISTANT
-                AiAssistantWidget(t, client, scope)
+                // FLOATING AI ASSISTANT - deshabilitado, estorbaba
+                // AiAssistantWidget(t, client, scope)
             }
         }
     }

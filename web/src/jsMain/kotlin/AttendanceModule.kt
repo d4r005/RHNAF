@@ -68,7 +68,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                     taskStatus = body["status"]
                     if (taskStatus == "DONE") {
                         refreshKey++
-                        window.alert("Sincronizacion terminada exitosamente.")
+                        window.alert("Sincronizacion completada. Datos actualizados desde la lectora.")
                         activeTaskId = null
                     } else if (taskStatus == "ERROR") {
                         window.alert("Error en la sincronizacion: ${body["result"]}")
@@ -183,13 +183,14 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                                 val body: Map<String, String> = resp.body()
                                 activeTaskId = body["taskId"]
                                 taskStatus = "PENDING"
+                                window.alert("Sincronizacion solicitada. El equipo local sincronizara desde la lectora automaticamente.")
                             } catch (e: Exception) {
-                                window.alert("No se pudo solicitar la sincronizacion.")
+                                window.alert("No se pudo solicitar la sincronizacion: ${'$'}{e.message}")
                             }
                         }
                     }
                 }) {
-                    Text(if (activeTaskId != null) "Sync..." else "Get")
+                    Text(if (activeTaskId != null) "\uD83D\uDD04 Sync..." else "\uD83D\uDD04 Sync")
                 }
                 Button({
                     style { IvmsButtonStyle(Color("#27ae60")) }
