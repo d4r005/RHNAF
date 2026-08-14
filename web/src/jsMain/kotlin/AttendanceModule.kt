@@ -257,7 +257,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                                         .let { if (it.length > 19) it.substring(0, 19) else it }
                                     Text(displayTs)
                                 }
-                                Td({ style { padding(6.px, 10.px) }) {
+                                Td({ style { padding(6.px, 10.px) } }) {
                                     val isCheckIn = log.attendanceStatus.contains("in", ignoreCase = true)
                                     val isCheckOut = log.attendanceStatus.contains("out", ignoreCase = true)
                                     val isDuplicate = log.attendanceStatus.equals("Duplicate", ignoreCase = true)
@@ -306,7 +306,6 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                     onClick { if(currentPage < totalPages) currentPage++ }
                 }) { Text("Next >") }
             }
-        }
         }
     }
 }
