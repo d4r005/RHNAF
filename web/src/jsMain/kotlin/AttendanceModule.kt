@@ -99,7 +99,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
         }) {
             // Start Time
             Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column) } }) {
-                Label({ style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Start") }
+                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Start") }
                 Input(InputType.Text) {
                     value(startTime)
                     onInput { startTime = it.value }
@@ -108,7 +108,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
             }
             // End Time
             Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column) } }) {
-                Label({ style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("End") }
+                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("End") }
                 Input(InputType.Text) {
                     value(endTime)
                     onInput { endTime = it.value }
@@ -117,7 +117,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
             }
             // Person ID
             Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column) } }) {
-                Label({ style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("PID") }
+                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("PID") }
                 Input(InputType.Text) {
                     value(pidFilter)
                     onInput { pidFilter = it.value }
@@ -126,7 +126,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
             }
             // Name
             Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column) } }) {
-                Label({ style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Name") }
+                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Name") }
                 Input(InputType.Text) {
                     value(nameFilter)
                     onInput { nameFilter = it.value }
@@ -135,7 +135,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
             }
             // Department
             Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column) } }) {
-                Label({ style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Dept") }
+                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Dept") }
                 Select({
                     style { IvmsInputStyle(); width(100.px) }
                     onChange { deptFilter = it.target.asDynamic().value as String }
@@ -148,7 +148,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
             }
             // Source
             Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column) } }) {
-                Label({ style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Source") }
+                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Source") }
                 Select({
                     style { IvmsInputStyle(); width(100.px) }
                     onChange { sourceFilter = it.target.asDynamic().value as String }
