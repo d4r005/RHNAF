@@ -147,6 +147,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
         var deviceId = "HIKVISIONWEB"
         var verifyMode = "Face"
         var employeeName = ""
+        var attendanceStatus = ""
         var eventTime = java.time.LocalDateTime.now().toString()
 
         // 1) Intentamos deserializar el JSON estructurado (formato ISAPI estándar)
@@ -156,6 +157,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             deviceId = event.deviceID
             verifyMode = event.AccessControllerEvent.currentVerifyMode
             employeeName = event.AccessControllerEvent.name ?: ""
+            attendanceStatus = event.AccessControllerEvent.attendanceStatus ?: ""
             eventTime = event.dateTime
         }
 
@@ -171,6 +173,17 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             // Intentamos extraer tambien la fecha si el parsing estructurado fallo
             if (rawBody.contains("dateTime")) {
                 eventTime = rawBody.substringAfter("dateTime\"").substringAfter(":").substringAfter("\"").substringBefore("\"")
+            }
+        }
+
+        // Inferir Check-in/Check-out del nombre del checkpoint si no viene explicito
+        // (igual que IVMS-4200: "Entrance" = Check-in, "Exit" = Check-out)
+        if (attendanceStatus.isBlank() && deviceId.isNotBlank()) {
+            val devLower = deviceId.lowercase()
+            attendanceStatus = when {
+                devLower.contains("exit") -> "Check-out"
+                devLower.contains("entrance") -> "Check-in"
+                else -> ""
             }
         }
 
@@ -190,7 +203,8 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                     timestamp = eventTime,
                     deviceSerial = deviceId,
                     verifyMode = verifyMode,
-                    name = employeeName
+                    name = employeeName,
+                    attendanceStatus = attendanceStatus
                 )
                 if (!saved) {
                     DatabaseFactory.dbQuery {

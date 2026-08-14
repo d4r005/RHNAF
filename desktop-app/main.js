@@ -10,7 +10,8 @@ const DEFAULT_CONFIG = {
   deviceIp: '10.141.1.230',
   deviceUser: 'admin',
   devicePass: 'Branco2025',
-  cloudUrl: 'https://d4r005-rhnaf-industrial.hf.space/api/v1/asistencia/hikvision'
+  cloudUrl: 'https://d4r005-rhnaf-industrial.hf.space/api/v1/asistencia/hikvision',
+  employeeSyncUrl: 'https://d4r005-rhnaf-industrial.hf.space/api/v1/empleados/sync-device'
 };
 
 function getConfigPath() { return path.join(app.getPath('userData'), 'config.json'); }
@@ -40,9 +41,7 @@ function saveState(state) {
 }
 
 // ------------------------------------------------------------------
-// HTTP Digest Auth (Hikvision ISAPI usa Digest, no Basic) -
-// reimplementacion en Node de lo que hacia requests.auth.HTTPDigestAuth
-// en el script de Python attendance_sync.py
+// HTTP Digest Auth (Hikvision ISAPI usa Digest, no Basic)
 // ------------------------------------------------------------------
 function md5(str) { return crypto.createHash('md5').update(str).digest('hex'); }
 
@@ -103,9 +102,9 @@ async function digestRequest({ host, port = 80, path: p, method = 'POST', userna
 }
 
 // ------------------------------------------------------------------
-// Logica de sincronizacion (puerto 1:1 de attendance_sync.py)
+// Logica de sincronizacion
 // ------------------------------------------------------------------
-const TZ_OFFSET = '-06:00'; // Mexico City no tiene horario de verano desde 2022
+const TZ_OFFSET = '-06:00';
 
 function withTz(ts) {
   if (!ts) return ts;
@@ -121,7 +120,25 @@ function isoLocalNoMs(d) {
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
-async function fetchEvents(cfg, startTime, endTime, position, major = 5, minor = 0) {
+/**
+ * Infiere el status de asistencia (Check-in/Check-out) a partir del nombre
+ * del checkpoint, igual que lo hace el IVMS-4200.
+ * "Entrance" -> Check-in, "Exit" -> Check-out
+ */
+function inferAttendanceStatus(deviceName) {
+  if (!deviceName) return '';
+  const lower = deviceName.toLowerCase();
+  if (lower.includes('exit')) return 'Check-out';
+  if (lower.includes('entrance')) return 'Check-in';
+  return '';
+}
+
+function extractCheckpoint(deviceName) {
+  return deviceName || 'HIKVISIONWEB';
+}
+
+async function fetchEvents(cfg, startTime, endTime, position, major = 0, minor = 0) {
+  // major=0 trae TODOS los eventos (incluye lectores internos)
   const p = '/ISAPI/AccessControl/AcsEvent?format=json';
   const res = await digestRequest({
     host: cfg.deviceIp,
@@ -152,12 +169,18 @@ async function pushToCloud(cfg, event) {
   const idClean = String(employeeNo).trim().toLowerCase();
   if (!employeeNo || ['none', 'null', '0', ''].includes(idClean)) return { pushed: false };
 
+  const deviceName = event.deviceName || '';
+  const checkpoint = extractCheckpoint(deviceName);
+  const attendanceStatus = inferAttendanceStatus(deviceName);
+
   const payload = {
     dateTime: event.time || new Date().toISOString(),
-    deviceID: event.deviceName || 'HIKVISIONWEB',
+    deviceID: checkpoint,
     AccessControllerEvent: {
       employeeNoString: employeeNo,
-      currentVerifyMode: event.currentVerifyMode || 'unknown'
+      currentVerifyMode: event.currentVerifyMode || 'unknown',
+      name: event.employeeName || event.name || '',
+      attendanceStatus: attendanceStatus
     }
   };
 
@@ -181,6 +204,98 @@ async function pushToCloud(cfg, event) {
   return { pushed: false };
 }
 
+// ------------------------------------------------------------------
+// Sincronizacion de empleados desde la lectora (ISAPI/UserInfo/Search)
+// ------------------------------------------------------------------
+async function fetchUserList(cfg, position) {
+  const p = '/ISAPI/AccessControl/UserInfo/Search?format=json';
+  const res = await digestRequest({
+    host: cfg.deviceIp,
+    path: p,
+    method: 'POST',
+    username: cfg.deviceUser,
+    password: cfg.devicePass,
+    jsonBody: {
+      UserInfoSearchCond: {
+        searchID: '1',
+        searchResultPosition: position,
+        maxResults: 30
+      }
+    }
+  });
+  if (res.statusCode !== 200) {
+    throw new Error(`UserInfo/Search respondio ${res.statusCode}`);
+  }
+  return JSON.parse(res.body);
+}
+
+async function syncEmployees(cfg, onProgress) {
+  onProgress?.('Sincronizando empleados desde la lectora...');
+  const users = [];
+  let position = 0;
+
+  for (let page = 0; page < 100; page++) {
+    let data;
+    try {
+      data = await fetchUserList(cfg, position);
+    } catch (e) {
+      onProgress?.(`Error al consultar usuarios: ${e.message}`);
+      return { synced: 0, error: e.message };
+    }
+
+    const search = data.UserInfoSearch || {};
+    const infoList = search.UserInfo || [];
+    if (!infoList.length) break;
+
+    for (const u of infoList) {
+      const empNo = String(u.employeeNo || '').trim();
+      if (!empNo) continue;
+      users.push({
+        employeeNo: empNo,
+        name: u.name || u.employeeName || ''
+      });
+    }
+
+    const numMatches = search.numOfMatches || infoList.length;
+    position += numMatches;
+    onProgress?.(`Empleados: ${users.length} encontrados...`);
+    if (search.responseStatusStrg !== 'MORE' || numMatches < 30) break;
+  }
+
+  if (!users.length) {
+    onProgress?.('No se encontraron empleados en la lectora.');
+    return { synced: 0 };
+  }
+
+  let totalCreated = 0;
+  let totalUpdated = 0;
+  const syncUrl = cfg.employeeSyncUrl || (cfg.cloudUrl.replace('/asistencia/hikvision', '/empleados/sync-device'));
+  for (let i = 0; i < users.length; i += 25) {
+    const chunk = users.slice(i, i + 25);
+    try {
+      const resp = await fetch(syncUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(chunk)
+      });
+      if (resp.ok) {
+        const result = await resp.json();
+        totalCreated += result.creados || 0;
+        totalUpdated += result.actualizados || 0;
+      }
+    } catch (e) {
+      onProgress?.(`Error al subir empleados: ${e.message}`);
+    }
+    await sleep(200);
+  }
+
+  onProgress?.(`Empleados: ${users.length} leidos, ${totalCreated} nuevos, ${totalUpdated} actualizados.`);
+  return { synced: users.length, created: totalCreated, updated: totalUpdated };
+}
+
+// ------------------------------------------------------------------
+// Sincronizacion de checadas
+// ------------------------------------------------------------------
 async function runSync(cfg, onProgress) {
   const state = loadState();
   const startTime = state.last_synced_time || isoLocalNoMs(new Date(Date.now() - 7 * 24 * 3600 * 1000));
@@ -191,12 +306,12 @@ async function runSync(cfg, onProgress) {
   let position = 0;
   let latestTimeSeen = startTime;
 
-  onProgress?.(`Sincronizando de ${startTime} a ${endTime}...`);
+  onProgress?.(`Sincronizando checadas de ${startTime} a ${endTime}...`);
 
   for (let page = 0; page < 30; page++) {
     let data;
     try {
-      data = await fetchEvents(cfg, startTime, endTime, position, 5, 0);
+      data = await fetchEvents(cfg, startTime, endTime, position, 0, 0);
     } catch (e) {
       onProgress?.(`Error consultando la lectora: ${e.message}`);
       return { totalSeen, totalPushed, error: e.message };
@@ -226,6 +341,17 @@ async function runSync(cfg, onProgress) {
 }
 
 // ------------------------------------------------------------------
+// Sincronizacion completa: primero empleados, luego checadas
+// ------------------------------------------------------------------
+async function runFullSync(cfg, onProgress) {
+  onProgress?.('Iniciando sincronizacion completa...');
+  await syncEmployees(cfg, onProgress);
+  const result = await runSync(cfg, onProgress);
+  onProgress?.(`Sincronizacion completa. Checadas: ${result.totalSeen} vistas, ${result.totalPushed} subidas.`);
+  return result;
+}
+
+// ------------------------------------------------------------------
 // Ventanas de Electron
 // ------------------------------------------------------------------
 let mainWindow;
@@ -252,7 +378,10 @@ function buildMenu() {
     {
       label: 'RH NAF ERP',
       submenu: [
-        { label: 'Sincronizar Historico Local', click: () => triggerSync() },
+        { label: 'Sincronizar Checadas', click: () => triggerSync(false) },
+        { label: 'Sincronizar Todo (Empleados + Checadas)', click: () => triggerSync(true) },
+        { label: 'Sincronizar Solo Empleados', click: () => triggerEmployeeSync() },
+        { type: 'separator' },
         { label: 'Configurar Lectora...', click: () => openSettingsWindow() },
         { type: 'separator' },
         { label: 'Recargar', click: () => mainWindow.reload() },
@@ -274,13 +403,26 @@ function buildMenu() {
   ]);
 }
 
-function triggerSync() {
+function triggerSync(fullSync) {
   if (!mainWindow) return;
   mainWindow.webContents.send('sync-progress', 'Iniciando sincronizacion...');
-  runSync(loadConfig(), (msg) => mainWindow.webContents.send('sync-progress', msg)).then((result) => {
+  const cfg = loadConfig();
+  const fn = fullSync ? runFullSync : runSync;
+  fn(cfg, (msg) => mainWindow.webContents.send('sync-progress', msg)).then((result) => {
     const msg = result.error
       ? `Error: ${result.error}`
       : `Listo. Vistos: ${result.totalSeen} | Subidos: ${result.totalPushed}`;
+    mainWindow.webContents.send('sync-progress', msg);
+  });
+}
+
+function triggerEmployeeSync() {
+  if (!mainWindow) return;
+  mainWindow.webContents.send('sync-progress', 'Sincronizando empleados...');
+  syncEmployees(loadConfig(), (msg) => mainWindow.webContents.send('sync-progress', msg)).then((result) => {
+    const msg = result.error
+      ? `Error: ${result.error}`
+      : `Empleados sincronizados: ${result.synced}`;
     mainWindow.webContents.send('sync-progress', msg);
   });
 }
@@ -289,7 +431,7 @@ function openSettingsWindow() {
   if (settingsWindow) { settingsWindow.focus(); return; }
   settingsWindow = new BrowserWindow({
     width: 480,
-    height: 460,
+    height: 520,
     parent: mainWindow,
     modal: true,
     resizable: false,
@@ -305,6 +447,9 @@ function openSettingsWindow() {
 
 ipcMain.handle('sync-local', async () => {
   return runSync(loadConfig(), (msg) => mainWindow?.webContents.send('sync-progress', msg));
+});
+ipcMain.handle('sync-full', async () => {
+  return runFullSync(loadConfig(), (msg) => mainWindow?.webContents.send('sync-progress', msg));
 });
 ipcMain.handle('open-settings', () => openSettingsWindow());
 ipcMain.handle('get-settings', () => loadConfig());

@@ -46,7 +46,8 @@ class AttendanceUseCase {
         verifyMode: String = "UNKNOWN",
         name: String = "",
         department: String = "",
-        customName: String = ""
+        customName: String = "",
+        attendanceStatus: String = ""
     ): Boolean {
         // Validacion defensiva contra IDs invalidos (ruido de sistema Hikvision)
         val idClean = employeeId.trim().lowercase()
@@ -80,13 +81,17 @@ class AttendanceUseCase {
             val countToday = todayEvents.size
 
             // Lógica de asignación de status:
+            // PRIORIDAD 1: Si el evento trae attendanceStatus desde el checkpoint
+            //   (inferido del nombre del lector: Entrance=Check-in, Exit=Check-out),
+            //   lo usamos directamente — igual que IVMS-4200.
+            // PRIORIDAD 2: Si no trae status, usamos la lógica de gap de tiempo:
             // - Primer evento del día: "Check-in"
-            // - Si hay eventos previos pero el último fue hace menos de 5 minutos:
-            //   es ruido de la lectora (cara leída 2x en segundos) -> no asignar Check-out
-            // - Si hay eventos previos y el último fue hace más de 4 horas:
-            //   probablemente es un Check-out real
-            // - En caso intermedio: lo dejamos como "Event" (ni check-in ni check-out claro)
-            val slot = if (countToday == 0) {
+            // - Último evento fue hace menos de 5 minutos: ruido (Duplicate)
+            // - Último evento fue hace más de 4 horas: Check-out
+            // - Caso intermedio: "Event"
+            val slot = if (attendanceStatus.isNotBlank()) {
+                attendanceStatus
+            } else if (countToday == 0) {
                 "Check-in"
             } else {
                 val lastTs = todayEvents.last()[AttendanceLogTable.timestamp]
@@ -94,7 +99,6 @@ class AttendanceUseCase {
                 if (gapMinutes >= 240) {
                     "Check-out"
                 } else if (gapMinutes < 5) {
-                    // Duplicado de la lectora (misma persona en segundos) -> no marcar como check-out
                     "Duplicate"
                 } else {
                     "Event"

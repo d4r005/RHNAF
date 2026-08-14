@@ -13,6 +13,7 @@
   #saveBtn { background: #2563eb; color: white; }
   #cancelBtn { background: #e2e8f0; color: #334155; }
   #msg { font-size: 12px; margin-top: 10px; color: #16a34a; display: none; }
+  .hint { font-size: 11px; color: #64748b; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -24,11 +25,16 @@
   <label for="deviceUser">Usuario</label>
   <input id="deviceUser" type="text" placeholder="admin">
 
-  <label for="devicePass">Contraseña</label>
+  <label for="devicePass">Contrase\u00f1a</label>
   <input id="devicePass" type="password" placeholder="********">
 
-  <label for="cloudUrl">URL del backend en la nube</label>
+  <label for="cloudUrl">URL del backend (checadas)</label>
   <input id="cloudUrl" type="text" placeholder="https://d4r005-rhnaf-industrial.hf.space/api/v1/asistencia/hikvision">
+  <div class="hint">Endpoint que recibe las checadas individuales</div>
+
+  <label for="employeeSyncUrl">URL del backend (empleados)</label>
+  <input id="employeeSyncUrl" type="text" placeholder="https://d4r005-rhnaf-industrial.hf.space/api/v1/empleados/sync-device">
+  <div class="hint">Endpoint que sincroniza nombres y departamentos desde la lectora</div>
 
   <div id="msg">Guardado correctamente</div>
 
@@ -44,13 +50,15 @@
       document.getElementById('deviceUser').value = cfg.deviceUser || '';
       document.getElementById('devicePass').value = cfg.devicePass || '';
       document.getElementById('cloudUrl').value = cfg.cloudUrl || '';
+      document.getElementById('employeeSyncUrl').value = cfg.employeeSyncUrl || '';
     }
     document.getElementById('saveBtn').addEventListener('click', async () => {
       const cfg = {
         deviceIp: document.getElementById('deviceIp').value.trim(),
         deviceUser: document.getElementById('deviceUser').value.trim(),
         devicePass: document.getElementById('devicePass').value,
-        cloudUrl: document.getElementById('cloudUrl').value.trim()
+        cloudUrl: document.getElementById('cloudUrl').value.trim(),
+        employeeSyncUrl: document.getElementById('employeeSyncUrl').value.trim()
       };
       await window.settingsAPI.saveSettings(cfg);
       const msg = document.getElementById('msg');
