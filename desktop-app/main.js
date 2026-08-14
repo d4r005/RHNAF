@@ -245,7 +245,7 @@ async function syncEmployees(cfg, onProgress) {
     try {
       data = await fetchUserList(cfg, position);
     } catch (e) {
-      onProgress?.(`Error al consultar usuarios: ${e.message}`);
+      onProgress?.('Error al consultar usuarios: ' + e.message);
       return { synced: 0, error: e.message };
     }
 
@@ -264,7 +264,7 @@ async function syncEmployees(cfg, onProgress) {
 
     const numMatches = search.numOfMatches || infoList.length;
     position += numMatches;
-    onProgress?.(`Empleados: ${users.length} encontrados...`);
+    onProgress?.('Empleados: ' + users.length + ' encontrados...');
     if (search.responseStatusStrg !== 'MORE' || numMatches < 30) break;
   }
 
@@ -273,11 +273,25 @@ async function syncEmployees(cfg, onProgress) {
     return { synced: 0 };
   }
 
+  // Descargar fotos de rostro
+  onProgress?.('Descargando fotos de ' + users.length + ' empleados...');
+  const photos = await fetchAllPhotos(cfg, users, onProgress);
+  const fotoCount = Object.keys(photos).length;
+  onProgress?.('Fotos obtenidas: ' + fotoCount + ' de ' + users.length + ' empleados.');
+
+  // Adjuntar photos a los usuarios
+  const rowsWithPhotos = users.map(u => ({
+    employeeNo: u.employeeNo,
+    name: u.name,
+    photoBase64: photos[u.employeeNo] || null
+  }));
+
   let totalCreated = 0;
   let totalUpdated = 0;
+  let totalFotos = 0;
   const syncUrl = cfg.employeeSyncUrl || (cfg.cloudUrl.replace('/asistencia/hikvision', '/empleados/sync-device'));
-  for (let i = 0; i < users.length; i += 25) {
-    const chunk = users.slice(i, i + 25);
+  for (let i = 0; i < rowsWithPhotos.length; i += 25) {
+    const chunk = rowsWithPhotos.slice(i, i + 25);
     try {
       const resp = await fetch(syncUrl, {
         method: 'POST',
@@ -288,15 +302,263 @@ async function syncEmployees(cfg, onProgress) {
         const result = await resp.json();
         totalCreated += result.creados || 0;
         totalUpdated += result.actualizados || 0;
+        totalFotos += result.fotosGuardadas || 0;
       }
     } catch (e) {
-      onProgress?.(`Error al subir empleados: ${e.message}`);
+      onProgress?.('Error al subir empleados: ' + e.message);
     }
     await sleep(200);
   }
 
-  onProgress?.(`Empleados: ${users.length} leidos, ${totalCreated} nuevos, ${totalUpdated} actualizados.`);
-  return { synced: users.length, created: totalCreated, updated: totalUpdated };
+  onProgress?.('Empleados: ' + users.length + ' leidos, ' + totalCreated + ' nuevos, ' + totalUpdated + ' actualizados, ' + totalFotos + ' con foto.');
+  return { synced: users.length, created: totalCreated, updated: totalUpdated, fotos: totalFotos };
+}
+
+// ------------------------------------------------------------------
+// FOTOS DE ROSTRO (3 metodos, igual que sync_all.py)
+// ------------------------------------------------------------------
+const FACE_LIB_ID = '1';
+
+// Metodo 1: FDSearch en lote (multipart/mixed)
+function httpRequestBinary({ host, port = 80, path: p, method = 'GET', headers, body }) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host, port, path: p, method, headers }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        resolve({ statusCode: res.statusCode, headers: res.headers, body: buf });
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(20000, () => req.destroy(new Error('Timeout en foto')));
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function digestRequestBinary({ host, port = 80, path: p, method = 'POST', username, password, jsonBody }) {
+  const bodyStr = jsonBody ? JSON.stringify(jsonBody) : '';
+  const baseHeaders = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) };
+  const first = await httpRequestBinary({ host, port, path: p, method, headers: baseHeaders, body: bodyStr });
+  if (first.statusCode !== 401 || !first.headers['www-authenticate']) return first;
+
+  const params = parseAuthHeader(first.headers['www-authenticate']);
+  const nc = '00000001';
+  const cnonce = crypto.randomBytes(8).toString('hex');
+  const ha1 = md5(username + ':' + params.realm + ':' + password);
+  const ha2 = md5(method + ':' + p);
+  let authorizationHeader;
+  if (params.qop) {
+    const response = md5(ha1 + ':' + params.nonce + ':' + nc + ':' + cnonce + ':' + params.qop + ':' + ha2);
+    authorizationHeader = 'Digest username="' + username + '", realm="' + params.realm + '", nonce="' + params.nonce + '", uri="' + p + '", qop=' + params.qop + ', nc=' + nc + ', cnonce="' + cnonce + '", response="' + response + '"' + (params.opaque ? ', opaque="' + params.opaque + '"' : '');
+  } else {
+    const response = md5(ha1 + ':' + params.nonce + ':' + ha2);
+    authorizationHeader = 'Digest username="' + username + '", realm="' + params.realm + '", nonce="' + params.nonce + '", uri="' + p + '", response="' + response + '"' + (params.opaque ? ', opaque="' + params.opaque + '"' : '');
+  }
+  return httpRequestBinary({ host, port, path: p, method, headers: { ...baseHeaders, Authorization: authorizationHeader }, body: bodyStr });
+}
+
+function parseMultipartFaces(resp) {
+  const contentType = resp.headers['content-type'] || '';
+  if (!contentType.includes('boundary=')) return {};
+  const boundary = contentType.split('boundary=').pop().trim().replace(/"/g, '');
+  const raw = resp.body;
+  const sep = Buffer.from('--' + boundary);
+  const parts = [];
+  let start = 0;
+  while (true) {
+    const idx = raw.indexOf(sep, start);
+    if (idx === -1) break;
+    if (parts.length > 0) parts.push(raw.slice(start, idx));
+    start = idx + sep.length;
+  }
+  const photos = {};
+  let pendingEmpNo = null;
+  for (const part of parts) {
+    if (!part || part.length < 4) continue;
+    const sepIdx = part.indexOf('\r\n\r\n');
+    if (sepIdx === -1) continue;
+    const headerBlob = part.slice(0, sepIdx).toString('latin1');
+    const bodyBlob = part.slice(sepIdx + 4).toString('latin1').replace(/\r\n$/, '');
+    const bodyBuf = Buffer.from(bodyBlob, 'latin1');
+    if (headerBlob.includes('application/json')) {
+      try {
+        const meta = JSON.parse(bodyBuf.toString('utf8'));
+        const faceInfo = meta.FaceInfo || meta;
+        pendingEmpNo = String(faceInfo.employeeNo || faceInfo.FPID || '').trim() || null;
+      } catch (e) { pendingEmpNo = null; }
+    } else if ((headerBlob.includes('image/jpeg') || headerBlob.includes('image/jpg')) && pendingEmpNo) {
+      photos[pendingEmpNo] = bodyBuf.toString('base64');
+      pendingEmpNo = null;
+    }
+  }
+  return photos;
+}
+
+async function fetchPhotosFDSearch(cfg, onProgress) {
+  const urlPath = '/ISAPI/Intelligent/FDLib/FDSearch?format=json';
+  const photos = {};
+  let position = 0;
+  const searchSize = 5; // la lectora rechaza maxResults>5
+
+  for (let page = 0; page < 250; page++) {
+    const body = {
+      FDSearchCond: {
+        searchID: '1',
+        searchResultPosition: position,
+        maxResults: searchSize,
+        faceLibType: 'staticFD',
+        FDID: FACE_LIB_ID,
+      }
+    };
+    let res;
+    try {
+      res = await digestRequestBinary({ host: cfg.deviceIp, path: urlPath, method: 'POST', username: cfg.deviceUser, password: cfg.devicePass, jsonBody: body });
+    } catch (e) { return photos; }
+    if (res.statusCode !== 200) {
+      // Intentar FDID como array
+      body.FDSearchCond.FDID = [FACE_LIB_ID];
+      body.FDSearchCond.FPID = [];
+      try {
+        res = await digestRequestBinary({ host: cfg.deviceIp, path: urlPath, method: 'POST', username: cfg.deviceUser, password: cfg.devicePass, jsonBody: body });
+      } catch (e) { return photos; }
+      if (res.statusCode !== 200) return photos;
+    }
+    const batch = parseMultipartFaces(res);
+    if (!Object.keys(batch).length) break;
+    Object.assign(photos, batch);
+    if (Object.keys(batch).length < searchSize) break;
+    position += searchSize;
+    if (page % 10 === 0) onProgress?.('Fotos FDSearch: ' + Object.keys(photos).length + '...');
+  }
+  return photos;
+}
+
+// Metodo 2: faceURL embebido en UserInfo/Search
+async function fetchPhotosFromUserInfo(cfg, onProgress) {
+  const urlPath = '/ISAPI/AccessControl/UserInfo/Search?format=json';
+  const photos = {};
+  let position = 0;
+  for (let page = 0; page < 100; page++) {
+    const body = { UserInfoSearchCond: { searchID: '1', searchResultPosition: position, maxResults: 30 } };
+    let res;
+    try {
+      res = await digestRequestBinary({ host: cfg.deviceIp, path: urlPath, method: 'POST', username: cfg.deviceUser, password: cfg.devicePass, jsonBody: body });
+    } catch (e) { return photos; }
+    if (res.statusCode !== 200) return photos;
+    let data;
+    try { data = JSON.parse(res.body.toString('utf8')); } catch (e) { break; }
+    const infoList = (data.UserInfoSearch || {}).UserInfo || [];
+    if (!infoList.length) break;
+    for (const u of infoList) {
+      const empNo = String(u.employeeNo || '').trim();
+      if (!empNo) continue;
+      const faceUrl = u.faceURL || u.facePicUrl || '';
+      const faceData = u.faceData || u.facePicData || '';
+      if (faceData && faceData.length > 100) {
+        photos[empNo] = faceData.startsWith('data:') ? faceData.split(',').pop() : faceData;
+      } else if (faceUrl) {
+        const fullUrl = faceUrl.startsWith('/') ? 'http://' + cfg.deviceIp + faceUrl : faceUrl;
+        try {
+          const imgRes = await digestRequestBinary({ host: cfg.deviceIp, path: faceUrl.startsWith('/') ? faceUrl : new URL(fullUrl).pathname, method: 'GET', username: cfg.deviceUser, password: cfg.devicePass });
+          if (imgRes.statusCode === 200 && imgRes.body.length > 100) {
+            photos[empNo] = imgRes.body.toString('base64');
+          }
+        } catch (e) {}
+      }
+    }
+    const numMatches = (data.UserInfoSearch || {}).numOfMatches || infoList.length;
+    position += numMatches;
+    if ((data.UserInfoSearch || {}).responseStatusStrg !== 'MORE' || numMatches < 30) break;
+  }
+  return photos;
+}
+
+// Metodo 3: descarga individual por empleado (mas lento, mas compatible)
+async function fetchPhotosPerUser(cfg, employeeNos, onProgress) {
+  const photos = {};
+  for (let i = 0; i < employeeNos.length; i++) {
+    const empNo = employeeNos[i];
+    const empPadded = empNo.padStart(10, '0');
+    const endpoints = [
+      { path: '/LOCALS/pic/enrlFace/0/' + empPadded + '.jpg@WEB0000', method: 'GET' },
+      { path: '/ISAPI/AccessControl/UserInfo/' + empNo + '/faceImage?format=json', method: 'GET' },
+      { path: '/ISAPI/Intelligent/FDLib/' + FACE_LIB_ID + '/faceDataPicture/' + empNo, method: 'GET' },
+      { path: '/ISAPI/AccessControl/UserInfo/' + empNo + '/faceImage', method: 'GET' },
+    ];
+    for (const ep of endpoints) {
+      try {
+        const res = await digestRequestBinary({ host: cfg.deviceIp, path: ep.path, method: ep.method, username: cfg.deviceUser, password: cfg.devicePass });
+        if (res.statusCode !== 200) continue;
+        const ct = (res.headers['content-type'] || '');
+        if (ct.includes('image') && res.body.length > 100) {
+          photos[empNo] = res.body.toString('base64');
+          break;
+        }
+        if (ct.includes('multipart')) {
+          const batch = parseMultipartFaces(res);
+          if (Object.keys(batch).length) {
+            const key = empNo in batch ? empNo : Object.keys(batch)[0];
+            photos[empNo] = batch[key];
+            break;
+          }
+        }
+        if (ct.includes('application/json')) {
+          try {
+            const data = JSON.parse(res.body.toString('utf8'));
+            let faceUrl = data.faceURL || data.FaceURL || '';
+            let faceData = data.faceData || data.FaceData || '';
+            if (!faceUrl && !faceData) {
+              for (const key of ['FaceInfo', 'UserInfo', 'FaceDataRecord']) {
+                const nested = data[key] || {};
+                faceUrl = faceUrl || nested.faceURL || nested.FaceURL || '';
+                faceData = faceData || nested.faceData || nested.FaceData || '';
+              }
+            }
+            if (faceData && faceData.length > 100) {
+              photos[empNo] = faceData.startsWith('data:') ? faceData.split(',').pop() : faceData;
+              break;
+            }
+            if (faceUrl) {
+              const p = faceUrl.startsWith('/') ? faceUrl : new URL(faceUrl).pathname;
+              const imgRes = await digestRequestBinary({ host: cfg.deviceIp, path: p, method: 'GET', username: cfg.deviceUser, password: cfg.devicePass });
+              if (imgRes.statusCode === 200 && imgRes.body.length > 100) {
+                photos[empNo] = imgRes.body.toString('base64');
+                break;
+              }
+            }
+          } catch (e) {}
+        }
+      } catch (e) {}
+    }
+    if (i % 10 === 0) onProgress?.('Fotos individuales: ' + Object.keys(photos).length + '/' + employeeNos.length + '...');
+  }
+  return photos;
+}
+
+async function fetchAllPhotos(cfg, users, onProgress) {
+  const employeeNos = users.map(u => u.employeeNo);
+  onProgress?.('Buscando fotos (metodo 1: FDSearch)...');
+  let photos = await fetchPhotosFDSearch(cfg, onProgress);
+  if (Object.keys(photos).length > 0) {
+    onProgress?.('Fotos: ' + Object.keys(photos).length + ' encontradas via FDSearch.');
+    return photos;
+  }
+  onProgress?.('FDSearch fallo. Intentando metodo 2 (UserInfo)...');
+  photos = await fetchPhotosFromUserInfo(cfg, onProgress);
+  if (Object.keys(photos).length > 0) {
+    onProgress?.('Fotos: ' + Object.keys(photos).length + ' encontradas via UserInfo.');
+    return photos;
+  }
+  onProgress?.('Metodo 2 fallo. Intentando metodo 3 (individual, ' + employeeNos.length + ' empleados)...');
+  photos = await fetchPhotosPerUser(cfg, employeeNos, onProgress);
+  if (Object.keys(photos).length > 0) {
+    onProgress?.('Fotos: ' + Object.keys(photos).length + ' encontradas via descarga individual.');
+  } else {
+    onProgress?.('No se pudieron obtener fotos. Los empleados se subiran sin foto.');
+  }
+  return photos;
 }
 
 // ------------------------------------------------------------------
