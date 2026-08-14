@@ -1,0 +1,40 @@
+{
+  "name": "rhnaf-erp-desktop",
+  "version": "1.0.0",
+  "description": "RH NAF ERP - Aplicacion de escritorio (carga el ERP web y sincroniza la checadora Hikvision por LAN)",
+  "main": "main.js",
+  "author": "Branco Industries",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --win --x64 --dir",
+    "dist": "electron-builder --win --x64"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.brancoindustries.rhnaf",
+    "productName": "RH NAF ERP",
+    "copyright": "Copyright © 2026 Branco Industries",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "settings-preload.js",
+      "settings.html",
+      "package.json"
+    ],
+    "win": {
+      "target": ["dir"],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    }
+  }
+}

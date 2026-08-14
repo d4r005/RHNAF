@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Configurar Lectora</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #f8fafc; margin: 0; padding: 24px; color: #0f172a; }
+  h2 { margin: 0 0 16px 0; font-size: 16px; }
+  label { display: block; font-size: 12px; font-weight: bold; color: #475569; margin-bottom: 4px; margin-top: 14px; }
+  input { width: 100%; padding: 9px 10px; border-radius: 6px; border: 1px solid #cbd5e1; box-sizing: border-box; font-size: 13px; }
+  .row { display: flex; gap: 10px; margin-top: 22px; }
+  button { flex: 1; padding: 10px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; font-size: 13px; }
+  #saveBtn { background: #2563eb; color: white; }
+  #cancelBtn { background: #e2e8f0; color: #334155; }
+  #msg { font-size: 12px; margin-top: 10px; color: #16a34a; display: none; }
+</style>
+</head>
+<body>
+  <h2>Configuracion de la Lectora Hikvision</h2>
+
+  <label for="deviceIp">IP de la lectora (red local)</label>
+  <input id="deviceIp" type="text" placeholder="10.141.1.230">
+
+  <label for="deviceUser">Usuario</label>
+  <input id="deviceUser" type="text" placeholder="admin">
+
+  <label for="devicePass">Contraseña</label>
+  <input id="devicePass" type="password" placeholder="********">
+
+  <label for="cloudUrl">URL del backend en la nube</label>
+  <input id="cloudUrl" type="text" placeholder="https://d4r005-rhnaf-industrial.hf.space/api/v1/asistencia/hikvision">
+
+  <div id="msg">Guardado correctamente</div>
+
+  <div class="row">
+    <button id="cancelBtn">Cancelar</button>
+    <button id="saveBtn">Guardar</button>
+  </div>
+
+  <script>
+    async function load() {
+      const cfg = await window.settingsAPI.getSettings();
+      document.getElementById('deviceIp').value = cfg.deviceIp || '';
+      document.getElementById('deviceUser').value = cfg.deviceUser || '';
+      document.getElementById('devicePass').value = cfg.devicePass || '';
+      document.getElementById('cloudUrl').value = cfg.cloudUrl || '';
+    }
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+      const cfg = {
+        deviceIp: document.getElementById('deviceIp').value.trim(),
+        deviceUser: document.getElementById('deviceUser').value.trim(),
+        devicePass: document.getElementById('devicePass').value,
+        cloudUrl: document.getElementById('cloudUrl').value.trim()
+      };
+      await window.settingsAPI.saveSettings(cfg);
+      const msg = document.getElementById('msg');
+      msg.style.display = 'block';
+      setTimeout(() => window.close(), 700);
+    });
+    document.getElementById('cancelBtn').addEventListener('click', () => window.close());
+    load();
+  </script>
+</body>
+</html>
