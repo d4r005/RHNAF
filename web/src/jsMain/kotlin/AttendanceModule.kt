@@ -183,7 +183,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                                 val body: Map<String, String> = resp.body()
                                 activeTaskId = body["taskId"]
                                 taskStatus = "PENDING"
-                                window.alert("Sincronizacion solicitada. El equipo local sincronizara desde la lectora automaticamente.")
+                                window.alert("Sincronizacion solicitada. La app de escritorio sincronizara desde la lectora directamente.")
                             } catch (e: Exception) {
                                 window.alert("No se pudo solicitar la sincronizacion: ${'$'}{e.message}")
                             }

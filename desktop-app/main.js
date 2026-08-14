@@ -14,6 +14,12 @@ const DEFAULT_CONFIG = {
   employeeSyncUrl: 'https://d4r005-rhnaf-industrial.hf.space/api/v1/empleados/sync-device'
 };
 
+const TASK_POLL_URL = ERP_URL + '/api/v1/asistencia/poll-task';
+const TASK_UPDATE_URL = ERP_URL + '/api/v1/asistencia/update-task';
+const BACKFILL_URL = ERP_URL + '/api/v1/asistencia/backfill-metadata';
+const NORMALIZE_URL = ERP_URL + '/api/v1/asistencia/normalize';
+const TASK_POLL_INTERVAL = 10000; // 10 segundos
+
 function getConfigPath() { return path.join(app.getPath('userData'), 'config.json'); }
 function getStatePath() { return path.join(app.getPath('userData'), 'sync_state.json'); }
 
@@ -347,8 +353,67 @@ async function runFullSync(cfg, onProgress) {
   onProgress?.('Iniciando sincronizacion completa...');
   await syncEmployees(cfg, onProgress);
   const result = await runSync(cfg, onProgress);
+  onProgress?.('Reparando registros (backfill + normalize)...');
+  try {
+    await fetch(BACKFILL_URL, { method: 'POST' });
+    await sleep(1000);
+    await fetch(NORMALIZE_URL, { method: 'POST' });
+  } catch (e) { onProgress?.('Aviso: no se pudo hacer backfill: ' + e.message); }
   onProgress?.(`Sincronizacion completa. Checadas: ${result.totalSeen} vistas, ${result.totalPushed} subidas.`);
   return result;
+}
+
+// ------------------------------------------------------------------
+// POLL DE TAREAS REMOTAS (para que el boton Sync de la web dispare el desktop)
+// ------------------------------------------------------------------
+let pollTimer = null;
+let isSyncing = false;
+
+async function pollRemoteTask() {
+  if (isSyncing) return; // no encimar syncs
+  try {
+    const resp = await fetch(TASK_POLL_URL);
+    if (resp.status === 204) return; // no hay tareas
+    if (resp.status !== 200) return;
+    const task = await resp.json();
+    const taskId = task.id;
+    const taskType = task.type || '';
+    if (!taskId) return;
+
+    isSyncing = true;
+    mainWindow?.webContents.send('sync-progress', `Tarea remota #${taskId} recibida desde la web. Sincronizando...`);
+
+    // Marcar como IN_PROGRESS
+    await fetch(TASK_UPDATE_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: taskId, status: 'IN_PROGRESS' })
+    });
+
+    // Ejecutar sync completo
+    const cfg = loadConfig();
+    const result = await runFullSync(cfg, (msg) => mainWindow?.webContents.send('sync-progress', msg));
+
+    // Marcar como DONE
+    await fetch(TASK_UPDATE_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: taskId, status: 'DONE',
+        result: `Sincronizacion completa. Vistos: ${result.totalSeen}, Subidos: ${result.totalPushed}`
+      })
+    });
+    mainWindow?.webContents.send('sync-progress', `Tarea remota completada. Checadas: ${result.totalSeen} vistas, ${result.totalPushed} subidas.`);
+  } catch (e) {
+    mainWindow?.webContents.send('sync-progress', 'Error en poll de tareas: ' + e.message);
+  } finally {
+    isSyncing = false;
+  }
+}
+
+function startTaskPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollRemoteTask, TASK_POLL_INTERVAL);
+  // Poll inmediato al arrancar
+  setTimeout(pollRemoteTask, 3000);
 }
 
 // ------------------------------------------------------------------
@@ -455,5 +520,8 @@ ipcMain.handle('open-settings', () => openSettingsWindow());
 ipcMain.handle('get-settings', () => loadConfig());
 ipcMain.handle('save-settings', (event, cfg) => { saveConfig(cfg); return true; });
 
-app.whenReady().then(createMainWindow);
+app.whenReady().then(() => {
+  createMainWindow();
+  startTaskPolling(); // Escuchar tareas del boton Sync de la web
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
