@@ -6,6 +6,7 @@ import com.example.rhnaf.database.EmployeeTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
 
 class AttendanceUseCase {
 
