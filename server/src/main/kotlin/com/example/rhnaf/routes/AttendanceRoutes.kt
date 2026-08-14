@@ -264,7 +264,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                 if (!to.isNullOrBlank()) query.andWhere { AttendanceLogTable.timestamp lessEq to + "T23:59:59" }
                 if (!source.isNullOrBlank()) query.andWhere { AttendanceLogTable.deviceSerial eq source }
 
-                query.orderBy(AttendanceLogTable.timestamp, SortOrder.ASC).map {
+                query.orderBy(AttendanceLogTable.timestamp, SortOrder.DESC).map {
                     AttendanceLog(
                         id = it[AttendanceLogTable.id].toString(),
                         employeeId = it[AttendanceLogTable.employeeId],
@@ -461,7 +461,7 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
                 if (!from.isNullOrBlank()) query.andWhere { AttendanceLogTable.timestamp greaterEq from }
                 if (!to.isNullOrBlank()) query.andWhere { AttendanceLogTable.timestamp lessEq to + "T23:59:59" }
 
-                query.orderBy(AttendanceLogTable.timestamp, SortOrder.ASC).map {
+                query.orderBy(AttendanceLogTable.timestamp, SortOrder.DESC).map {
                     listOf(
                         it[AttendanceLogTable.employeeId],
                         it[AttendanceLogTable.name],

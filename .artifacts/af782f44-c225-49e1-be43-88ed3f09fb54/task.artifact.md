@@ -1,9 +1,6 @@
-# Tareas: Optimización UI y Visualización Histórica
+# Tareas: Invertir Orden de Asistencia (Más Reciente Primero)
 
-- `[/]` Backend (Servidor):
-    - `[ ]` Cambiar orden de registros a Ascendente (Antiguo a Nuevo) en `AttendanceRoutes.kt`.
-- `[/]` Frontend (Web):
-    - `[ ]` Fijar fecha inicial al `2026-01-01`.
-    - `[ ]` Rediseñar panel de búsqueda a layout de 3 columnas (compacto).
-- `[ ]` Verificación y Push:
-    - `[ ]` Realizar Commit and Push final.
+- `[x]` Cambiar orden a Descendente en `GET /api/v1/asistencia/logs`.
+- `[x]` Cambiar orden a Descendente en `GET /api/v1/asistencia/export/raw/csv`.
+- `[ ]` Verificar visualización en el portal (Agosto primero).
+- `[ ]` Realizar Commit and Push final.
