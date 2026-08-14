@@ -143,6 +143,26 @@ function extractCheckpoint(deviceName) {
   return deviceName || 'HIKVISIONWEB';
 }
 
+// La lectora, cuando tiene el modo "Time & Attendance" configurado, manda su
+// PROPIO campo attendanceStatus (checkIn/checkOut/breakIn/breakOut/overtimeIn/
+// overtimeOut) directo en el evento. Eso es dato crudo de la lectora, no algo
+// que inventemos nosotros -- por eso tiene prioridad. Si no viene, caemos al
+// nombre del checkpoint fisico (Entrance/Exit) como antes.
+function rawDeviceAttendanceStatus(ev) {
+  const raw = ev.attendanceStatus || ev.AttendanceStatus || '';
+  if (!raw) return '';
+  const lower = String(raw).toLowerCase();
+  if (lower.includes('out')) return 'Check-out';
+  if (lower.includes('in')) return 'Check-in';
+  return '';
+}
+
+// Busca el nombre del checkpoint en todos los campos donde la lectora
+// podria mandarlo (varia por firmware/modelo).
+function findCheckpointName(ev) {
+  return ev.deviceName || ev.doorName || ev.cardReaderName || ev.cardReaderDescription || ev.label || '';
+}
+
 async function fetchEvents(cfg, startTime, endTime, position, major = 0, minor = 0) {
   // major=0 trae TODOS los eventos (incluye lectores internos)
   const p = '/ISAPI/AccessControl/AcsEvent?format=json';
@@ -175,9 +195,12 @@ async function pushToCloud(cfg, event) {
   const idClean = String(employeeNo).trim().toLowerCase();
   if (!employeeNo || ['none', 'null', '0', ''].includes(idClean)) return { pushed: false };
 
-  const deviceName = event.deviceName || '';
+  const deviceName = findCheckpointName(event);
   const checkpoint = extractCheckpoint(deviceName);
-  const attendanceStatus = inferAttendanceStatus(deviceName);
+
+  // Prioridad: 1) attendanceStatus crudo de la lectora, 2) nombre del checkpoint (Entrance/Exit)
+  let attendanceStatus = rawDeviceAttendanceStatus(event);
+  if (!attendanceStatus) attendanceStatus = inferAttendanceStatus(deviceName);
 
   const payload = {
     dateTime: event.time || new Date().toISOString(),
@@ -187,7 +210,10 @@ async function pushToCloud(cfg, event) {
       currentVerifyMode: event.currentVerifyMode || 'unknown',
       name: event.employeeName || event.name || '',
       attendanceStatus: attendanceStatus
-    }
+    },
+    // Diagnostico temporal: guardamos el evento crudo completo para poder ver
+    // que campos manda realmente esta lectora (no afecta el guardado normal).
+    debugRawEvent: JSON.stringify(event).slice(0, 1000)
   };
 
   for (let attempt = 0; attempt < 3; attempt++) {
