@@ -57,16 +57,40 @@ class AttendanceUseCase {
         val day = timestamp.substringBefore("T").substringBefore(" ")
 
         return DatabaseFactory.dbQuery {
-            val countToday = AttendanceLogTable
+            // Solo contamos eventos que NO sean duplicados de la misma hora+minuto,
+            // porque la lectora a veces dispara 2-3 veces en segundos y eso no es un Check-out.
+            val todayEvents = AttendanceLogTable
                 .selectAll()
                 .where {
                     (AttendanceLogTable.employeeId eq employeeId) and
                         (AttendanceLogTable.timestamp greaterEq day) and (AttendanceLogTable.timestamp lessEq day + "T23:59:59.999999999")
                 }
-                .count()
+                .orderBy(AttendanceLogTable.timestamp, SortOrder.ASC)
+                .toList()
 
-            // Si es el primer evento del dia: Check-in. Si ya hay eventos: Check-out.
-            val slot = if (countToday == 0L) "Check-in" else "Check-out"
+            val countToday = todayEvents.size
+
+            // Lógica de asignación de status:
+            // - Primer evento del día: "Check-in"
+            // - Si hay eventos previos pero el último fue hace menos de 5 minutos:
+            //   es ruido de la lectora (cara leída 2x en segundos) -> no asignar Check-out
+            // - Si hay eventos previos y el último fue hace más de 4 horas:
+            //   probablemente es un Check-out real
+            // - En caso intermedio: lo dejamos como "Event" (ni check-in ni check-out claro)
+            val slot = if (countToday == 0) {
+                "Check-in"
+            } else {
+                val lastTs = todayEvents.last()[AttendanceLogTable.timestamp]
+                val gapMinutes = computeGapMinutes(lastTs, timestamp)
+                if (gapMinutes >= 240) {
+                    "Check-out"
+                } else if (gapMinutes < 5) {
+                    // Duplicado de la lectora (misma persona en segundos) -> no marcar como check-out
+                    "Duplicate"
+                } else {
+                    "Event"
+                }
+            }
 
             val (resolvedName, resolvedDept) = if (name.isBlank() || department.isBlank()) {
                 val (empName, empDept) = lookupEmployeeInfo(employeeId)
@@ -90,6 +114,18 @@ class AttendanceUseCase {
             }
             true
         }
+    }
+
+    /**
+     * Calcula la diferencia en minutos entre dos timestamps ISO (formato yyyy-MM-ddTHH:mm:ss).
+     * Usado para decidir si un evento consecutivo es un Check-out real (> 4h) o ruido (< 5min).
+     */
+    private fun computeGapMinutes(oldTs: String, newTs: String): Long {
+        return runCatching {
+            val oldLocal = java.time.LocalDateTime.parse(oldTs.substring(0, 19))
+            val newLocal = java.time.LocalDateTime.parse(newTs.substring(0, 19))
+            java.time.Duration.between(oldLocal, newLocal).toMinutes()
+        }.getOrDefault(9999L) // si no se puede parsear, asumimos gap grande
     }
 
     /**
@@ -235,13 +271,23 @@ class AttendanceUseCase {
                 val sorted = records.sortedBy { rec -> rec.timestamp }
                 val checkInId = sorted.first().recordId
                 val checkOutId = sorted.last().recordId
-                val idsToDelete = sorted.map { rec -> rec.recordId }.filter { recId -> recId != checkInId && recId != checkOutId }
+                // Borrar SOLO duplicados que estan a menos de 5 minutos del evento anterior
+                // (ruido de la lectora leyendo la cara 2-3 veces en segundos)
+                val idsToDelete = mutableListOf<Int>()
+                for (i in 1 until sorted.size) {
+                    val gap = computeGapMinutes(sorted[i - 1].timestamp, sorted[i].timestamp)
+                    if (gap < 5 && sorted[i].recordId != checkInId && sorted[i].recordId != checkOutId) {
+                        idsToDelete.add(sorted[i].recordId)
+                    }
+                }
 
                 AttendanceLogTable.update({ AttendanceLogTable.id eq checkInId }) {
                     it[attendanceStatus] = "Check-in"
                 }
+                // Solo marcar como Check-out si el ultimo evento esta a mas de 4 horas del primero
+                val totalGap = computeGapMinutes(sorted.first().timestamp, sorted.last().timestamp)
                 AttendanceLogTable.update({ AttendanceLogTable.id eq checkOutId }) {
-                    it[attendanceStatus] = "Check-out"
+                    it[attendanceStatus] = if (totalGap >= 240) "Check-out" else "Event"
                 }
 
                 if (idsToDelete.isNotEmpty()) {
