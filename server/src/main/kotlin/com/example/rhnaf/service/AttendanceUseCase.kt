@@ -162,6 +162,12 @@ class AttendanceUseCase {
         }
     }
 
+    suspend fun deleteAllForDay(day: String): Int {
+        return DatabaseFactory.dbQuery {
+            AttendanceLogTable.deleteWhere { AttendanceLogTable.timestamp like "$day%" }
+        }
+    }
+
     suspend fun deleteAllAttendance(): Int {
         return DatabaseFactory.dbQuery {
             AttendanceLogTable.deleteAll()
