@@ -1,23 +1,30 @@
-# Plan de Ajuste de Orden de Asistencia: Más Reciente Primero
+# Plan para Generar Ejecutable Windows (.exe)
 
-Este plan detalla el cambio en el orden de visualización de los registros de asistencia para mostrar primero los eventos más recientes (orden cronológico descendente).
+Este plan detalla los pasos técnicos para convertir el código fuente de la carpeta `desktop-app` en un archivo ejecutable distribuible para Windows.
 
-## Análisis del Requerimiento
+## Análisis Técnico
 
-1.  **Orden de Visualización**: El usuario solicita que el listado se muestre de la fecha más reciente a la más antigua.
-2.  **Impacto en Backend**: Se debe modificar la consulta SQL en el servidor para usar `SortOrder.DESC` en lugar de `SortOrder.ASC`.
-3.  **Exportaciones**: Se actualizará también el orden en la exportación de datos crudos (CSV) para mantener la consistencia.
+La aplicación de escritorio utiliza **Electron**. Para generar el `.exe`, necesitamos:
+1.  Asegurar que todas las dependencias de Node.js estén instaladas.
+2.  Configurar los blancos de compilación (targets) para incluir un instalador (`nsis`) o un ejecutable `portable`.
+3.  Ejecutar el proceso de empaquetado mediante `electron-builder`.
 
 ## Proposed Changes
 
-### [Server Component]
+### [Desktop App Component]
 
-#### [MODIFY] [AttendanceRoutes.kt](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/server/src/main/kotlin/com/example/rhnaf/routes/AttendanceRoutes.kt)
-*   Cambiar el orden de `SortOrder.ASC` a `SortOrder.DESC` en el endpoint de listado (`/logs`).
-*   Cambiar el orden de `SortOrder.ASC` a `SortOrder.DESC` en el endpoint de exportación de datos crudos (`/export/raw/csv`).
+#### [MODIFY] [package.json](file:///C:/Users/dtruj/AndroidStudioProjects/RHNAF/desktop-app/package.json)
+*   Actualizar la sección `build.win.target` para incluir `nsis` (generará un instalador `RH NAF ERP Setup.exe`).
+*   Opcionalmente añadir `portable` para un ejecutable único que no requiere instalación.
+
+#### [RUN] Instalación de dependencias
+*   Ejecutar `npm install` dentro de la carpeta `desktop-app`.
+
+#### [RUN] Compilación final
+*   Ejecutar `npm run dist` para generar los binarios.
 
 ## Verification Plan
 
 ### Manual Verification
-1.  **Carga de Pantalla**: Al entrar al portal, los registros de Agosto deben aparecer en la página 1, y los de Enero en las últimas páginas.
-2.  **Exportación**: Descargar el CSV y verificar que los registros superiores son los más recientes.
+1.  **Carpeta Release**: Verificar que aparezca una nueva carpeta llamada `release` dentro de `desktop-app`.
+2.  **Prueba del Ejecutable**: Ejecutar el archivo `.exe` generado y confirmar que abre el ERP correctamente y que los menús de sincronización funcionan.

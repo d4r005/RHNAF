@@ -1,6 +1,7 @@
-# Tareas: Invertir Orden de Asistencia (Más Reciente Primero)
+# Tareas: Generación de Ejecutable Windows
 
-- `[x]` Cambiar orden a Descendente en `GET /api/v1/asistencia/logs`.
-- `[x]` Cambiar orden a Descendente en `GET /api/v1/asistencia/export/raw/csv`.
-- `[ ]` Verificar visualización en el portal (Agosto primero).
-- `[ ]` Realizar Commit and Push final.
+- `[/]` Preparar configuración de empaquetado:
+    - `[x]` Actualizar `package.json` con targets `nsis` y `portable`.
+- `[x]` Instalación de dependencias (`npm install`).
+- `[x]` Generación del ejecutable (`npm run dist`).
+- `[x]` Verificación del archivo generado en `desktop-app/release`.
