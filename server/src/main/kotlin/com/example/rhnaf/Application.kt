@@ -5,6 +5,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.statuspages.*
 import com.example.rhnaf.shared.model.Employee
 import com.example.rhnaf.shared.model.EmployeeStatus
 import com.example.rhnaf.database.DatabaseFactory
@@ -21,6 +22,7 @@ import com.example.rhnaf.routes.shippingRouting
 import com.example.rhnaf.routes.prePayrollRouting
 import com.example.rhnaf.routes.sapModulesRouting
 import com.example.rhnaf.routes.extendedRouting
+import com.example.rhnaf.routes.workflowRouting
 import com.example.rhnaf.auth.Roles
 import com.example.rhnaf.auth.requireRoleOr403
 import io.ktor.server.request.*
@@ -42,6 +44,18 @@ import com.example.rhnaf.shared.model.WeeklyIncident
 import com.example.rhnaf.shared.model.AttendanceReport
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+/**
+ * Rutas que NO requieren autenticación (públicas).
+ * - /api/login: autenticación
+ * - /api/v1/asistencia/hikvision: webhook de la lectora (recibe eventos automáticos)
+ * - /api/v1/asistencia/sync: sincronización desde script local
+ */
+private val PUBLIC_PATHS = setOf(
+    "/api/login",
+    "/api/v1/asistencia/hikvision",
+    "/api/v1/asistencia/sync"
+)
 
 fun Application.module() {
     DatabaseFactory.init()
@@ -67,8 +81,88 @@ fun Application.module() {
     install(ContentNegotiation) {
         json()
     }
+
+    // ============ MANEJO GLOBAL DE ERRORES ============
+    install(StatusPages) {
+        exception<IllegalArgumentException> { call, cause ->
+            call.respond(HttpStatusCode.BadRequest, mapOf(
+                "status" to "error",
+                "message" to (cause.message ?: "Datos inválidos")
+            ))
+        }
+        exception<NoSuchElementException> { call, cause ->
+            call.respond(HttpStatusCode.NotFound, mapOf(
+                "status" to "error",
+                "message" to (cause.message ?: "Recurso no encontrado")
+            ))
+        }
+        exception<Exception> { call, cause ->
+            println("ERROR no manejado: ${cause::class.simpleName}: ${cause.message}")
+            cause.printStackTrace()
+            call.respond(HttpStatusCode.InternalServerError, mapOf(
+                "status" to "error",
+                "message" to (cause.message ?: "Error interno del servidor")
+            ))
+        }
+        status(HttpStatusCode.NotFound) { call, _ ->
+            call.respond(HttpStatusCode.NotFound, mapOf(
+                "status" to "error",
+                "message" to "Endpoint no encontrado"
+            ))
+        }
+    }
     
     routing {
+        // ============ INTERCEPTOR DE AUTENTICACIÓN ============
+        // Valida que todas las peticiones a /api/ tengan un token válido,
+        // excepto las rutas públicas definidas arriba.
+        intercept(ApplicationCallPipeline.Plugins) {
+            val path = call.request.path()
+            
+            // Solo validar rutas bajo /api/
+            if (!path.startsWith("/api/")) return@intercept
+            
+            // OPTIONS no necesita auth (preflight CORS)
+            if (call.request.httpMethod == HttpMethod.Options) return@intercept
+            
+            // Rutas públicas (login, webhooks)
+            if (path in PUBLIC_PATHS) return@intercept
+            
+            // Verificar token
+            val authHeader = call.request.header(HttpHeaders.Authorization)
+            if (authHeader == null) {
+                call.respond(HttpStatusCode.Unauthorized, mapOf(
+                    "status" to "error",
+                    "message" to "Token de autenticación requerido"
+                ))
+                return@intercept finish()
+            }
+            
+            val token = authHeader.removePrefix("Bearer ").trim()
+            if (token.isBlank()) {
+                call.respond(HttpStatusCode.Unauthorized, mapOf(
+                    "status" to "error",
+                    "message" to "Token vacío"
+                ))
+                return@intercept finish()
+            }
+            
+            // Verificar que el usuario existe en la BD
+            val user = DatabaseFactory.dbQuery {
+                UserTable.selectAll().where { UserTable.email eq token }.singleOrNull()
+            }
+            
+            if (user == null) {
+                call.respond(HttpStatusCode.Unauthorized, mapOf(
+                    "status" to "error",
+                    "message" to "Token inválido o usuario no encontrado"
+                ))
+                return@intercept finish()
+            }
+            
+            // Usuario válido — continuar con la petición
+        }
+
         attendanceRouting(attendanceUseCase)
         employeeSyncRouting()
         warehouseRouting()
@@ -76,6 +170,7 @@ fun Application.module() {
         prePayrollRouting()
         sapModulesRouting()
         extendedRouting()
+        workflowRouting()
 
         // Sirve la Web App (Compose HTML) desde una carpeta física
         staticFiles("/", File("static"), index = "index.html")
@@ -105,7 +200,7 @@ fun Application.module() {
                 }
             }
 
-            // --- LECTURA (sin restricción de rol) ---
+            // --- LECTURA (cualquier usuario autenticado) ---
 
             get("/employees") {
                 val employees = DatabaseFactory.dbQuery {
@@ -236,7 +331,7 @@ fun Application.module() {
                 call.respond(mapOf("status" to "success"))
             }
 
-            // --- SIN RESTRICCIÓN ---
+            // --- ASISTENCIA Y NÓMINA ---
 
             post("/attendance/biometric") {
                 val data = call.receive<Map<String, String>>()
@@ -250,8 +345,6 @@ fun Application.module() {
                     deviceSerial = deviceSerial,
                     verifyMode = authType
                 )
-                
-                println("Registro biométrico guardado: Empleado $employeeId via $authType")
                 
                 call.respond(mapOf(
                     "status" to "success", 

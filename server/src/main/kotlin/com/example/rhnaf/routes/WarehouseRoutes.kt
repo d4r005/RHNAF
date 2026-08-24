@@ -15,6 +15,8 @@ import com.example.rhnaf.shared.model.WarehouseInventoryItem
 import com.example.rhnaf.shared.model.WarehouseLocation
 import com.example.rhnaf.shared.model.WarehouseOutgoingLog
 import com.example.rhnaf.shared.model.WarehouseAudit
+import com.example.rhnaf.auth.Roles
+import com.example.rhnaf.auth.requireRoleOr403
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -25,6 +27,7 @@ import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.sql.Op
 
 fun Route.warehouseRouting() {
     route("/api/v1/almacen") {
@@ -32,8 +35,9 @@ fun Route.warehouseRouting() {
         // ---------- INVENTARIO (producto terminado por ubicación) ----------
         route("/inventario") {
             get {
-                val items = DatabaseFactory.dbQuery {
-                    WarehouseInventoryTable.selectAll().map {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                    val result = pagedQuery(call, WarehouseInventoryTable.selectAll()) {
                         WarehouseInventoryItem(
                             id = it[WarehouseInventoryTable.id],
                             lugar = it[WarehouseInventoryTable.lugar],
@@ -44,49 +48,14 @@ fun Route.warehouseRouting() {
                             existencia = it[WarehouseInventoryTable.existencia]
                         )
                     }
+                    call.respond(result)
                 }
-                call.respond(items)
             }
             post {
-                val item = call.receive<WarehouseInventoryItem>()
-                DatabaseFactory.dbQuery {
-                    WarehouseInventoryTable.insert {
-                        it[lugar] = item.lugar
-                        it[po] = item.po
-                        it[modelo] = item.modelo
-                        it[cantidad] = item.cantidad
-                        it[falta] = item.falta
-                        it[existencia] = item.existencia
-                    }
-                }
-                call.respond(mapOf("status" to "ok"))
-            }
-            put("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest)
-                val item = call.receive<WarehouseInventoryItem>()
-                DatabaseFactory.dbQuery {
-                    WarehouseInventoryTable.update({ WarehouseInventoryTable.id eq id }) {
-                        it[lugar] = item.lugar
-                        it[po] = item.po
-                        it[modelo] = item.modelo
-                        it[cantidad] = item.cantidad
-                        it[falta] = item.falta
-                        it[existencia] = item.existencia
-                    }
-                }
-                call.respond(mapOf("status" to "ok"))
-            }
-            delete("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
-                DatabaseFactory.dbQuery {
-                    WarehouseInventoryTable.deleteWhere { WarehouseInventoryTable.id eq id }
-                }
-                call.respond(mapOf("status" to "ok"))
-            }
-            post("/bulk") {
-                val items = call.receive<List<WarehouseInventoryItem>>()
-                DatabaseFactory.dbQuery {
-                    items.forEach { item ->
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val item = call.receive<WarehouseInventoryItem>()
+                    DatabaseFactory.dbQuery {
                         WarehouseInventoryTable.insert {
                             it[lugar] = item.lugar
                             it[po] = item.po
@@ -96,20 +65,69 @@ fun Route.warehouseRouting() {
                             it[existencia] = item.existencia
                         }
                     }
+                    call.respond(mapOf("status" to "ok"))
                 }
-                call.respond(mapOf("insertados" to items.size.toString()))
+            }
+            put("/{id}") {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val id = call.parameters["id"]?.toIntOrNull() ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+                    val item = call.receive<WarehouseInventoryItem>()
+                    DatabaseFactory.dbQuery {
+                        WarehouseInventoryTable.update({ WarehouseInventoryTable.id eq id }) {
+                            it[lugar] = item.lugar
+                            it[po] = item.po
+                            it[modelo] = item.modelo
+                            it[cantidad] = item.cantidad
+                            it[falta] = item.falta
+                            it[existencia] = item.existencia
+                        }
+                    }
+                    call.respond(mapOf("status" to "ok"))
+                }
+            }
+            delete("/{id}") {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val id = call.parameters["id"]?.toIntOrNull() ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+                    DatabaseFactory.dbQuery { WarehouseInventoryTable.deleteWhere { WarehouseInventoryTable.id eq id } }
+                    call.respond(mapOf("status" to "ok"))
+                }
+            }
+            post("/bulk") {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val items = call.receive<List<WarehouseInventoryItem>>()
+                    DatabaseFactory.dbQuery {
+                        items.forEach { item ->
+                            WarehouseInventoryTable.insert {
+                                it[lugar] = item.lugar
+                                it[po] = item.po
+                                it[modelo] = item.modelo
+                                it[cantidad] = item.cantidad
+                                it[falta] = item.falta
+                                it[existencia] = item.existencia
+                            }
+                        }
+                    }
+                    call.respond(mapOf("insertados" to items.size.toString()))
+                }
             }
             delete("/bulk/all") {
-                DatabaseFactory.dbQuery { WarehouseInventoryTable.deleteWhere { org.jetbrains.exposed.sql.Op.TRUE } }
-                call.respond(mapOf("status" to "ok"))
+                safeApiCall(call) {
+                    requireRoleOr403(call, setOf(Roles.ADMIN)) ?: return@safeApiCall
+                    DatabaseFactory.dbQuery { WarehouseInventoryTable.deleteWhere { Op.TRUE } }
+                    call.respond(mapOf("status" to "ok"))
+                }
             }
         }
 
         // ---------- ENTRADAS (bitácora con fecha) ----------
         route("/entradas") {
             get {
-                val items = DatabaseFactory.dbQuery {
-                    WarehouseIncomingLogTable.selectAll().map {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                    val result = pagedQuery(call, WarehouseIncomingLogTable.selectAll()) {
                         WarehouseIncomingLog(
                             id = it[WarehouseIncomingLogTable.id],
                             fecha = it[WarehouseIncomingLogTable.fecha],
@@ -119,33 +137,14 @@ fun Route.warehouseRouting() {
                             ubicacion = it[WarehouseIncomingLogTable.ubicacion]
                         )
                     }
+                    call.respond(result)
                 }
-                call.respond(items)
             }
             post {
-                val item = call.receive<WarehouseIncomingLog>()
-                DatabaseFactory.dbQuery {
-                    WarehouseIncomingLogTable.insert {
-                        it[fecha] = item.fecha
-                        it[po] = item.po
-                        it[modelo] = item.modelo
-                        it[cantidad] = item.cantidad
-                        it[ubicacion] = item.ubicacion
-                    }
-                }
-                call.respond(mapOf("status" to "ok"))
-            }
-            delete("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
-                DatabaseFactory.dbQuery {
-                    WarehouseIncomingLogTable.deleteWhere { WarehouseIncomingLogTable.id eq id }
-                }
-                call.respond(mapOf("status" to "ok"))
-            }
-            post("/bulk") {
-                val items = call.receive<List<WarehouseIncomingLog>>()
-                DatabaseFactory.dbQuery {
-                    items.forEach { item ->
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val item = call.receive<WarehouseIncomingLog>()
+                    DatabaseFactory.dbQuery {
                         WarehouseIncomingLogTable.insert {
                             it[fecha] = item.fecha
                             it[po] = item.po
@@ -154,20 +153,55 @@ fun Route.warehouseRouting() {
                             it[ubicacion] = item.ubicacion
                         }
                     }
+                    call.respond(mapOf("status" to "ok"))
                 }
-                call.respond(mapOf("insertados" to items.size.toString()))
+            }
+            delete("/{id}") {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val id = call.parameters["id"]?.toIntOrNull() ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+                    DatabaseFactory.dbQuery { WarehouseIncomingLogTable.deleteWhere { WarehouseIncomingLogTable.id eq id } }
+                    call.respond(mapOf("status" to "ok"))
+                }
+            }
+            post("/bulk") {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val items = call.receive<List<WarehouseIncomingLog>>()
+                    DatabaseFactory.dbQuery {
+                        items.forEach { item ->
+                            WarehouseIncomingLogTable.insert {
+                                it[fecha] = item.fecha
+                                it[po] = item.po
+                                it[modelo] = item.modelo
+                                it[cantidad] = item.cantidad
+                                it[ubicacion] = item.ubicacion
+                            }
+                        }
+                    }
+                    call.respond(mapOf("insertados" to items.size.toString()))
+                }
             }
             delete("/bulk/all") {
-                DatabaseFactory.dbQuery { WarehouseIncomingLogTable.deleteWhere { org.jetbrains.exposed.sql.Op.TRUE } }
-                call.respond(mapOf("status" to "ok"))
+                safeApiCall(call) {
+                    requireRoleOr403(call, setOf(Roles.ADMIN)) ?: return@safeApiCall
+                    DatabaseFactory.dbQuery { WarehouseIncomingLogTable.deleteWhere { Op.TRUE } }
+                    call.respond(mapOf("status" to "ok"))
+                }
             }
         }
 
         // ---------- ENVIOS DETALLADOS (fd, sf, aj, evf, rbt) ----------
         route("/envios") {
             get {
-                val items = DatabaseFactory.dbQuery {
-                    ShipmentTable.selectAll().map {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                    val cliente = call.request.queryParameters["cliente"]
+                    val baseQuery = if (cliente != null)
+                        ShipmentTable.selectAll().where { ShipmentTable.cliente eq cliente }
+                    else
+                        ShipmentTable.selectAll()
+                    val result = pagedQuery(call, baseQuery) {
                         Shipment(
                             id = it[ShipmentTable.id],
                             cliente = it[ShipmentTable.cliente],
@@ -186,42 +220,14 @@ fun Route.warehouseRouting() {
                             inspector = it[ShipmentTable.inspector]
                         )
                     }
+                    call.respond(result)
                 }
-                call.respond(items)
             }
             post {
-                val item = call.receive<Shipment>()
-                DatabaseFactory.dbQuery {
-                    ShipmentTable.insert {
-                        it[cliente] = item.cliente
-                        it[fechaCarga] = item.fechaCarga
-                        it[poContenedor] = item.poContenedor
-                        it[sku] = item.sku
-                        it[nombreProducto] = item.nombreProducto
-                        it[numeroSello] = item.numeroSello
-                        it[placa] = item.placa
-                        it[cantidad] = item.cantidad
-                        it[gabinetes] = item.gabinetes
-                        it[conductor] = item.conductor
-                        it[horaInicio] = item.horaInicio
-                        it[horaFin] = item.horaFin
-                        it[operador] = item.operador
-                        it[inspector] = item.inspector
-                    }
-                }
-                call.respond(mapOf("status" to "ok"))
-            }
-            delete("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
-                DatabaseFactory.dbQuery {
-                    ShipmentTable.deleteWhere { ShipmentTable.id eq id }
-                }
-                call.respond(mapOf("status" to "ok"))
-            }
-            post("/bulk") {
-                val items = call.receive<List<Shipment>>()
-                DatabaseFactory.dbQuery {
-                    items.forEach { item ->
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.SHIPPING_WRITE) ?: return@safeApiCall
+                    val item = call.receive<Shipment>()
+                    DatabaseFactory.dbQuery {
                         ShipmentTable.insert {
                             it[cliente] = item.cliente
                             it[fechaCarga] = item.fechaCarga
@@ -239,78 +245,25 @@ fun Route.warehouseRouting() {
                             it[inspector] = item.inspector
                         }
                     }
+                    call.respond(mapOf("status" to "ok"))
                 }
-                call.respond(mapOf("insertados" to items.size.toString()))
-            }
-            delete("/bulk/all") {
-                DatabaseFactory.dbQuery { ShipmentTable.deleteWhere { org.jetbrains.exposed.sql.Op.TRUE } }
-                call.respond(mapOf("status" to "ok"))
-            }
-        }
-
-        // ---------- RESUMEN DE ENVIOS (hoja "producto que salio de planta") ----------
-        route("/envios-resumen") {
-            get {
-                val items = DatabaseFactory.dbQuery {
-                    ShipmentSummaryTable.selectAll().map {
-                        ShipmentSummary(
-                            id = it[ShipmentSummaryTable.id],
-                            cliente = it[ShipmentSummaryTable.cliente],
-                            po = it[ShipmentSummaryTable.po],
-                            modelo = it[ShipmentSummaryTable.modelo],
-                            cantidad = it[ShipmentSummaryTable.cantidad],
-                            fecha = it[ShipmentSummaryTable.fecha]
-                        )
-                    }
-                }
-                call.respond(items)
-            }
-            post {
-                val item = call.receive<ShipmentSummary>()
-                DatabaseFactory.dbQuery {
-                    ShipmentSummaryTable.insert {
-                        it[cliente] = item.cliente
-                        it[po] = item.po
-                        it[modelo] = item.modelo
-                        it[cantidad] = item.cantidad
-                        it[fecha] = item.fecha
-                    }
-                }
-                call.respond(mapOf("status" to "ok"))
             }
             delete("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
-                DatabaseFactory.dbQuery {
-                    ShipmentSummaryTable.deleteWhere { ShipmentSummaryTable.id eq id }
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.SHIPPING_WRITE) ?: return@safeApiCall
+                    val id = call.parameters["id"]?.toIntOrNull() ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+                    DatabaseFactory.dbQuery { ShipmentTable.deleteWhere { ShipmentTable.id eq id } }
+                    call.respond(mapOf("status" to "ok"))
                 }
-                call.respond(mapOf("status" to "ok"))
-            }
-            post("/bulk") {
-                val items = call.receive<List<ShipmentSummary>>()
-                DatabaseFactory.dbQuery {
-                    items.forEach { item ->
-                        ShipmentSummaryTable.insert {
-                            it[cliente] = item.cliente
-                            it[po] = item.po
-                            it[modelo] = item.modelo
-                            it[cantidad] = item.cantidad
-                            it[fecha] = item.fecha
-                        }
-                    }
-                }
-                call.respond(mapOf("insertados" to items.size.toString()))
-            }
-            delete("/bulk/all") {
-                DatabaseFactory.dbQuery { ShipmentSummaryTable.deleteWhere { org.jetbrains.exposed.sql.Op.TRUE } }
-                call.respond(mapOf("status" to "ok"))
             }
         }
 
-        // ---------- UBICACIONES (racks, zonas, andenes) ----------
+        // ---------- UBICACIONES ----------
         route("/ubicaciones") {
             get {
-                val items = DatabaseFactory.dbQuery {
-                    WarehouseLocationTable.selectAll().map {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                    val result = pagedQuery(call, WarehouseLocationTable.selectAll()) {
                         WarehouseLocation(
                             id = it[WarehouseLocationTable.id],
                             codigo = it[WarehouseLocationTable.codigo],
@@ -322,54 +275,62 @@ fun Route.warehouseRouting() {
                             notas = it[WarehouseLocationTable.notas]
                         )
                     }
+                    call.respond(result)
                 }
-                call.respond(items)
             }
             post {
-                val item = call.receive<WarehouseLocation>()
-                DatabaseFactory.dbQuery {
-                    WarehouseLocationTable.insert {
-                        it[codigo] = item.codigo
-                        it[zona] = item.zona
-                        it[tipo] = item.tipo
-                        it[capacidad] = item.capacidad
-                        it[ocupacion] = item.ocupacion
-                        it[estado] = item.estado
-                        it[notas] = item.notas
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val item = call.receive<WarehouseLocation>()
+                    DatabaseFactory.dbQuery {
+                        WarehouseLocationTable.insert {
+                            it[codigo] = item.codigo
+                            it[zona] = item.zona
+                            it[tipo] = item.tipo
+                            it[capacidad] = item.capacidad
+                            it[ocupacion] = item.ocupacion
+                            it[estado] = item.estado
+                            it[notas] = item.notas
+                        }
                     }
+                    call.respond(mapOf("status" to "ok"))
                 }
-                call.respond(mapOf("status" to "ok"))
             }
             put("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest)
-                val item = call.receive<WarehouseLocation>()
-                DatabaseFactory.dbQuery {
-                    WarehouseLocationTable.update({ WarehouseLocationTable.id eq id }) {
-                        it[codigo] = item.codigo
-                        it[zona] = item.zona
-                        it[tipo] = item.tipo
-                        it[capacidad] = item.capacidad
-                        it[ocupacion] = item.ocupacion
-                        it[estado] = item.estado
-                        it[notas] = item.notas
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val id = call.parameters["id"]?.toIntOrNull() ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+                    val item = call.receive<WarehouseLocation>()
+                    DatabaseFactory.dbQuery {
+                        WarehouseLocationTable.update({ WarehouseLocationTable.id eq id }) {
+                            it[codigo] = item.codigo
+                            it[zona] = item.zona
+                            it[tipo] = item.tipo
+                            it[capacidad] = item.capacidad
+                            it[ocupacion] = item.ocupacion
+                            it[estado] = item.estado
+                            it[notas] = item.notas
+                        }
                     }
+                    call.respond(mapOf("status" to "ok"))
                 }
-                call.respond(mapOf("status" to "ok"))
             }
             delete("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
-                DatabaseFactory.dbQuery {
-                    WarehouseLocationTable.deleteWhere { WarehouseLocationTable.id eq id }
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val id = call.parameters["id"]?.toIntOrNull() ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+                    DatabaseFactory.dbQuery { WarehouseLocationTable.deleteWhere { WarehouseLocationTable.id eq id } }
+                    call.respond(mapOf("status" to "ok"))
                 }
-                call.respond(mapOf("status" to "ok"))
             }
         }
 
-        // ---------- SALIDAS (merma, consumo interno, devoluciones - no envio a cliente) ----------
+        // ---------- SALIDAS ----------
         route("/salidas") {
             get {
-                val items = DatabaseFactory.dbQuery {
-                    WarehouseOutgoingLogTable.selectAll().map {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                    val result = pagedQuery(call, WarehouseOutgoingLogTable.selectAll()) {
                         WarehouseOutgoingLog(
                             id = it[WarehouseOutgoingLogTable.id],
                             fecha = it[WarehouseOutgoingLogTable.fecha],
@@ -381,35 +342,14 @@ fun Route.warehouseRouting() {
                             responsable = it[WarehouseOutgoingLogTable.responsable]
                         )
                     }
+                    call.respond(result)
                 }
-                call.respond(items)
             }
             post {
-                val item = call.receive<WarehouseOutgoingLog>()
-                DatabaseFactory.dbQuery {
-                    WarehouseOutgoingLogTable.insert {
-                        it[fecha] = item.fecha
-                        it[po] = item.po
-                        it[modelo] = item.modelo
-                        it[cantidad] = item.cantidad
-                        it[ubicacion] = item.ubicacion
-                        it[motivo] = item.motivo
-                        it[responsable] = item.responsable
-                    }
-                }
-                call.respond(mapOf("status" to "ok"))
-            }
-            delete("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
-                DatabaseFactory.dbQuery {
-                    WarehouseOutgoingLogTable.deleteWhere { WarehouseOutgoingLogTable.id eq id }
-                }
-                call.respond(mapOf("status" to "ok"))
-            }
-            post("/bulk") {
-                val items = call.receive<List<WarehouseOutgoingLog>>()
-                DatabaseFactory.dbQuery {
-                    items.forEach { item ->
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val item = call.receive<WarehouseOutgoingLog>()
+                    DatabaseFactory.dbQuery {
                         WarehouseOutgoingLogTable.insert {
                             it[fecha] = item.fecha
                             it[po] = item.po
@@ -420,16 +360,25 @@ fun Route.warehouseRouting() {
                             it[responsable] = item.responsable
                         }
                     }
+                    call.respond(mapOf("status" to "ok"))
                 }
-                call.respond(mapOf("insertados" to items.size.toString()))
+            }
+            delete("/{id}") {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val id = call.parameters["id"]?.toIntOrNull() ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+                    DatabaseFactory.dbQuery { WarehouseOutgoingLogTable.deleteWhere { WarehouseOutgoingLogTable.id eq id } }
+                    call.respond(mapOf("status" to "ok"))
+                }
             }
         }
 
-        // ---------- AUDITORIAS (conteo fisico vs sistema) ----------
+        // ---------- AUDITORIAS ----------
         route("/auditorias") {
             get {
-                val items = DatabaseFactory.dbQuery {
-                    WarehouseAuditTable.selectAll().map {
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                    val result = pagedQuery(call, WarehouseAuditTable.selectAll()) {
                         WarehouseAudit(
                             id = it[WarehouseAuditTable.id],
                             fecha = it[WarehouseAuditTable.fecha],
@@ -443,50 +392,56 @@ fun Route.warehouseRouting() {
                             estado = it[WarehouseAuditTable.estado]
                         )
                     }
+                    call.respond(result)
                 }
-                call.respond(items)
             }
             post {
-                val item = call.receive<WarehouseAudit>()
-                DatabaseFactory.dbQuery {
-                    WarehouseAuditTable.insert {
-                        it[fecha] = item.fecha
-                        it[ubicacion] = item.ubicacion
-                        it[modelo] = item.modelo
-                        it[cantidadSistema] = item.cantidadSistema
-                        it[cantidadFisica] = item.cantidadFisica
-                        it[diferencia] = item.diferencia
-                        it[responsable] = item.responsable
-                        it[observaciones] = item.observaciones
-                        it[estado] = item.estado
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val item = call.receive<WarehouseAudit>()
+                    DatabaseFactory.dbQuery {
+                        WarehouseAuditTable.insert {
+                            it[fecha] = item.fecha
+                            it[ubicacion] = item.ubicacion
+                            it[modelo] = item.modelo
+                            it[cantidadSistema] = item.cantidadSistema
+                            it[cantidadFisica] = item.cantidadFisica
+                            it[diferencia] = item.diferencia
+                            it[responsable] = item.responsable
+                            it[observaciones] = item.observaciones
+                            it[estado] = item.estado
+                        }
                     }
+                    call.respond(mapOf("status" to "ok"))
                 }
-                call.respond(mapOf("status" to "ok"))
-            }
-            put("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest)
-                val item = call.receive<WarehouseAudit>()
-                DatabaseFactory.dbQuery {
-                    WarehouseAuditTable.update({ WarehouseAuditTable.id eq id }) {
-                        it[fecha] = item.fecha
-                        it[ubicacion] = item.ubicacion
-                        it[modelo] = item.modelo
-                        it[cantidadSistema] = item.cantidadSistema
-                        it[cantidadFisica] = item.cantidadFisica
-                        it[diferencia] = item.diferencia
-                        it[responsable] = item.responsable
-                        it[observaciones] = item.observaciones
-                        it[estado] = item.estado
-                    }
-                }
-                call.respond(mapOf("status" to "ok"))
             }
             delete("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
-                DatabaseFactory.dbQuery {
-                    WarehouseAuditTable.deleteWhere { WarehouseAuditTable.id eq id }
+                safeApiCall(call) {
+                    requireRoleOr403(call, Roles.WAREHOUSE_WRITE) ?: return@safeApiCall
+                    val id = call.parameters["id"]?.toIntOrNull() ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+                    DatabaseFactory.dbQuery { WarehouseAuditTable.deleteWhere { WarehouseAuditTable.id eq id } }
+                    call.respond(mapOf("status" to "ok"))
                 }
-                call.respond(mapOf("status" to "ok"))
+            }
+        }
+
+        // ---------- RESUMEN DE EMBARQUES (envíos por cliente) ----------
+        get("/envios/resumen") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                val items = DatabaseFactory.dbQuery {
+                    ShipmentSummaryTable.selectAll().map {
+                        ShipmentSummary(
+                            id = it[ShipmentSummaryTable.id],
+                            cliente = it[ShipmentSummaryTable.cliente],
+                            po = it[ShipmentSummaryTable.po],
+                            modelo = it[ShipmentSummaryTable.modelo],
+                            cantidad = it[ShipmentSummaryTable.cantidad],
+                            fecha = it[ShipmentSummaryTable.fecha]
+                        )
+                    }
+                }
+                call.respond(items)
             }
         }
     }

@@ -273,3 +273,34 @@ data class ChemicalProduct(
     val estado: String = "Activo",
     val ultimaRevision: String = ""
 )
+
+// ============================================================
+// WORKFLOW DE APROBACIONES
+// ============================================================
+
+@Serializable
+data class ApprovalRequest(
+    val id: Int = 0,
+    val entityType: String,        // PURCHASE_ORDER, WORK_PERMIT, SHIPPING_ORDER, etc.
+    val entityId: Int,
+    val entityTable: String = "",
+    val estado: String = "PENDIENTE",  // PENDIENTE, EN_REVISION, APROBADO, RECHAZADO
+    val solicitadoPor: String = "",
+    val fechaSolicitud: String = "",
+    val aprobadoPor: String = "",
+    val fechaAprobacion: String = "",
+    val comentarios: String = "",
+    val prioridad: String = "MEDIA"  // BAJA, MEDIA, ALTA, URGENTE
+)
+
+@Serializable
+data class DocumentLog(
+    val id: Int = 0,
+    val tipoDocumento: String,
+    val numeroDocumento: String,
+    val tablaOrigen: String = "",
+    val registroId: Int = 0,
+    val usuario: String = "",
+    val fecha: String = "",
+    val descripcion: String = ""
+)
