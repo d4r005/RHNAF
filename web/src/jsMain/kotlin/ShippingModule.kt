@@ -6,6 +6,7 @@ import io.ktor.client.request.*
 import io.ktor.client.call.*
 import io.ktor.http.*
 import com.example.rhnaf.shared.model.*
+import org.jetbrains.compose.web.attributes.*
 import kotlinx.coroutines.launch
 
 // ============================================================
@@ -29,7 +30,7 @@ fun ShippingModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope,
             }
         }
 
-        Div({ style { display(DisplayStyle.Flex); gap(4.px); marginBottom(20.px); borderBottom(1.px, LineStyle.Solid, Color("#e2e8f0")) } }) {
+        Div({ style { display(DisplayStyle.Flex); gap(4.px); marginBottom(20.px); property("border-bottom", "1px solid #e2e8f0") } }) {
             ShippingTab.values().forEach { tab ->
                 val label = when (tab) {
                     ShippingTab.RESUMEN -> "Resumen"
@@ -88,6 +89,7 @@ private fun ShippingResumenTab(client: HttpClient) {
     }
 }
 
+@Composable
 private fun resumenCard(label: String, value: String) {
     Div({ style { backgroundColor(Color("#f8fafc")); padding(20.px); borderRadius(10.px); property("border", "1px solid #e2e8f0") } }) {
         P({ style { fontSize(12.px); color(Color("#64748b")); margin(0.px, 0.px, 8.px, 0.px) } }) { Text(label) }
@@ -314,7 +316,8 @@ private fun ShippingTrazabilidadTab(client: HttpClient, scope: kotlinx.coroutine
 }
 
 // Helpers
-private inline fun shipInput(label: String, value: String, crossinline onChange: (String) -> Unit) {
+@Composable
+private fun shipInput(label: String, value: String, onChange: (String) -> Unit) {
     Input(InputType.Text) {
         placeholder(label)
         value(value)
@@ -323,15 +326,18 @@ private inline fun shipInput(label: String, value: String, crossinline onChange:
     }
 }
 
+@Composable
 private fun shipTh(label: String) {
-    Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text(label) }
+    Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text(label) }
 }
 
+@Composable
 private fun shipTd(text: String) {
     Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(text) }
 }
 
-private inline fun shipDeleteBtn(scope: kotlinx.coroutines.CoroutineScope, crossinline action: () -> Unit) {
+@Composable
+private fun shipDeleteBtn(scope: kotlinx.coroutines.CoroutineScope, action: () -> Unit) {
     Button({
         style { padding(4.px, 8.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(12.px) }
         onClick { action() }

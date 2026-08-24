@@ -32,7 +32,7 @@ fun WarehouseModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             }
         }
 
-        Div({ style { display(DisplayStyle.Flex); gap(4.px); marginBottom(20.px); borderBottom(1.px, LineStyle.Solid, Color("#e2e8f0")) } }) {
+        Div({ style { display(DisplayStyle.Flex); gap(4.px); marginBottom(20.px); property("border-bottom", "1px solid #e2e8f0") } }) {
             WarehouseTab.values().forEach { tab ->
                 val label = when (tab) {
                     WarehouseTab.INVENTARIO -> "Inventario"
@@ -67,17 +67,7 @@ fun WarehouseModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     }
 }
 
-private fun inputStyle(): org.jetbrains.compose.web.css.CSSBuilder.() -> Unit = {
-    padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px)
-}
 
-private fun btnAddStyle(): org.jetbrains.compose.web.css.CSSBuilder.() -> Unit = {
-    padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer")
-}
-
-private fun btnDelStyle(): org.jetbrains.compose.web.css.CSSBuilder.() -> Unit = {
-    padding(4.px, 8.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(12.px)
-}
 
 // ---------- INVENTARIO ----------
 @Composable
@@ -104,14 +94,14 @@ private fun WarehouseInventoryTab(client: HttpClient, scope: kotlinx.coroutines.
         H3({ style { margin(0.px, 0.px, 12.px, 0.px); fontSize(15.px) } }) { Text("Inventario de Producto Terminado por Ubicación") }
         if (canEdit) {
             Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-                Input(InputType.Text) { placeholder("Lugar *"); value(f_lugar); onInput { f_lugar = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("PO"); value(f_po); onInput { f_po = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Modelo"); value(f_modelo); onInput { f_modelo = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Cantidad"); value(f_cantidad); onInput { f_cantidad = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Falta"); value(f_falta); onInput { f_falta = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Existencia"); value(f_existencia); onInput { f_existencia = it.value }; style(inputStyle()) }
+                Input(InputType.Text) { placeholder("Lugar *"); value(f_lugar); onInput { f_lugar = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("PO"); value(f_po); onInput { f_po = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Modelo"); value(f_modelo); onInput { f_modelo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Cantidad"); value(f_cantidad); onInput { f_cantidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Falta"); value(f_falta); onInput { f_falta = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Existencia"); value(f_existencia); onInput { f_existencia = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
                 Button({
-                    style(btnAddStyle())
+                    style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                     onClick {
                         if (f_lugar.isNotBlank()) { scope.launch {
                             client.post("$BASE/api/v1/almacen/inventario") { contentType(ContentType.Application.Json); setBody(WarehouseInventoryItem(lugar = f_lugar, po = f_po, modelo = f_modelo, cantidad = f_cantidad, falta = f_falta, existencia = f_existencia)) }
@@ -125,12 +115,12 @@ private fun WarehouseInventoryTab(client: HttpClient, scope: kotlinx.coroutines.
             Div({ style { overflowX("auto") } }) {
                 Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
                     Thead { Tr {
-                        Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text("Lugar") }
-                        Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text("PO") }
-                        Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text("Modelo") }
-                        Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text("Cantidad") }
-                        Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text("Falta") }
-                        Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text("Existencia") }
+                        Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text("Lugar") }
+                        Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text("PO") }
+                        Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text("Modelo") }
+                        Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text("Cantidad") }
+                        Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text("Falta") }
+                        Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text("Existencia") }
                         Th { Text("") }
                     } }
                     Tbody {
@@ -142,7 +132,7 @@ private fun WarehouseInventoryTab(client: HttpClient, scope: kotlinx.coroutines.
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.cantidad) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.falta) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.existencia) }
-                                if (canEdit) { Td { Button({ style(btnDelStyle()); onClick { scope.launch { client.delete("$BASE/api/v1/almacen/inventario/${row.id}"); refresh() } } }) { Text("✕") } } }
+                                if (canEdit) { Td { Button({ style { padding(4.px, 8.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(12.px) }; onClick { scope.launch { client.delete("$BASE/api/v1/almacen/inventario/${row.id}"); refresh() } } }) { Text("✕") } } }
                             }
                         }
                     }
@@ -177,13 +167,13 @@ private fun WarehouseIncomingTab(client: HttpClient, scope: kotlinx.coroutines.C
         H3({ style { margin(0.px, 0.px, 12.px, 0.px); fontSize(15.px) } }) { Text("Bitácora de Entradas al Almacén") }
         if (canEdit) {
             Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-                Input(InputType.Text) { placeholder("Fecha"); value(f_fecha); onInput { f_fecha = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("PO"); value(f_po); onInput { f_po = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Modelo"); value(f_modelo); onInput { f_modelo = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Cantidad"); value(f_cantidad); onInput { f_cantidad = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Ubicación"); value(f_ubicacion); onInput { f_ubicacion = it.value }; style(inputStyle()) }
+                Input(InputType.Text) { placeholder("Fecha"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("PO"); value(f_po); onInput { f_po = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Modelo"); value(f_modelo); onInput { f_modelo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Cantidad"); value(f_cantidad); onInput { f_cantidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Ubicación"); value(f_ubicacion); onInput { f_ubicacion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
                 Button({
-                    style(btnAddStyle())
+                    style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                     onClick { scope.launch {
                         client.post("$BASE/api/v1/almacen/entradas") { contentType(ContentType.Application.Json); setBody(WarehouseIncomingLog(fecha = f_fecha, po = f_po, modelo = f_modelo, cantidad = f_cantidad, ubicacion = f_ubicacion)) }
                         f_fecha = ""; f_po = ""; f_modelo = ""; f_cantidad = ""; f_ubicacion = ""; refresh()
@@ -195,11 +185,11 @@ private fun WarehouseIncomingTab(client: HttpClient, scope: kotlinx.coroutines.C
             Div({ style { overflowX("auto") } }) {
                 Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
                     Thead { Tr {
-                        Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text("Fecha") }
-                        Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text("PO") }
-                        Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text("Modelo") }
-                        Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text("Cantidad") }
-                        Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text("Ubicación") }
+                        Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text("Fecha") }
+                        Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text("PO") }
+                        Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text("Modelo") }
+                        Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text("Cantidad") }
+                        Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text("Ubicación") }
                         Th { Text("") }
                     } }
                     Tbody {
@@ -210,7 +200,7 @@ private fun WarehouseIncomingTab(client: HttpClient, scope: kotlinx.coroutines.C
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.modelo) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.cantidad) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.ubicacion) }
-                                if (canEdit) { Td { Button({ style(btnDelStyle()); onClick { scope.launch { client.delete("$BASE/api/v1/almacen/entradas/${row.id}"); refresh() } } }) { Text("✕") } } }
+                                if (canEdit) { Td { Button({ style { padding(4.px, 8.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(12.px) }; onClick { scope.launch { client.delete("$BASE/api/v1/almacen/entradas/${row.id}"); refresh() } } }) { Text("✕") } } }
                             }
                         }
                     }
@@ -247,15 +237,15 @@ private fun WarehouseOutgoingTab(client: HttpClient, scope: kotlinx.coroutines.C
         H3({ style { margin(0.px, 0.px, 12.px, 0.px); fontSize(15.px) } }) { Text("Salidas de Almacén (Merma, Consumo Interno, Devoluciones)") }
         if (canEdit) {
             Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-                Input(InputType.Text) { placeholder("Fecha"); value(f_fecha); onInput { f_fecha = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("PO"); value(f_po); onInput { f_po = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Modelo"); value(f_modelo); onInput { f_modelo = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Cantidad"); value(f_cantidad); onInput { f_cantidad = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Ubicación"); value(f_ubicacion); onInput { f_ubicacion = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Motivo"); value(f_motivo); onInput { f_motivo = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Responsable"); value(f_responsable); onInput { f_responsable = it.value }; style(inputStyle()) }
+                Input(InputType.Text) { placeholder("Fecha"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("PO"); value(f_po); onInput { f_po = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Modelo"); value(f_modelo); onInput { f_modelo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Cantidad"); value(f_cantidad); onInput { f_cantidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Ubicación"); value(f_ubicacion); onInput { f_ubicacion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Motivo"); value(f_motivo); onInput { f_motivo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Responsable"); value(f_responsable); onInput { f_responsable = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
                 Button({
-                    style(btnAddStyle())
+                    style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                     onClick { scope.launch {
                         client.post("$BASE/api/v1/almacen/salidas") { contentType(ContentType.Application.Json); setBody(WarehouseOutgoingLog(fecha = f_fecha, po = f_po, modelo = f_modelo, cantidad = f_cantidad, ubicacion = f_ubicacion, motivo = f_motivo, responsable = f_responsable)) }
                         f_fecha = ""; f_po = ""; f_modelo = ""; f_cantidad = ""; f_ubicacion = ""; f_motivo = ""; f_responsable = ""; refresh()
@@ -268,7 +258,7 @@ private fun WarehouseOutgoingTab(client: HttpClient, scope: kotlinx.coroutines.C
                 Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
                     Thead { Tr {
                         listOf("Fecha", "PO", "Modelo", "Cantidad", "Ubicación", "Motivo", "Responsable").forEach { h ->
-                            Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text(h) }
+                            Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text(h) }
                         }
                         Th { Text("") }
                     } }
@@ -282,7 +272,7 @@ private fun WarehouseOutgoingTab(client: HttpClient, scope: kotlinx.coroutines.C
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.ubicacion) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.motivo) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.responsable) }
-                                if (canEdit) { Td { Button({ style(btnDelStyle()); onClick { scope.launch { client.delete("$BASE/api/v1/almacen/salidas/${row.id}"); refresh() } } }) { Text("✕") } } }
+                                if (canEdit) { Td { Button({ style { padding(4.px, 8.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(12.px) }; onClick { scope.launch { client.delete("$BASE/api/v1/almacen/salidas/${row.id}"); refresh() } } }) { Text("✕") } } }
                             }
                         }
                     }
@@ -319,15 +309,15 @@ private fun WarehouseLocationsTab(client: HttpClient, scope: kotlinx.coroutines.
         H3({ style { margin(0.px, 0.px, 12.px, 0.px); fontSize(15.px) } }) { Text("Ubicaciones Físicas del Almacén") }
         if (canEdit) {
             Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-                Input(InputType.Text) { placeholder("Código *"); value(f_codigo); onInput { f_codigo = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Zona"); value(f_zona); onInput { f_zona = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Tipo"); value(f_tipo); onInput { f_tipo = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Capacidad"); value(f_capacidad); onInput { f_capacidad = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Ocupación"); value(f_ocupacion); onInput { f_ocupacion = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Notas"); value(f_notas); onInput { f_notas = it.value }; style(inputStyle()) }
+                Input(InputType.Text) { placeholder("Código *"); value(f_codigo); onInput { f_codigo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Zona"); value(f_zona); onInput { f_zona = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Tipo"); value(f_tipo); onInput { f_tipo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Capacidad"); value(f_capacidad); onInput { f_capacidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Ocupación"); value(f_ocupacion); onInput { f_ocupacion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Notas"); value(f_notas); onInput { f_notas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
                 Button({
-                    style(btnAddStyle())
+                    style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                     onClick {
                         if (f_codigo.isNotBlank()) { scope.launch {
                             client.post("$BASE/api/v1/almacen/ubicaciones") { contentType(ContentType.Application.Json); setBody(WarehouseLocation(codigo = f_codigo, zona = f_zona, tipo = f_tipo, capacidad = f_capacidad, ocupacion = f_ocupacion, estado = f_estado, notas = f_notas)) }
@@ -342,7 +332,7 @@ private fun WarehouseLocationsTab(client: HttpClient, scope: kotlinx.coroutines.
                 Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
                     Thead { Tr {
                         listOf("Código", "Zona", "Tipo", "Capacidad", "Ocupación", "Estado", "Notas").forEach { h ->
-                            Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text(h) }
+                            Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text(h) }
                         }
                         Th { Text("") }
                     } }
@@ -356,7 +346,7 @@ private fun WarehouseLocationsTab(client: HttpClient, scope: kotlinx.coroutines.
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.ocupacion) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.estado) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.notas) }
-                                if (canEdit) { Td { Button({ style(btnDelStyle()); onClick { scope.launch { client.delete("$BASE/api/v1/almacen/ubicaciones/${row.id}"); refresh() } } }) { Text("✕") } } }
+                                if (canEdit) { Td { Button({ style { padding(4.px, 8.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(12.px) }; onClick { scope.launch { client.delete("$BASE/api/v1/almacen/ubicaciones/${row.id}"); refresh() } } }) { Text("✕") } } }
                             }
                         }
                     }
@@ -395,17 +385,17 @@ private fun WarehouseAuditsTab(client: HttpClient, scope: kotlinx.coroutines.Cor
         H3({ style { margin(0.px, 0.px, 12.px, 0.px); fontSize(15.px) } }) { Text("Auditorías de Inventario (Sistema vs. Físico)") }
         if (canEdit) {
             Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-                Input(InputType.Text) { placeholder("Fecha"); value(f_fecha); onInput { f_fecha = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Ubicación"); value(f_ubicacion); onInput { f_ubicacion = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Modelo"); value(f_modelo); onInput { f_modelo = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Cant. Sistema"); value(f_cantidadSistema); onInput { f_cantidadSistema = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Cant. Física"); value(f_cantidadFisica); onInput { f_cantidadFisica = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Diferencia"); value(f_diferencia); onInput { f_diferencia = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Responsable"); value(f_responsable); onInput { f_responsable = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Observaciones"); value(f_observaciones); onInput { f_observaciones = it.value }; style(inputStyle()) }
+                Input(InputType.Text) { placeholder("Fecha"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Ubicación"); value(f_ubicacion); onInput { f_ubicacion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Modelo"); value(f_modelo); onInput { f_modelo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Cant. Sistema"); value(f_cantidadSistema); onInput { f_cantidadSistema = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Cant. Física"); value(f_cantidadFisica); onInput { f_cantidadFisica = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Diferencia"); value(f_diferencia); onInput { f_diferencia = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Responsable"); value(f_responsable); onInput { f_responsable = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Observaciones"); value(f_observaciones); onInput { f_observaciones = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
                 Button({
-                    style(btnAddStyle())
+                    style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                     onClick { scope.launch {
                         client.post("$BASE/api/v1/almacen/auditorias") { contentType(ContentType.Application.Json); setBody(WarehouseAudit(fecha = f_fecha, ubicacion = f_ubicacion, modelo = f_modelo, cantidadSistema = f_cantidadSistema, cantidadFisica = f_cantidadFisica, diferencia = f_diferencia, responsable = f_responsable, observaciones = f_observaciones, estado = f_estado)) }
                         f_fecha = ""; f_ubicacion = ""; f_modelo = ""; f_cantidadSistema = ""; f_cantidadFisica = ""; f_diferencia = ""; f_responsable = ""; f_observaciones = ""; f_estado = "Pendiente"; refresh()
@@ -418,7 +408,7 @@ private fun WarehouseAuditsTab(client: HttpClient, scope: kotlinx.coroutines.Cor
                 Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
                     Thead { Tr {
                         listOf("Fecha", "Ubicación", "Modelo", "Sistema", "Físico", "Diferencia", "Responsable", "Estado").forEach { h ->
-                            Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text(h) }
+                            Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text(h) }
                         }
                         Th { Text("") }
                     } }
@@ -433,7 +423,7 @@ private fun WarehouseAuditsTab(client: HttpClient, scope: kotlinx.coroutines.Cor
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.diferencia) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.responsable) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.estado) }
-                                if (canEdit) { Td { Button({ style(btnDelStyle()); onClick { scope.launch { client.delete("$BASE/api/v1/almacen/auditorias/${row.id}"); refresh() } } }) { Text("✕") } } }
+                                if (canEdit) { Td { Button({ style { padding(4.px, 8.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(12.px) }; onClick { scope.launch { client.delete("$BASE/api/v1/almacen/auditorias/${row.id}"); refresh() } } }) { Text("✕") } } }
                             }
                         }
                     }
@@ -477,22 +467,22 @@ private fun WarehouseShipmentsTab(client: HttpClient, scope: kotlinx.coroutines.
         H3({ style { margin(0.px, 0.px, 12.px, 0.px); fontSize(15.px) } }) { Text("Envíos Detallados (FD, SF, AJ, EVF, RBT)") }
         if (canEdit) {
             Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-                Input(InputType.Text) { placeholder("Cliente *"); value(f_cliente); onInput { f_cliente = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Fecha Carga"); value(f_fechaCarga); onInput { f_fechaCarga = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("PO/Contenedor"); value(f_poContenedor); onInput { f_poContenedor = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("SKU"); value(f_sku); onInput { f_sku = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Producto"); value(f_nombreProducto); onInput { f_nombreProducto = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Sello"); value(f_numeroSello); onInput { f_numeroSello = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Placa"); value(f_placa); onInput { f_placa = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Cantidad"); value(f_cantidad); onInput { f_cantidad = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Gabinetes"); value(f_gabinetes); onInput { f_gabinetes = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Conductor"); value(f_conductor); onInput { f_conductor = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Hora Inicio"); value(f_horaInicio); onInput { f_horaInicio = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Hora Fin"); value(f_horaFin); onInput { f_horaFin = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Operador"); value(f_operador); onInput { f_operador = it.value }; style(inputStyle()) }
-                Input(InputType.Text) { placeholder("Inspector"); value(f_inspector); onInput { f_inspector = it.value }; style(inputStyle()) }
+                Input(InputType.Text) { placeholder("Cliente *"); value(f_cliente); onInput { f_cliente = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Fecha Carga"); value(f_fechaCarga); onInput { f_fechaCarga = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("PO/Contenedor"); value(f_poContenedor); onInput { f_poContenedor = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("SKU"); value(f_sku); onInput { f_sku = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Producto"); value(f_nombreProducto); onInput { f_nombreProducto = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Sello"); value(f_numeroSello); onInput { f_numeroSello = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Placa"); value(f_placa); onInput { f_placa = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Cantidad"); value(f_cantidad); onInput { f_cantidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Gabinetes"); value(f_gabinetes); onInput { f_gabinetes = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Conductor"); value(f_conductor); onInput { f_conductor = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Hora Inicio"); value(f_horaInicio); onInput { f_horaInicio = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Hora Fin"); value(f_horaFin); onInput { f_horaFin = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Operador"); value(f_operador); onInput { f_operador = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                Input(InputType.Text) { placeholder("Inspector"); value(f_inspector); onInput { f_inspector = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
                 Button({
-                    style(btnAddStyle())
+                    style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                     onClick {
                         if (f_cliente.isNotBlank()) { scope.launch {
                             client.post("$BASE/api/v1/almacen/envios") { contentType(ContentType.Application.Json); setBody(Shipment(cliente = f_cliente, fechaCarga = f_fechaCarga, poContenedor = f_poContenedor, sku = f_sku, nombreProducto = f_nombreProducto, numeroSello = f_numeroSello, placa = f_placa, cantidad = f_cantidad, gabinetes = f_gabinetes, conductor = f_conductor, horaInicio = f_horaInicio, horaFin = f_horaFin, operador = f_operador, inspector = f_inspector)) }
@@ -507,7 +497,7 @@ private fun WarehouseShipmentsTab(client: HttpClient, scope: kotlinx.coroutines.
                 Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
                     Thead { Tr {
                         listOf("Cliente", "Fecha", "PO", "SKU", "Producto", "Sello", "Placa", "Cant.", "Gab.", "Conductor", "Inicio", "Fin", "Operador", "Inspector").forEach { h ->
-                            Th({ style { padding(8.px, 6.px); textAlign(TextAlign.Left); fontSize(12.px); color(Color("#64748b")); borderBottom(2.px, LineStyle.Solid, Color("#e2e8f0")) } }) { Text(h) }
+                            Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text(h) }
                         }
                         Th { Text("") }
                     } }
@@ -528,7 +518,7 @@ private fun WarehouseShipmentsTab(client: HttpClient, scope: kotlinx.coroutines.
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.horaFin) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.operador) }
                                 Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.inspector) }
-                                if (canEdit) { Td { Button({ style(btnDelStyle()); onClick { scope.launch { client.delete("$BASE/api/v1/almacen/envios/${row.id}"); refresh() } } }) { Text("✕") } } }
+                                if (canEdit) { Td { Button({ style { padding(4.px, 8.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(12.px) }; onClick { scope.launch { client.delete("$BASE/api/v1/almacen/envios/${row.id}"); refresh() } } }) { Text("✕") } } }
                             }
                         }
                     }
