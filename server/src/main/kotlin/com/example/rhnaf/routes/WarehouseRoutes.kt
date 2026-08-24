@@ -5,10 +5,16 @@ import com.example.rhnaf.database.ShipmentSummaryTable
 import com.example.rhnaf.database.ShipmentTable
 import com.example.rhnaf.database.WarehouseIncomingLogTable
 import com.example.rhnaf.database.WarehouseInventoryTable
+import com.example.rhnaf.database.WarehouseLocationTable
+import com.example.rhnaf.database.WarehouseOutgoingLogTable
+import com.example.rhnaf.database.WarehouseAuditTable
 import com.example.rhnaf.shared.model.Shipment
 import com.example.rhnaf.shared.model.ShipmentSummary
 import com.example.rhnaf.shared.model.WarehouseIncomingLog
 import com.example.rhnaf.shared.model.WarehouseInventoryItem
+import com.example.rhnaf.shared.model.WarehouseLocation
+import com.example.rhnaf.shared.model.WarehouseOutgoingLog
+import com.example.rhnaf.shared.model.WarehouseAudit
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -296,6 +302,190 @@ fun Route.warehouseRouting() {
             }
             delete("/bulk/all") {
                 DatabaseFactory.dbQuery { ShipmentSummaryTable.deleteWhere { org.jetbrains.exposed.sql.Op.TRUE } }
+                call.respond(mapOf("status" to "ok"))
+            }
+        }
+
+        // ---------- UBICACIONES (racks, zonas, andenes) ----------
+        route("/ubicaciones") {
+            get {
+                val items = DatabaseFactory.dbQuery {
+                    WarehouseLocationTable.selectAll().map {
+                        WarehouseLocation(
+                            id = it[WarehouseLocationTable.id],
+                            codigo = it[WarehouseLocationTable.codigo],
+                            zona = it[WarehouseLocationTable.zona],
+                            tipo = it[WarehouseLocationTable.tipo],
+                            capacidad = it[WarehouseLocationTable.capacidad],
+                            ocupacion = it[WarehouseLocationTable.ocupacion],
+                            estado = it[WarehouseLocationTable.estado],
+                            notas = it[WarehouseLocationTable.notas]
+                        )
+                    }
+                }
+                call.respond(items)
+            }
+            post {
+                val item = call.receive<WarehouseLocation>()
+                DatabaseFactory.dbQuery {
+                    WarehouseLocationTable.insert {
+                        it[codigo] = item.codigo
+                        it[zona] = item.zona
+                        it[tipo] = item.tipo
+                        it[capacidad] = item.capacidad
+                        it[ocupacion] = item.ocupacion
+                        it[estado] = item.estado
+                        it[notas] = item.notas
+                    }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+            put("/{id}") {
+                val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest)
+                val item = call.receive<WarehouseLocation>()
+                DatabaseFactory.dbQuery {
+                    WarehouseLocationTable.update({ WarehouseLocationTable.id eq id }) {
+                        it[codigo] = item.codigo
+                        it[zona] = item.zona
+                        it[tipo] = item.tipo
+                        it[capacidad] = item.capacidad
+                        it[ocupacion] = item.ocupacion
+                        it[estado] = item.estado
+                        it[notas] = item.notas
+                    }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+            delete("/{id}") {
+                val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
+                DatabaseFactory.dbQuery {
+                    WarehouseLocationTable.deleteWhere { WarehouseLocationTable.id eq id }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+        }
+
+        // ---------- SALIDAS (merma, consumo interno, devoluciones - no envio a cliente) ----------
+        route("/salidas") {
+            get {
+                val items = DatabaseFactory.dbQuery {
+                    WarehouseOutgoingLogTable.selectAll().map {
+                        WarehouseOutgoingLog(
+                            id = it[WarehouseOutgoingLogTable.id],
+                            fecha = it[WarehouseOutgoingLogTable.fecha],
+                            po = it[WarehouseOutgoingLogTable.po],
+                            modelo = it[WarehouseOutgoingLogTable.modelo],
+                            cantidad = it[WarehouseOutgoingLogTable.cantidad],
+                            ubicacion = it[WarehouseOutgoingLogTable.ubicacion],
+                            motivo = it[WarehouseOutgoingLogTable.motivo],
+                            responsable = it[WarehouseOutgoingLogTable.responsable]
+                        )
+                    }
+                }
+                call.respond(items)
+            }
+            post {
+                val item = call.receive<WarehouseOutgoingLog>()
+                DatabaseFactory.dbQuery {
+                    WarehouseOutgoingLogTable.insert {
+                        it[fecha] = item.fecha
+                        it[po] = item.po
+                        it[modelo] = item.modelo
+                        it[cantidad] = item.cantidad
+                        it[ubicacion] = item.ubicacion
+                        it[motivo] = item.motivo
+                        it[responsable] = item.responsable
+                    }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+            delete("/{id}") {
+                val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
+                DatabaseFactory.dbQuery {
+                    WarehouseOutgoingLogTable.deleteWhere { WarehouseOutgoingLogTable.id eq id }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+            post("/bulk") {
+                val items = call.receive<List<WarehouseOutgoingLog>>()
+                DatabaseFactory.dbQuery {
+                    items.forEach { item ->
+                        WarehouseOutgoingLogTable.insert {
+                            it[fecha] = item.fecha
+                            it[po] = item.po
+                            it[modelo] = item.modelo
+                            it[cantidad] = item.cantidad
+                            it[ubicacion] = item.ubicacion
+                            it[motivo] = item.motivo
+                            it[responsable] = item.responsable
+                        }
+                    }
+                }
+                call.respond(mapOf("insertados" to items.size.toString()))
+            }
+        }
+
+        // ---------- AUDITORIAS (conteo fisico vs sistema) ----------
+        route("/auditorias") {
+            get {
+                val items = DatabaseFactory.dbQuery {
+                    WarehouseAuditTable.selectAll().map {
+                        WarehouseAudit(
+                            id = it[WarehouseAuditTable.id],
+                            fecha = it[WarehouseAuditTable.fecha],
+                            ubicacion = it[WarehouseAuditTable.ubicacion],
+                            modelo = it[WarehouseAuditTable.modelo],
+                            cantidadSistema = it[WarehouseAuditTable.cantidadSistema],
+                            cantidadFisica = it[WarehouseAuditTable.cantidadFisica],
+                            diferencia = it[WarehouseAuditTable.diferencia],
+                            responsable = it[WarehouseAuditTable.responsable],
+                            observaciones = it[WarehouseAuditTable.observaciones],
+                            estado = it[WarehouseAuditTable.estado]
+                        )
+                    }
+                }
+                call.respond(items)
+            }
+            post {
+                val item = call.receive<WarehouseAudit>()
+                DatabaseFactory.dbQuery {
+                    WarehouseAuditTable.insert {
+                        it[fecha] = item.fecha
+                        it[ubicacion] = item.ubicacion
+                        it[modelo] = item.modelo
+                        it[cantidadSistema] = item.cantidadSistema
+                        it[cantidadFisica] = item.cantidadFisica
+                        it[diferencia] = item.diferencia
+                        it[responsable] = item.responsable
+                        it[observaciones] = item.observaciones
+                        it[estado] = item.estado
+                    }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+            put("/{id}") {
+                val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest)
+                val item = call.receive<WarehouseAudit>()
+                DatabaseFactory.dbQuery {
+                    WarehouseAuditTable.update({ WarehouseAuditTable.id eq id }) {
+                        it[fecha] = item.fecha
+                        it[ubicacion] = item.ubicacion
+                        it[modelo] = item.modelo
+                        it[cantidadSistema] = item.cantidadSistema
+                        it[cantidadFisica] = item.cantidadFisica
+                        it[diferencia] = item.diferencia
+                        it[responsable] = item.responsable
+                        it[observaciones] = item.observaciones
+                        it[estado] = item.estado
+                    }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+            delete("/{id}") {
+                val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
+                DatabaseFactory.dbQuery {
+                    WarehouseAuditTable.deleteWhere { WarehouseAuditTable.id eq id }
+                }
                 call.respond(mapOf("status" to "ok"))
             }
         }

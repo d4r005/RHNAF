@@ -74,6 +74,7 @@ class Translations(val lang: Language) {
         "benefits" to "Compensación y Beneficios",
         "workflows" to "Flujos de Aprobación",
         "warehouse" to "Almacén e Inventarios",
+        "shipping" to "Embarques y Logística",
         "import_export" to "Importación y Exportación",
         "stock" to "Stock Actual",
         "suppliers" to "Proveedores",
@@ -154,6 +155,7 @@ class Translations(val lang: Language) {
         "benefits" to "Benefits & Compensation",
         "workflows" to "Approval Workflows",
         "warehouse" to "Warehouse & Inventory",
+        "shipping" to "Shipping & Logistics",
         "import_export" to "Import & Export",
         "stock" to "Current Stock",
         "suppliers" to "Suppliers",
@@ -234,6 +236,7 @@ class Translations(val lang: Language) {
         "benefits" to "福利与薪酬",
         "workflows" to "审批流",
         "warehouse" to "仓库与库存",
+        "shipping" to "发货与物流",
         "import_export" to "进出口管理",
         "stock" to "当前库存",
         "suppliers" to "供应商",
@@ -275,7 +278,7 @@ enum class Module {
     DASHBOARD, EHS_AUDITS, GRC_SECURITY,
     CONTROLLING, PURCHASING, PRODUCTION, QUALITY, EXTENDED_WAREHOUSE, GTS_TRADE,
     FINANCIAL_ACCOUNTING, PLANT_MAINTENANCE, RECRUITMENT_SAP, EMPLOYEES, ATTENDANCE, PRE_NOMINA,
-    SETTINGS, USER_MGMT
+    WAREHOUSE, SHIPPING, SETTINGS, USER_MGMT
 }
 
 enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, ALMACEN, IMPORT_EXPORT, FINANZAS }
@@ -283,6 +286,9 @@ enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, AL
 fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
     if (role == UserRole.RH) return module in listOf(Module.DASHBOARD, Module.EMPLOYEES, Module.ATTENDANCE, Module.PRE_NOMINA, Module.SETTINGS)
+    if (role == UserRole.ALMACEN) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SETTINGS)
+    if (role == UserRole.IMPORT_EXPORT) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.SETTINGS)
+    if (role == UserRole.FINANZAS) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.SETTINGS)
     return module in listOf(Module.DASHBOARD, Module.EHS_AUDITS, Module.SETTINGS)
 }
 
@@ -385,6 +391,8 @@ fun main() {
                             Module.EMPLOYEES -> EmployeeModule(employees, client, scope, t, userRole, authToken) { employees = it }
                             Module.ATTENDANCE -> AttendanceModule(client, scope, t)
                             Module.PRE_NOMINA -> PreNominaModule(client, scope, t, userRole)
+                            Module.WAREHOUSE -> WarehouseModule(client, scope, t, userRole)
+                            Module.SHIPPING -> ShippingModule(client, scope, t, userRole)
                             Module.USER_MGMT -> UserMgmtModule(client, scope, t, authToken)
                             Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
                                 currentLang = it
@@ -441,6 +449,8 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
             if (isModuleVisible(Module.PRODUCTION, role)) SidebarLink(t.get("production_planning"), Module.PRODUCTION, active == Module.PRODUCTION, onSelect)
             if (isModuleVisible(Module.QUALITY, role)) SidebarLink(t.get("quality_management"), Module.QUALITY, active == Module.QUALITY, onSelect)
             if (isModuleVisible(Module.EXTENDED_WAREHOUSE, role)) SidebarLink(t.get("extended_warehouse"), Module.EXTENDED_WAREHOUSE, active == Module.EXTENDED_WAREHOUSE, onSelect)
+            if (isModuleVisible(Module.WAREHOUSE, role)) SidebarLink(t.get("warehouse"), Module.WAREHOUSE, active == Module.WAREHOUSE, onSelect)
+            if (isModuleVisible(Module.SHIPPING, role)) SidebarLink(t.get("shipping"), Module.SHIPPING, active == Module.SHIPPING, onSelect)
             if (isModuleVisible(Module.GTS_TRADE, role)) SidebarLink(t.get("gts_trade"), Module.GTS_TRADE, active == Module.GTS_TRADE, onSelect)
             if (isModuleVisible(Module.FINANCIAL_ACCOUNTING, role)) SidebarLink(t.get("financial_accounting"), Module.FINANCIAL_ACCOUNTING, active == Module.FINANCIAL_ACCOUNTING, onSelect)
             if (isModuleVisible(Module.PLANT_MAINTENANCE, role)) SidebarLink(t.get("plant_maintenance"), Module.PLANT_MAINTENANCE, active == Module.PLANT_MAINTENANCE, onSelect)

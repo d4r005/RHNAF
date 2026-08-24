@@ -17,6 +17,7 @@ import com.example.rhnaf.service.AttendanceUseCase
 import com.example.rhnaf.routes.attendanceRouting
 import com.example.rhnaf.routes.employeeSyncRouting
 import com.example.rhnaf.routes.warehouseRouting
+import com.example.rhnaf.routes.shippingRouting
 import com.example.rhnaf.routes.prePayrollRouting
 import com.example.rhnaf.routes.sapModulesRouting
 import com.example.rhnaf.auth.Roles
@@ -63,6 +64,7 @@ fun Application.module() {
         attendanceRouting(attendanceUseCase)
         employeeSyncRouting()
         warehouseRouting()
+        shippingRouting()
         prePayrollRouting()
         sapModulesRouting()
 

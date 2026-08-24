@@ -55,3 +55,44 @@ data class ShipmentSummary(
     val cantidad: String = "",
     val fecha: String = ""
 )
+
+// Ubicación física dentro del almacén (racks, zonas, andenes)
+@Serializable
+data class WarehouseLocation(
+    val id: Int = 0,
+    val codigo: String,
+    val zona: String = "",
+    val tipo: String = "", // Rack, Piso, Anden, Cuarentena
+    val capacidad: String = "",
+    val ocupacion: String = "",
+    val estado: String = "Activa",
+    val notas: String = ""
+)
+
+// Bitácora de salidas de producto del almacén (consumo interno, merma, devolución - no envío a cliente)
+@Serializable
+data class WarehouseOutgoingLog(
+    val id: Int = 0,
+    val fecha: String = "",
+    val po: String = "",
+    val modelo: String = "",
+    val cantidad: String = "",
+    val ubicacion: String = "",
+    val motivo: String = "", // Merma, Consumo interno, Devolucion a proveedor, Ajuste
+    val responsable: String = ""
+)
+
+// Auditoría de inventario: comparación de cantidad en sistema vs. cantidad física contada
+@Serializable
+data class WarehouseAudit(
+    val id: Int = 0,
+    val fecha: String = "",
+    val ubicacion: String = "",
+    val modelo: String = "",
+    val cantidadSistema: String = "",
+    val cantidadFisica: String = "",
+    val diferencia: String = "",
+    val responsable: String = "",
+    val observaciones: String = "",
+    val estado: String = "Pendiente" // Pendiente, Conciliado, Con diferencia
+)

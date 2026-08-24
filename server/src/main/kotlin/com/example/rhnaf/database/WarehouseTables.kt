@@ -55,3 +55,44 @@ object ShipmentSummaryTable : Table("shipment_summary") {
 
     override val primaryKey = PrimaryKey(id)
 }
+
+object WarehouseLocationTable : Table("warehouse_location") {
+    val id = integer("id").autoIncrement()
+    val codigo = varchar("codigo", 100)
+    val zona = varchar("zona", 100).default("")
+    val tipo = varchar("tipo", 100).default("")
+    val capacidad = varchar("capacidad", 100).default("")
+    val ocupacion = varchar("ocupacion", 100).default("")
+    val estado = varchar("estado", 50).default("Activa")
+    val notas = varchar("notas", 500).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+object WarehouseOutgoingLogTable : Table("warehouse_outgoing_log") {
+    val id = integer("id").autoIncrement()
+    val fecha = varchar("fecha", 50).default("")
+    val po = varchar("po", 200).default("")
+    val modelo = varchar("modelo", 300).default("")
+    val cantidad = varchar("cantidad", 100).default("")
+    val ubicacion = varchar("ubicacion", 200).default("")
+    val motivo = varchar("motivo", 200).default("")
+    val responsable = varchar("responsable", 200).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+object WarehouseAuditTable : Table("warehouse_audit") {
+    val id = integer("id").autoIncrement()
+    val fecha = varchar("fecha", 50).default("")
+    val ubicacion = varchar("ubicacion", 200).default("")
+    val modelo = varchar("modelo", 300).default("")
+    val cantidadSistema = varchar("cantidad_sistema", 100).default("")
+    val cantidadFisica = varchar("cantidad_fisica", 100).default("")
+    val diferencia = varchar("diferencia", 100).default("")
+    val responsable = varchar("responsable", 200).default("")
+    val observaciones = varchar("observaciones", 500).default("")
+    val estado = varchar("estado", 50).default("Pendiente")
+
+    override val primaryKey = PrimaryKey(id)
+}
