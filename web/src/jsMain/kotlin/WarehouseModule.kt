@@ -17,7 +17,7 @@ import kotlinx.browser.window
 // solo pueden ver (readOnly = true).
 // ============================================================
 
-private enum class WarehouseTab { INVENTARIO, ENTRADAS, SALIDAS, UBICACIONES, AUDITORIAS }
+private enum class WarehouseTab { INVENTARIO, ENTRADAS, SALIDAS, UBICACIONES, AUDITORIAS, TARIMAS, SELLOS }
 
 @Composable
 fun WarehouseModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations, userRole: UserRole) {
@@ -40,6 +40,8 @@ fun WarehouseModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                     WarehouseTab.SALIDAS -> "Salidas"
                     WarehouseTab.UBICACIONES -> "Ubicaciones"
                     WarehouseTab.AUDITORIAS -> "Auditorías"
+                    WarehouseTab.TARIMAS -> "Tarimas"
+                    WarehouseTab.SELLOS -> "Sellos"
                 }
                 Button({
                     style {
@@ -61,6 +63,8 @@ fun WarehouseModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             WarehouseTab.SALIDAS -> WarehouseOutgoingTab(client, scope, canEdit)
             WarehouseTab.UBICACIONES -> WarehouseLocationsTab(client, scope, canEdit)
             WarehouseTab.AUDITORIAS -> WarehouseAuditsTab(client, scope, canEdit)
+            WarehouseTab.TARIMAS -> TarimasTab(client, scope, canEdit)
+            WarehouseTab.SELLOS -> SellosTab(client, scope, canEdit)
         }
     }
 }

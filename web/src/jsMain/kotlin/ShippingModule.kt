@@ -11,7 +11,7 @@ import com.example.rhnaf.shared.model.*
 import com.example.rhnaf.shared.model.Shipment
 import kotlinx.coroutines.launch
 
-private enum class ShippingTab { RESUMEN, PEDIDOS, RUTAS, TRAZABILIDAD, ENVIOS }
+private enum class ShippingTab { RESUMEN, PEDIDOS, RUTAS, TRAZABILIDAD, ENVIOS, CHINA }
 
 @Composable
 fun ShippingModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations, userRole: UserRole) {
@@ -34,6 +34,7 @@ fun ShippingModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope,
                     ShippingTab.RUTAS -> "Rutas de Entrega"
                     ShippingTab.TRAZABILIDAD -> "Trazabilidad"
                     ShippingTab.ENVIOS -> "Envíos Detallados"
+                    ShippingTab.CHINA -> "Contenedores China"
                 }
                 Button({
                     style {
@@ -54,6 +55,7 @@ fun ShippingModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope,
             ShippingTab.RUTAS -> ShippingRutasTab(client, scope, canEdit)
             ShippingTab.TRAZABILIDAD -> ShippingTrazabilidadTab(client, scope, canEdit)
             ShippingTab.ENVIOS -> ShippingEnviosTab(client, scope, canEdit)
+            ShippingTab.CHINA -> ContenedoresChinaTab(client, scope, canEdit)
         }
     }
 }

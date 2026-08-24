@@ -20,6 +20,7 @@ import com.example.rhnaf.routes.warehouseRouting
 import com.example.rhnaf.routes.shippingRouting
 import com.example.rhnaf.routes.prePayrollRouting
 import com.example.rhnaf.routes.sapModulesRouting
+import com.example.rhnaf.routes.extendedRouting
 import com.example.rhnaf.auth.Roles
 import com.example.rhnaf.auth.requireRoleOr403
 import io.ktor.server.request.*
@@ -30,6 +31,13 @@ import io.ktor.server.http.content.*
 import java.io.File
 
 import com.example.rhnaf.database.IncidentTable
+import com.example.rhnaf.database.FerreteriaTable
+import com.example.rhnaf.database.RecepcionMPTable
+import com.example.rhnaf.database.TarimaTable
+import com.example.rhnaf.database.ContenedorChinaTable
+import com.example.rhnaf.database.SelloStockTable
+import com.example.rhnaf.database.GasConsumoTable
+import com.example.rhnaf.database.PersonalTallaTable
 import com.example.rhnaf.shared.model.WeeklyIncident
 import com.example.rhnaf.shared.model.AttendanceReport
 
@@ -67,6 +75,7 @@ fun Application.module() {
         shippingRouting()
         prePayrollRouting()
         sapModulesRouting()
+        extendedRouting()
 
         // Sirve la Web App (Compose HTML) desde una carpeta física
         staticFiles("/", File("static"), index = "index.html")
