@@ -17,7 +17,7 @@ import kotlinx.browser.window
 // solo pueden ver (readOnly = true).
 // ============================================================
 
-private enum class WarehouseTab { INVENTARIO, ENTRADAS, SALIDAS, UBICACIONES, AUDITORIAS, ENVIOS }
+private enum class WarehouseTab { INVENTARIO, ENTRADAS, SALIDAS, UBICACIONES, AUDITORIAS }
 
 @Composable
 fun WarehouseModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations, userRole: UserRole) {
@@ -40,7 +40,6 @@ fun WarehouseModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                     WarehouseTab.SALIDAS -> "Salidas"
                     WarehouseTab.UBICACIONES -> "Ubicaciones"
                     WarehouseTab.AUDITORIAS -> "Auditorías"
-                    WarehouseTab.ENVIOS -> "Envíos Detallados"
                 }
                 Button({
                     style {
@@ -62,7 +61,6 @@ fun WarehouseModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             WarehouseTab.SALIDAS -> WarehouseOutgoingTab(client, scope, canEdit)
             WarehouseTab.UBICACIONES -> WarehouseLocationsTab(client, scope, canEdit)
             WarehouseTab.AUDITORIAS -> WarehouseAuditsTab(client, scope, canEdit)
-            WarehouseTab.ENVIOS -> WarehouseShipmentsTab(client, scope, canEdit)
         }
     }
 }
@@ -434,97 +432,3 @@ private fun WarehouseAuditsTab(client: HttpClient, scope: kotlinx.coroutines.Cor
     }
 }
 
-// ---------- ENVIOS DETALLADOS ----------
-@Composable
-private fun WarehouseShipmentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canEdit: Boolean) {
-    val BASE = BACKEND_URL
-    var items by remember { mutableStateOf(emptyList<Shipment>()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var refreshKey by remember { mutableStateOf(0) }
-
-    LaunchedEffect(refreshKey) {
-        isLoading = true
-        try { items = client.get("$BASE/api/v1/almacen/envios").body() } catch (e: Exception) { println("Error: ${e.message}") } finally { isLoading = false }
-    }
-    fun refresh() { refreshKey++ }
-
-    var f_cliente by remember { mutableStateOf("") }
-    var f_fechaCarga by remember { mutableStateOf("") }
-    var f_poContenedor by remember { mutableStateOf("") }
-    var f_sku by remember { mutableStateOf("") }
-    var f_nombreProducto by remember { mutableStateOf("") }
-    var f_numeroSello by remember { mutableStateOf("") }
-    var f_placa by remember { mutableStateOf("") }
-    var f_cantidad by remember { mutableStateOf("") }
-    var f_gabinetes by remember { mutableStateOf("") }
-    var f_conductor by remember { mutableStateOf("") }
-    var f_horaInicio by remember { mutableStateOf("") }
-    var f_horaFin by remember { mutableStateOf("") }
-    var f_operador by remember { mutableStateOf("") }
-    var f_inspector by remember { mutableStateOf("") }
-
-    Div({ style { backgroundColor(Color.white); padding(24.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3({ style { margin(0.px, 0.px, 12.px, 0.px); fontSize(15.px) } }) { Text("Envíos Detallados (FD, SF, AJ, EVF, RBT)") }
-        if (canEdit) {
-            Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-                Input(InputType.Text) { placeholder("Cliente *"); value(f_cliente); onInput { f_cliente = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("Fecha Carga"); value(f_fechaCarga); onInput { f_fechaCarga = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("PO/Contenedor"); value(f_poContenedor); onInput { f_poContenedor = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("SKU"); value(f_sku); onInput { f_sku = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("Producto"); value(f_nombreProducto); onInput { f_nombreProducto = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("Sello"); value(f_numeroSello); onInput { f_numeroSello = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("Placa"); value(f_placa); onInput { f_placa = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("Cantidad"); value(f_cantidad); onInput { f_cantidad = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("Gabinetes"); value(f_gabinetes); onInput { f_gabinetes = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("Conductor"); value(f_conductor); onInput { f_conductor = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("Hora Inicio"); value(f_horaInicio); onInput { f_horaInicio = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("Hora Fin"); value(f_horaFin); onInput { f_horaFin = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("Operador"); value(f_operador); onInput { f_operador = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Input(InputType.Text) { placeholder("Inspector"); value(f_inspector); onInput { f_inspector = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-                Button({
-                    style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
-                    onClick {
-                        if (f_cliente.isNotBlank()) { scope.launch {
-                            client.post("$BASE/api/v1/almacen/envios") { contentType(ContentType.Application.Json); setBody(Shipment(cliente = f_cliente, fechaCarga = f_fechaCarga, poContenedor = f_poContenedor, sku = f_sku, nombreProducto = f_nombreProducto, numeroSello = f_numeroSello, placa = f_placa, cantidad = f_cantidad, gabinetes = f_gabinetes, conductor = f_conductor, horaInicio = f_horaInicio, horaFin = f_horaFin, operador = f_operador, inspector = f_inspector)) }
-                            f_cliente = ""; f_fechaCarga = ""; f_poContenedor = ""; f_sku = ""; f_nombreProducto = ""; f_numeroSello = ""; f_placa = ""; f_cantidad = ""; f_gabinetes = ""; f_conductor = ""; f_horaInicio = ""; f_horaFin = ""; f_operador = ""; f_inspector = ""; refresh()
-                        } }
-                    }
-                }) { Text("+ Agregar") }
-            }
-        }
-        if (isLoading) { P { Text("Cargando...") } } else {
-            Div({ style { overflowX("auto") } }) {
-                Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
-                    Thead { Tr {
-                        listOf("Cliente", "Fecha", "PO", "SKU", "Producto", "Sello", "Placa", "Cant.", "Gab.", "Conductor", "Inicio", "Fin", "Operador", "Inspector").forEach { h ->
-                            Th({ style { padding(8.px, 6.px); textAlign("left"); fontSize(12.px); color(Color("#64748b")); property("border-bottom", "2px solid #e2e8f0") } }) { Text(h) }
-                        }
-                        Th { Text("") }
-                    } }
-                    Tbody {
-                        items.forEach { row ->
-                            Tr {
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.cliente) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.fechaCarga) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.poContenedor) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.sku) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.nombreProducto) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.numeroSello) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.placa) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.cantidad) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.gabinetes) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.conductor) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.horaInicio) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.horaFin) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.operador) }
-                                Td({ style { padding(8.px, 6.px); fontSize(13.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(row.inspector) }
-                                if (canEdit) { Td { Button({ style { padding(4.px, 8.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(12.px) }; onClick { scope.launch { client.delete("$BASE/api/v1/almacen/envios/${row.id}"); refresh() } } }) { Text("✕") } } }
-                            }
-                        }
-                    }
-                }
-            }
-            P({ style { fontSize(12.px); color(Color("#64748b")); marginTop(12.px) } }) { Text("${items.size} registros") }
-        }
-    }
-}

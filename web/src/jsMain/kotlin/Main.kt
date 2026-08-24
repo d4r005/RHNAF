@@ -96,7 +96,6 @@ class Translations(val lang: Language) {
         "purchasing" to "Compras (MM)",
         "production_planning" to "Producción (PP)",
         "quality_management" to "Calidad (QM)",
-        "extended_warehouse" to "Almacén Avanzado (EWM)",
         "gts_trade" to "Comercio Exterior (GTS)",
         "it_security_grc" to "Seguridad SAP / GRC",
         "financial_accounting" to "Contabilidad (FI)",
@@ -177,7 +176,6 @@ class Translations(val lang: Language) {
         "purchasing" to "Purchasing (MM)",
         "production_planning" to "Production (PP)",
         "quality_management" to "Quality (QM)",
-        "extended_warehouse" to "Extended Warehouse (EWM)",
         "gts_trade" to "Global Trade (GTS)",
         "it_security_grc" to "SAP Security / GRC",
         "financial_accounting" to "Accounting (FI)",
@@ -258,7 +256,6 @@ class Translations(val lang: Language) {
         "purchasing" to "采购 (MM)",
         "production_planning" to "生产计划 (PP)",
         "quality_management" to "质量管理 (QM)",
-        "extended_warehouse" to "高级仓储 (EWM)",
         "it_security_grc" to "SAP安全 / GRC",
         "financial_accounting" to "财务会计 (FI)",
         "plant_maintenance" to "工厂维护 (PM)",
@@ -276,7 +273,7 @@ class Translations(val lang: Language) {
 
 enum class Module {
     DASHBOARD, EHS_AUDITS, GRC_SECURITY,
-    CONTROLLING, PURCHASING, PRODUCTION, QUALITY, EXTENDED_WAREHOUSE, GTS_TRADE,
+    CONTROLLING, PURCHASING, PRODUCTION, QUALITY, GTS_TRADE,
     FINANCIAL_ACCOUNTING, PLANT_MAINTENANCE, RECRUITMENT_SAP, EMPLOYEES, ATTENDANCE, PRE_NOMINA,
     WAREHOUSE, SHIPPING, SETTINGS, USER_MGMT
 }
@@ -383,7 +380,6 @@ fun main() {
                             Module.PURCHASING -> PurchasingModule(client, scope, t)
                             Module.PRODUCTION -> ProductionModule(client, scope, t)
                             Module.QUALITY -> QualityModule(client, scope, t)
-                            Module.EXTENDED_WAREHOUSE -> ExtendedWarehouseModule(client, scope, t)
                             Module.GTS_TRADE -> GtsTradeModule(client, scope, t)
                             Module.FINANCIAL_ACCOUNTING -> FinancialAccountingModule(client, scope, t)
                             Module.PLANT_MAINTENANCE -> PlantMaintenanceModule(client, scope, t)
@@ -448,7 +444,6 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
             if (isModuleVisible(Module.PURCHASING, role)) SidebarLink(t.get("purchasing"), Module.PURCHASING, active == Module.PURCHASING, onSelect)
             if (isModuleVisible(Module.PRODUCTION, role)) SidebarLink(t.get("production_planning"), Module.PRODUCTION, active == Module.PRODUCTION, onSelect)
             if (isModuleVisible(Module.QUALITY, role)) SidebarLink(t.get("quality_management"), Module.QUALITY, active == Module.QUALITY, onSelect)
-            if (isModuleVisible(Module.EXTENDED_WAREHOUSE, role)) SidebarLink(t.get("extended_warehouse"), Module.EXTENDED_WAREHOUSE, active == Module.EXTENDED_WAREHOUSE, onSelect)
             if (isModuleVisible(Module.WAREHOUSE, role)) SidebarLink(t.get("warehouse"), Module.WAREHOUSE, active == Module.WAREHOUSE, onSelect)
             if (isModuleVisible(Module.SHIPPING, role)) SidebarLink(t.get("shipping"), Module.SHIPPING, active == Module.SHIPPING, onSelect)
             if (isModuleVisible(Module.GTS_TRADE, role)) SidebarLink(t.get("gts_trade"), Module.GTS_TRADE, active == Module.GTS_TRADE, onSelect)
