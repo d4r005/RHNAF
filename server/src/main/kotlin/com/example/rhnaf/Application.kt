@@ -180,12 +180,15 @@ fun Application.module() {
         route("/api") {
             post("/login") {
                 val credentials = call.receive<Map<String, String>>()
-                val username = credentials["username"] ?: ""
-                val password = credentials["password"] ?: ""
+                // Normalizar: sin espacios y en minúsculas. Los teclados móviles suelen
+                // autocapitalizar la primera letra ("D.trujillo@...") y el login fallaba
+                // porque el correo se compara literalmente contra la tabla users.
+                val username = (credentials["username"] ?: "").trim().lowercase()
+                val password = (credentials["password"] ?: "").trim()
                 
                 val user = DatabaseFactory.dbQuery {
                     UserTable.selectAll().where { 
-                        (UserTable.email eq username) and 
+                        (UserTable.email.lowerCase() eq username) and 
                         (UserTable.password eq password) 
                     }.singleOrNull()
                 }
