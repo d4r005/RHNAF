@@ -9,6 +9,10 @@ import io.ktor.http.*
 import com.example.rhnaf.shared.model.*
 import kotlinx.coroutines.launch
 import kotlinx.browser.window
+import kotlinx.browser.document
+import org.w3c.dom.HTMLInputElement
+import org.w3c.files.FileReader
+import org.w3c.files.get
 
 // Modulos estilo SAP integrados a RHNAF: CO, MM (Compras), PP, QM, EWM, GTS, EHS (Auditorias), SAP Security/GRC
 // Sigue el mismo patron que los modulos existentes en Main.kt (Warehouse/Attendance): HttpClient + LaunchedEffect + formulario inline.
@@ -444,7 +448,7 @@ fun GtsTradeModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope,
 @Composable
 fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
     var activeTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Inspecciones", "Incidentes", "Permisos Trabajo", "EPP", "Capacitaciones", "Simulacros", "Matriz Riesgos", "Medio Ambiente", "Huella de Carbono", "Salud Ocupacional", "Químicos")
+    val tabs = listOf("Inspecciones", "Incidentes", "Permisos Trabajo", "EPP", "Capacitaciones", "Simulacros", "Matriz Riesgos", "Medio Ambiente", "Huella de Carbono", "Salud Ocupacional", "Químicos", "Evidencia Documental")
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3({ style { margin(0.px); marginBottom(16.px) } }) { Text("EHS \u00b7 Seguridad, Salud y Ambiente") }
@@ -475,6 +479,7 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             8 -> CarbonFootprintTab(client, scope)
             9 -> EhsOccupationalHealthTab(client, scope)
             10 -> EhsChemicalsTab(client, scope)
+            11 -> EhsDocumentsTab(client, scope)
         }
     }
 }
@@ -1219,6 +1224,155 @@ fun RecruitmentSapModule(client: HttpClient, scope: kotlinx.coroutines.Coroutine
                                 Button({
                                     style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
                                     onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/hcm/vacantes/${row.id}"); refresh() } }
+                                }) { Text("Eliminar") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// EHS-12. Evidencia Documental: subir archivos (PDF/imagen) que respaldan
+// simulacros, estudios, capacitaciones, dictamenes, etc. Se guardan en el
+// servidor y se pueden ver/descargar desde la tabla.
+@Composable
+fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var items by remember { mutableStateOf(emptyList<EhsDocument>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+    var statusMsg by remember { mutableStateOf("") }
+    var uploading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(refreshKey) {
+        isLoading = true
+        try { items = client.get("$BACKEND_URL/api/v1/ehs/documentos").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
+    }
+    fun refresh() { refreshKey++ }
+
+    var f_categoria by remember { mutableStateOf("Simulacro") }
+    var f_titulo by remember { mutableStateOf("") }
+    var f_fecha by remember { mutableStateOf("") }
+    var f_notas by remember { mutableStateOf("") }
+    var f_fileName by remember { mutableStateOf("") }
+    var f_fileMime by remember { mutableStateOf("") }
+    var f_fileB64 by remember { mutableStateOf<String?>(null) }
+    var f_fileSize by remember { mutableStateOf(0) }
+
+    val categorias = listOf("Simulacro", "Capacitacion", "Estudio", "Inspeccion", "Dictamen", "ExamenMedico", "Otro")
+
+    Div({ style { backgroundColor(Color.white); padding(20.px); borderRadius(12.px); marginBottom(20.px); property("border", "1px solid #e2e8f0") } }) {
+        H4({ style { margin(0.px, 0.px, 12.px, 0.px); color(Color("#0f172a")) } }) { Text("Subir evidencia documental") }
+        Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(10.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+            Select({
+                style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) }
+                onChange { f_categoria = it.value ?: "Otro" }
+            }) {
+                categorias.forEach { Option(it) { Text(it) } }
+            }
+            Input(InputType.Text) { placeholder("Título * (ej. Simulacro de evacuación)"); value(f_titulo); onInput { f_titulo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) } }
+            Input(InputType.Text) { placeholder("Fecha (dd/MM/aaaa)"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+            Input(InputType.Text) { placeholder("Notas"); value(f_notas); onInput { f_notas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        }
+        Div({ style { display(DisplayStyle.Flex); gap(10.px); alignItems(AlignItems.Center); flexWrap(FlexWrap.Wrap) } }) {
+            Input(InputType.File) {
+                id("ehs-doc-file")
+                style { fontSize(13.px) }
+                onChange {
+                    val el = document.getElementById("ehs-doc-file")
+                    val file = el?.asDynamic()?.files?.item(0)
+                    if (file == null) {
+                        f_fileB64 = null; f_fileName = ""; f_fileSize = 0
+                    } else {
+                        val sizeNum = (file.size as Double).toInt()
+                        if (sizeNum > 10 * 1024 * 1024) {
+                            statusMsg = "El archivo supera 10 MB. Reduce el tamaño o divídelo."
+                            f_fileB64 = null; f_fileName = ""; f_fileSize = 0
+                        } else {
+                            val reader = js("new FileReader()")
+                            reader.onload = { ev: dynamic ->
+                                val result = ev.target.result as? String
+                                if (result != null) {
+                                    val comma = result.indexOf(",")
+                                    if (result.startsWith("data:") && comma > 0) {
+                                        f_fileMime = result.substring(5, result.indexOf(";"))
+                                        f_fileB64 = result.substring(comma + 1)
+                                        f_fileName = file.name as String
+                                        f_fileSize = sizeNum
+                                        statusMsg = ""
+                                    }
+                                }
+                            }
+                            reader.readAsDataURL(file)
+                        }
+                    }
+                }
+            }
+            Button({
+                style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+                onClick {
+                    if (f_titulo.isNotBlank() && f_fileB64 != null && !uploading) {
+                        uploading = true; statusMsg = "Subiendo..."
+                        scope.launch {
+                            try {
+                                client.post("$BACKEND_URL/api/v1/ehs/documentos") {
+                                    contentType(ContentType.Application.Json)
+                                    setBody(EhsDocumentUpload(
+                                        categoria = f_categoria, titulo = f_titulo, fecha = f_fecha, notas = f_notas,
+                                        fileName = f_fileName, mimeType = f_fileMime, fileSize = f_fileSize,
+                                        contentBase64 = f_fileB64!!
+                                    ))
+                                }
+                                f_titulo = ""; f_fecha = ""; f_notas = ""; f_fileB64 = null; f_fileName = ""; f_fileSize = 0
+                                statusMsg = "Evidencia subida correctamente."
+                                refresh()
+                            } catch (e: Exception) {
+                                statusMsg = "Error al subir: ${e.message ?: "sin permisos o archivo muy grande"}"
+                            } finally { uploading = false }
+                        }
+                    } else if (f_fileB64 == null) {
+                        statusMsg = "Selecciona un archivo primero (PDF, imagen, máx 10 MB)."
+                    }
+                }
+            }) { Text(if (uploading) "Subiendo..." else "+ Subir evidencia") }
+            if (f_fileName.isNotBlank()) Span({ style { fontSize(12.px); color(Color("#16a34a")) } }) { Text("✓ $f_fileName") }
+        }
+        if (statusMsg.isNotBlank()) P({ style { marginTop(10.px); fontSize(13.px); color(Color("#2563eb")); marginBottom(0.px) } }) { Text(statusMsg) }
+    }
+
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} evidencias registradas") }
+    if (isLoading) { P { Text("Cargando...") } } else if (items.isEmpty()) {
+        P({ style { color(Color.gray); fontSize(13.px) } }) { Text("Aún no hay evidencias. Sube el primer archivo arriba.") }
+    } else {
+        Div({ style { overflow("auto"); property("border", "1px solid #e2e8f0"); borderRadius(12.px) } }) {
+            Table({ style { width(100.percent); property("border-collapse", "collapse"); fontSize(13.px); backgroundColor(Color.white) } }) {
+                Thead { Tr { listOf("Categoría", "Título", "Fecha doc.", "Archivo", "Subido", "Notas", "").forEach { Th({ style { padding(10.px, 12.px); textAlign("left"); backgroundColor(Color("#f8fafc")); color(Color("#475569")); property("border-bottom", "1px solid #e2e8f0") } }) { Text(it) } } } }
+                Tbody {
+                    items.forEach { doc ->
+                        Tr {
+                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.categoria) }
+                            Td({ style { padding(10.px, 12.px); fontWeight("600"); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.titulo) }
+                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.fecha.ifBlank { "-" }) }
+                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
+                                Button({
+                                    style { padding(5.px, 10.px); backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(12.px) }
+                                    onClick { window.open("$BACKEND_URL/api/v1/ehs/documentos/${doc.id}/descargar") }
+                                }) { Text(if (doc.fileName.isNotBlank()) "📄 ${doc.fileName}" else "Ver") }
+                            }
+                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9"); color(Color("#64748b")) } }) { Text(doc.uploadedDate) }
+                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9"); color(Color("#64748b")); fontSize(12.px) } }) { Text(doc.notas.ifBlank { "-" }) }
+                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
+                                Button({
+                                    style { padding(5.px, 10.px); backgroundColor(Color("#dc2626")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(12.px) }
+                                    onClick {
+                                        scope.launch {
+                                            try {
+                                                client.delete("$BACKEND_URL/api/v1/ehs/documentos/${doc.id}")
+                                                refresh()
+                                            } catch (e: Exception) { statusMsg = "No se pudo eliminar: ${e.message}" }
+                                        }
+                                    }
                                 }) { Text("Eliminar") }
                             }
                         }

@@ -328,3 +328,21 @@ object LegalMatrixTable : Table("ehs_legal_matrix") {
 
     override val primaryKey = PrimaryKey(id)
 }
+
+// EHS - Evidencia documental: archivos (PDF/imagen) que respaldan simulacros,
+// estudios, capacitaciones, dictamenes, etc. El contenido se guarda como base64
+// en columna TEXT (mismo patron que las fotos de empleado en photoUrl).
+object EhsDocumentTable : Table("ehs_documents") {
+    val id = integer("id").autoIncrement()
+    val categoria = varchar("categoria", 50).default("Otro")
+    val titulo = varchar("titulo", 300)
+    val fecha = varchar("fecha", 20).default("")
+    val fileName = varchar("file_name", 300).default("")
+    val mimeType = varchar("mime_type", 100).default("application/octet-stream")
+    val fileSize = integer("file_size").default(0)
+    val notas = varchar("notas", 500).default("")
+    val uploadedBy = varchar("uploaded_by", 200).default("")
+    val uploadedDate = varchar("uploaded_date", 20).default("")
+    val contentBase64 = text("content_base64")
+    override val primaryKey = PrimaryKey(id)
+}

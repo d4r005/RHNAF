@@ -24,6 +24,7 @@ import com.example.rhnaf.routes.sapModulesRouting
 import com.example.rhnaf.routes.extendedRouting
 import com.example.rhnaf.routes.workflowRouting
 import com.example.rhnaf.routes.legalMatrixRouting
+import com.example.rhnaf.routes.ehsDocumentRouting
 import com.example.rhnaf.auth.Roles
 import com.example.rhnaf.auth.requireRoleOr403
 import io.ktor.server.request.*
@@ -173,6 +174,7 @@ fun Application.module() {
         extendedRouting()
         workflowRouting()
         legalMatrixRouting()
+        ehsDocumentRouting()
 
         // Sirve la Web App (Compose HTML) desde una carpeta física
         staticFiles("/", File("static"), index = "index.html")

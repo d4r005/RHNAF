@@ -351,3 +351,34 @@ data class CategoryCompliance(
     val vigentes: Int = 0,
     val porcentaje: Double = 0.0
 )
+
+// ============================================================
+// EHS - Evidencia Documental
+// Archivos que respaldan el cumplimiento EHS: simulacros realizados,
+// estudios (ruido, iluminacion, aguas), capacitaciones, dictamenes, etc.
+// ============================================================
+@Serializable
+data class EhsDocument(
+    val id: Int = 0,
+    val categoria: String = "Otro",        // Simulacro, Capacitacion, Estudio, Inspeccion, Dictamen, ExamenMedico, Otro
+    val titulo: String = "",
+    val fecha: String = "",                // dd/MM/yyyy del documento
+    val fileName: String = "",
+    val mimeType: String = "",
+    val fileSize: Int = 0,                 // bytes
+    val notas: String = "",
+    val uploadedBy: String = "",
+    val uploadedDate: String = ""          // dd/MM/yyyy de cuando se subio
+)
+
+@Serializable
+data class EhsDocumentUpload(
+    val categoria: String = "Otro",
+    val titulo: String,
+    val fecha: String = "",
+    val notas: String = "",
+    val fileName: String = "",
+    val mimeType: String = "",
+    val fileSize: Int = 0,
+    val contentBase64: String
+)

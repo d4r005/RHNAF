@@ -451,8 +451,7 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
                 Module.EMPLOYEES to "Empleados",
                 Module.ATTENDANCE to "Asistencia",
                 Module.PRE_NOMINA to "Pre-Nómina",
-                Module.RECRUITMENT_SAP to "Reclutamiento",
-                Module.USER_MGMT to t.get("user_mgmt")
+                Module.RECRUITMENT_SAP to "Reclutamiento"
             ))
             SidebarGroup("EHS Y CUMPLIMIENTO", active, role, onSelect, listOf(
                 Module.EHS_AUDITS to t.get("safety_audits"),
@@ -475,6 +474,11 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
             SidebarGroup("FINANZAS", active, role, onSelect, listOf(
                 Module.CONTROLLING to t.get("controlling"),
                 Module.FINANCIAL_ACCOUNTING to t.get("financial_accounting")
+            ))
+
+            // Gestion de usuarios: FUERA de RH. Solo visible para ADMIN (isModuleVisible).
+            SidebarGroup("ADMINISTRACIÓN", active, role, onSelect, listOf(
+                Module.USER_MGMT to t.get("user_mgmt")
             ))
 
             if (isModuleVisible(Module.SETTINGS, role)) SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
