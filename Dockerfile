@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Etapa 1: Construcción
 FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /app
@@ -19,9 +20,15 @@ COPY web web
 RUN chmod +x gradlew
 
 # Construir la Web App y el Servidor
-# Ajustamos memoria para evitar OOMKilled en ambientes limitados
-RUN SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentDistribution :server:installDist \
+# Ajustamos memoria para evitar OOMKilled en ambientes limitados.
+# El cache mount persiste ~/.gradle (dependencias Gradle/Node/Yarn + build cache)
+# ENTRE builds de Hugging Face aunque el COPY de código fuente invalide las capas
+# de Docker — esto evita re-descargar todo y re-compilar módulos sin cambios,
+# reduciendo drásticamente el tiempo de build en despliegues subsecuentes.
+RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
+    SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentDistribution :server:installDist \
     --no-daemon \
+    --build-cache \
     --max-workers=1 \
     -Dorg.gradle.jvmargs="-Xmx1536m -XX:+UseParallelGC" \
     -Dnode.options="--max-old-space-size=1024"
