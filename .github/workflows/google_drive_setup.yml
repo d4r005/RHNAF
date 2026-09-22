@@ -1,0 +1,29 @@
+name: Push Google Drive OAuth credentials to Hugging Face
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  push-secrets:
+    runs-on: ubuntu-latest
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+    steps:
+      - name: Set Space secrets
+        run: |
+          test -n "$HF_TOKEN" && test -n "$GOOGLE_CLIENT_ID" && test -n "$GOOGLE_CLIENT_SECRET"
+          python -m pip install --quiet huggingface_hub
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ['HF_TOKEN'])
+          repo_id = 'd4r005/RHNAF-Industrial'
+          api.add_space_secret(repo_id=repo_id, key='GOOGLE_CLIENT_ID', value=os.environ['GOOGLE_CLIENT_ID'])
+          api.add_space_secret(repo_id=repo_id, key='GOOGLE_CLIENT_SECRET', value=os.environ['GOOGLE_CLIENT_SECRET'])
+          print('Google OAuth credentials configured in Space (values not displayed)')
+          PY
