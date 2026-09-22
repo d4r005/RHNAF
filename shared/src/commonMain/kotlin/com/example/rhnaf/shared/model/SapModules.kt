@@ -304,3 +304,50 @@ data class DocumentLog(
     val fecha: String = "",
     val descripcion: String = ""
 )
+
+// ============================================================
+// EHS - MATRIZ LEGAL DINÁMICA (estilo EHSoft / ACM Suite)
+// ============================================================
+// Catálogo de obligaciones normativas (NOMs de STPS, SEMARNAT,
+// PROFEPA, Protección Civil) con vigencias, evidencia documental
+// y cálculo automático de % de cumplimiento + alertas de vencimiento.
+
+@Serializable
+data class LegalMatrixItem(
+    val id: Int = 0,
+    val clave: String,                    // ej: "NOM-001-STPS-2008"
+    val titulo: String = "",              // nombre completo de la norma/obligación
+    val categoria: String = "STPS",       // STPS, SEMARNAT, PROFEPA, ProteccionCivil, Estatal
+    val aplica: String = "Pendiente",     // Si, No, Pendiente (resultado del cuestionario de aplicabilidad)
+    val justificacion: String = "",       // por qué aplica o no
+    val frecuenciaRevision: String = "Anual", // Anual, Semestral, Trimestral, Unica
+    val fechaEmision: String = "",        // fecha del último estudio/dictamen/documento
+    val fechaVigencia: String = "",       // fecha de vencimiento
+    val diasAlertaPrevia: Int = 30,       // dias antes del vencimiento para alertar
+    val documentoUrl: String = "",        // link a la evidencia (PDF de dictamen, estudio, etc.)
+    val responsable: String = "",
+    val notas: String = "",
+    val estado: String = ""               // CALCULADO por el servidor: Vigente, PorVencer, Vencido, NoAplica, Pendiente
+)
+
+@Serializable
+data class LegalMatrixSummary(
+    val totalObligaciones: Int = 0,
+    val aplicables: Int = 0,
+    val vigentes: Int = 0,
+    val porVencer: Int = 0,
+    val vencidos: Int = 0,
+    val noAplica: Int = 0,
+    val pendientes: Int = 0,
+    val porcentajeCumplimiento: Double = 0.0,
+    val porCategoria: List<CategoryCompliance> = emptyList(),
+    val proximosAVencer: List<LegalMatrixItem> = emptyList()
+)
+
+@Serializable
+data class CategoryCompliance(
+    val categoria: String,
+    val aplicables: Int = 0,
+    val vigentes: Int = 0,
+    val porcentaje: Double = 0.0
+)

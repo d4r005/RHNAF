@@ -307,3 +307,24 @@ object SystemTaskTable : Table("system_tasks") {
 
     override val primaryKey = PrimaryKey(id)
 }
+
+// ============================================================
+// EHS - Matriz Legal Dinámica (NOMs STPS / SEMARNAT / PROFEPA / Protección Civil)
+// ============================================================
+object LegalMatrixTable : Table("ehs_legal_matrix") {
+    val id = integer("id").autoIncrement()
+    val clave = varchar("clave", 100)
+    val titulo = varchar("titulo", 400).default("")
+    val categoria = varchar("categoria", 50).default("STPS")
+    val aplica = varchar("aplica", 20).default("Pendiente")
+    val justificacion = varchar("justificacion", 500).default("")
+    val frecuenciaRevision = varchar("frecuencia_revision", 50).default("Anual")
+    val fechaEmision = varchar("fecha_emision", 50).default("")
+    val fechaVigencia = varchar("fecha_vigencia", 50).default("")
+    val diasAlertaPrevia = integer("dias_alerta_previa").default(30)
+    val documentoUrl = varchar("documento_url", 500).default("")
+    val responsable = varchar("responsable", 200).default("")
+    val notas = varchar("notas", 500).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
