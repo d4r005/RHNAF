@@ -84,6 +84,7 @@ suspend fun safeApiCall(call: ApplicationCall, block: suspend () -> Unit) {
             "message" to (e.message ?: "Recurso no encontrado")
         ))
     } catch (e: Exception) {
+        e.printStackTrace()
         call.respond(HttpStatusCode.InternalServerError, mapOf(
             "status" to "error",
             "message" to (e.message ?: "Error interno del servidor")

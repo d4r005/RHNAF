@@ -12,6 +12,7 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
@@ -72,6 +73,31 @@ private val NOM_SEED: List<Triple<String, String, String>> = listOf(
     Triple("Manifiesto RP", "Manifiesto de entrega, transporte y recepción de residuos peligrosos", "PROFEPA")
 )
 
+@Serializable
+private data class LegalMatrixPageResponse(
+    val items: List<LegalMatrixItem> = emptyList(),
+    val page: Int = 1,
+    val pageSize: Int = 50,
+    val total: Long = 0,
+    val totalPages: Int = 0
+)
+
+private fun rowToLegalMatrixItem(row: org.jetbrains.exposed.sql.ResultRow): LegalMatrixItem = LegalMatrixItem(
+    id = row[LegalMatrixTable.id],
+    clave = row[LegalMatrixTable.clave],
+    titulo = row[LegalMatrixTable.titulo],
+    categoria = row[LegalMatrixTable.categoria],
+    aplica = row[LegalMatrixTable.aplica],
+    justificacion = row[LegalMatrixTable.justificacion],
+    frecuenciaRevision = row[LegalMatrixTable.frecuenciaRevision],
+    fechaEmision = row[LegalMatrixTable.fechaEmision],
+    fechaVigencia = row[LegalMatrixTable.fechaVigencia],
+    diasAlertaPrevia = row[LegalMatrixTable.diasAlertaPrevia],
+    documentoUrl = row[LegalMatrixTable.documentoUrl],
+    responsable = row[LegalMatrixTable.responsable],
+    notas = row[LegalMatrixTable.notas]
+)
+
 fun Route.legalMatrixRouting() {
     route("/api/v1/ehs/matriz-legal") {
 
@@ -83,36 +109,34 @@ fun Route.legalMatrixRouting() {
                 val categoriaFiltro = call.request.queryParameters["categoria"]
                 val estadoFiltro = call.request.queryParameters["estado"]
 
-                val rows = DatabaseFactory.dbQuery {
+                var items = DatabaseFactory.dbQuery {
                     val q = if (categoriaFiltro != null)
                         LegalMatrixTable.selectAll().where { LegalMatrixTable.categoria eq categoriaFiltro }
                     else
                         LegalMatrixTable.selectAll()
-                    q.toList()
-                }
-
-                var items = rows.map {
-                    val base = LegalMatrixItem(
-                        id = it[LegalMatrixTable.id],
-                        clave = it[LegalMatrixTable.clave],
-                        titulo = it[LegalMatrixTable.titulo],
-                        categoria = it[LegalMatrixTable.categoria],
-                        aplica = it[LegalMatrixTable.aplica],
-                        justificacion = it[LegalMatrixTable.justificacion],
-                        frecuenciaRevision = it[LegalMatrixTable.frecuenciaRevision],
-                        fechaEmision = it[LegalMatrixTable.fechaEmision],
-                        fechaVigencia = it[LegalMatrixTable.fechaVigencia],
-                        diasAlertaPrevia = it[LegalMatrixTable.diasAlertaPrevia],
-                        documentoUrl = it[LegalMatrixTable.documentoUrl],
-                        responsable = it[LegalMatrixTable.responsable],
-                        notas = it[LegalMatrixTable.notas]
-                    )
-                    base.copy(estado = calcularEstado(base, hoy))
+                    q.toList().map { row ->
+                        val base = rowToLegalMatrixItem(row)
+                        base.copy(estado = calcularEstado(base, hoy))
+                    }
                 }
 
                 if (estadoFiltro != null) items = items.filter { it.estado == estadoFiltro }
 
-                call.respond(pagedList(call, items))
+                val page = call.request.queryParameters["page"]?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+                val pageSize = call.request.queryParameters["pageSize"]?.toIntOrNull()?.coerceIn(1, 500) ?: 50
+                val total = items.size.toLong()
+                val totalPages = if (items.isEmpty()) 0 else ((items.size + pageSize - 1) / pageSize)
+                val paged = items.drop((page - 1) * pageSize).take(pageSize)
+
+                call.respond(
+                    LegalMatrixPageResponse(
+                        items = paged,
+                        page = page,
+                        pageSize = pageSize,
+                        total = total,
+                        totalPages = totalPages
+                    )
+                )
             }
         }
 
@@ -121,24 +145,11 @@ fun Route.legalMatrixRouting() {
             safeApiCall(call) {
                 requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
                 val hoy = LocalDate.now()
-                val rows = DatabaseFactory.dbQuery { LegalMatrixTable.selectAll().toList() }
-                val items = rows.map {
-                    val base = LegalMatrixItem(
-                        id = it[LegalMatrixTable.id],
-                        clave = it[LegalMatrixTable.clave],
-                        titulo = it[LegalMatrixTable.titulo],
-                        categoria = it[LegalMatrixTable.categoria],
-                        aplica = it[LegalMatrixTable.aplica],
-                        justificacion = it[LegalMatrixTable.justificacion],
-                        frecuenciaRevision = it[LegalMatrixTable.frecuenciaRevision],
-                        fechaEmision = it[LegalMatrixTable.fechaEmision],
-                        fechaVigencia = it[LegalMatrixTable.fechaVigencia],
-                        diasAlertaPrevia = it[LegalMatrixTable.diasAlertaPrevia],
-                        documentoUrl = it[LegalMatrixTable.documentoUrl],
-                        responsable = it[LegalMatrixTable.responsable],
-                        notas = it[LegalMatrixTable.notas]
-                    )
-                    base.copy(estado = calcularEstado(base, hoy))
+                val items = DatabaseFactory.dbQuery {
+                    LegalMatrixTable.selectAll().toList().map { row ->
+                        val base = rowToLegalMatrixItem(row)
+                        base.copy(estado = calcularEstado(base, hoy))
+                    }
                 }
 
                 val aplicables = items.filter { it.aplica == "Si" }
