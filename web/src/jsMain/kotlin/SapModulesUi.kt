@@ -448,7 +448,7 @@ fun GtsTradeModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope,
 @Composable
 fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
     var activeTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Inspecciones", "Incidentes", "Permisos Trabajo", "EPP", "Capacitaciones", "Simulacros", "Matriz Riesgos", "Medio Ambiente", "Huella de Carbono", "Salud Ocupacional", "Químicos", "Evidencia Documental")
+    val tabs = listOf("Inspecciones", "Incidentes", "Permisos Trabajo", "EPP", "Capacitaciones", "Simulacros", "Matriz Riesgos", "Medio Ambiente", "Huella de Carbono", "Salud Ocupacional", "Químicos")
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3({ style { margin(0.px); marginBottom(16.px) } }) { Text("EHS \u00b7 Seguridad, Salud y Ambiente") }
@@ -479,7 +479,6 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             8 -> CarbonFootprintTab(client, scope)
             9 -> EhsOccupationalHealthTab(client, scope)
             10 -> EhsChemicalsTab(client, scope)
-            11 -> EhsDocumentsTab(client, scope)
         }
     }
 }
@@ -645,7 +644,6 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         isLoading = true
         try {
             items = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body()
-            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=inspection").body()
         } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
@@ -798,7 +796,7 @@ fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) { isLoading = true; try {
         items = client.get("$BACKEND_URL/api/v1/sap/ehs/capacitaciones").body()
-        evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=training").body()
+
     } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     var f_fecha by remember { mutableStateOf("") }
@@ -836,7 +834,7 @@ fun EhsDrillsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) { isLoading = true; try {
         items = client.get("$BACKEND_URL/api/v1/sap/ehs/simulacros").body()
-        evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=drill").body()
+
     } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     var f_fecha by remember { mutableStateOf("") }

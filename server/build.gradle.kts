@@ -37,3 +37,10 @@ dependencies {
 application {
     mainClass.set("com.example.rhnaf.ApplicationKt")
 }
+
+// Preparar la nueva base sin cambiar el servidor de producción.
+tasks.register<JavaExec>("initializeDatabase") {
+    group = "application"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.example.rhnaf.database.SchemaInitializerKt")
+}

@@ -1,0 +1,84 @@
+name: Migrate RHNAF Supabase (exclude EHS documents)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.RHNAF_NEW_DATABASE_URL }}
+      TARGET_DATABASE_URL: ${{ secrets.RHNAF_NEW_DATABASE_URL }}
+      SOURCE_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RHNAF_OLD_SERVICE_ROLE_KEY }}
+      OMIT_EHS_DOCUMENTS: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Create destination schema (without ehs_documents)
+        run: |
+          test -n "$DATABASE_URL" && test -n "$SOURCE_SUPABASE_SERVICE_ROLE_KEY"
+          chmod +x gradlew
+          SKIP_ANDROID=true ./gradlew :server:initializeDatabase --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx2g"
+
+      - name: Copy all other public tables
+        run: |
+          python -m pip install --quiet psycopg2-binary
+          python server/scripts/migrate_supabase.py --apply
+
+      - name: Update the running Space code without switching the database yet
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          test -n "$HF_TOKEN"
+          git remote add hf "https://d4r005:${HF_TOKEN}@huggingface.co/spaces/d4r005/RHNAF-Industrial.git"
+          git push --force hf HEAD:main
+
+      - name: Wait for new Space code to be running
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.request
+          expected = os.environ['GITHUB_SHA']
+          for attempt in range(90):
+              try:
+                  with urllib.request.urlopen('https://huggingface.co/api/spaces/d4r005/RHNAF-Industrial/runtime', timeout=15) as r:
+                      state = json.load(r)
+                  stage = state.get('stage')
+                  if stage == 'RUNNING' and state.get('sha') == expected:
+                      print('New server version is running; ready to switch the database')
+                      break
+                  if stage in ('BUILD_ERROR', 'RUNTIME_ERROR', 'ERROR'):
+                      raise RuntimeError('Hugging Face build/runtime failed before database switch')
+              except (TimeoutError, OSError, ValueError):
+                  pass
+              time.sleep(12)
+          else:
+              raise RuntimeError('Timed out waiting for the new Space version. Database was NOT switched.')
+          PY
+
+      - name: Switch Space to migrated database and keep documents disabled
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -m pip install --quiet huggingface_hub
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ['HF_TOKEN'])
+          repo_id = 'd4r005/RHNAF-Industrial'
+          api.add_space_secret(repo_id=repo_id, key='OMIT_EHS_DOCUMENTS', value='true')
+          api.add_space_secret(repo_id=repo_id, key='DATABASE_URL', value=os.environ['TARGET_DATABASE_URL'])
+          print('New database URL and document exclusion configured in Space (secrets not displayed)')
+          PY

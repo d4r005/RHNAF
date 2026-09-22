@@ -177,7 +177,8 @@ fun Application.module() {
         extendedRouting()
         workflowRouting()
         legalMatrixRouting()
-        ehsDocumentRouting()
+        // Evitar registrar rutas de documentos cuando esa tabla no se migra.
+        if (System.getenv("OMIT_EHS_DOCUMENTS") != "true") ehsDocumentRouting()
         googleDriveRouting()
 
         // Sirve la Web App (Compose HTML) desde una carpeta física
