@@ -19,19 +19,31 @@ COPY web web
 # Permisos para el ejecutable de Gradle
 RUN chmod +x gradlew
 
-# Construir la Web App y el Servidor
-# Ajustamos memoria para evitar OOMKilled en ambientes limitados.
-# El cache mount persiste ~/.gradle (dependencias Gradle/Node/Yarn + build cache)
-# ENTRE builds de Hugging Face aunque el COPY de código fuente invalide las capas
-# de Docker — esto evita re-descargar todo y re-compilar módulos sin cambios,
-# reduciendo drásticamente el tiempo de build en despliegues subsecuentes.
+# Construcción dividida en dos invocaciones de Gradle independientes.
+# Cada RUN levanta su propio proceso Java/Node y lo libera por completo al
+# terminar, evitando que ambas compilaciones (Kotlin/JS + webpack y Kotlin/JVM)
+# acumulen memoria dentro del mismo proceso — esto fue lo que causó el
+# OOMKilled (exit 137) al combinarlas en una sola invocación con cache activado.
+# El cache mount persiste ~/.gradle (dependencias Gradle/Node/Yarn + build
+# cache) ENTRE builds de Hugging Face aunque el COPY de código fuente invalide
+# las capas de Docker, acelerando despliegues subsecuentes.
+
+# Paso 1: Web (Kotlin/JS + webpack) — el más pesado en memoria de Node.
 RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
-    SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentDistribution :server:installDist \
+    SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentDistribution \
     --no-daemon \
     --build-cache \
     --max-workers=1 \
-    -Dorg.gradle.jvmargs="-Xmx1536m -XX:+UseParallelGC" \
-    -Dnode.options="--max-old-space-size=1024"
+    -Dorg.gradle.jvmargs="-Xmx1280m -XX:+UseParallelGC" \
+    -Dnode.options="--max-old-space-size=896"
+
+# Paso 2: Servidor (Kotlin/JVM) — proceso limpio, sin Node de por medio.
+RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
+    SKIP_ANDROID=true ./gradlew :server:installDist \
+    --no-daemon \
+    --build-cache \
+    --max-workers=1 \
+    -Dorg.gradle.jvmargs="-Xmx1536m -XX:+UseParallelGC"
 
 # Etapa 2: Ejecución
 FROM eclipse-temurin:21-jre-jammy
