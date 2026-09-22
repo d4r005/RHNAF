@@ -2,6 +2,7 @@ package com.example.rhnaf.routes
 
 import com.example.rhnaf.auth.Roles
 import com.example.rhnaf.auth.requireRoleOr403
+import com.example.rhnaf.auth.requireAuthOr401
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.EhsDocumentTable
 import com.example.rhnaf.shared.model.EhsDocument
@@ -32,6 +33,7 @@ fun Route.ehsDocumentRouting() {
 
         // Lista (sin el contenido base64, solo metadatos). Filtro opcional por categoria.
         get {
+            requireAuthOr401(call) ?: return@get
             val categoria = call.request.queryParameters["categoria"]
             val items = DatabaseFactory.dbQuery {
                 val base = EhsDocumentTable.selectAll()
@@ -86,6 +88,7 @@ fun Route.ehsDocumentRouting() {
 
         // Descarga/visualiza el archivo original con su MIME (el navegador abre PDF inline).
         get("/{id}/descargar") {
+            requireAuthOr401(call) ?: return@get
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "ID invalido"))
