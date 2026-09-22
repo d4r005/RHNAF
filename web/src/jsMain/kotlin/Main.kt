@@ -299,7 +299,7 @@ val BACKEND_URL = "https://d4r005-rhnaf-industrial.hf.space"
 
 // Token de la sesión actual. DefaultRequest lo agrega automáticamente a todas
 // las llamadas posteriores al login, incluidos los módulos que comparten el cliente.
-private var apiAuthToken = ""
+var apiAuthToken = ""
 
 fun main() {
     val client = HttpClient(Js) {

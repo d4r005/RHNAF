@@ -1247,7 +1247,12 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 
     LaunchedEffect(refreshKey) {
         isLoading = true
-        try { items = client.get("$BACKEND_URL/api/v1/ehs/documentos").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
+        try {
+            items = client.get("$BACKEND_URL/api/v1/ehs/documentos").body()
+            statusMsg = ""
+        } catch (e: Exception) {
+            statusMsg = "No se pudo cargar la evidencia documental: ${e.message ?: "error del servidor"}"
+        } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
 
@@ -1357,7 +1362,30 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
                                 Button({
                                     style { padding(5.px, 10.px); backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(12.px) }
-                                    onClick { window.open("$BACKEND_URL/api/v1/ehs/documentos/${doc.id}/descargar") }
+                                    onClick {
+                                        // window.open directo no envía Authorization y desde que la
+                                        // descarga se protegió con autenticación respondía 401.
+                                        // Fetch conserva el control del header, crea un Blob local y
+                                        // luego abre el archivo sin exponer el token en la URL.
+                                        val url = "$BACKEND_URL/api/v1/ehs/documentos/${doc.id}/descargar"
+                                        val options = js("({})")
+                                        options.method = "GET"
+                                        options.headers = js("({})")
+                                        options.headers.Authorization = "Bearer $apiAuthToken"
+                                        window.asDynamic().fetch(url, options)
+                                            .then { response: dynamic ->
+                                                if (!response.ok) throw Exception("HTTP " + response.status)
+                                                response.blob()
+                                            }
+                                            .then { blob: dynamic ->
+                                                val blobUrl = window.asDynamic().URL.createObjectURL(blob)
+                                                window.open(blobUrl as String, "_blank")
+                                                window.setTimeout({ window.asDynamic().URL.revokeObjectURL(blobUrl) }, 60000)
+                                            }
+                                            .`catch` { err: dynamic ->
+                                                statusMsg = "No se pudo abrir ${doc.fileName}: " + (err.message ?: "error de descarga")
+                                            }
+                                    }
                                 }) { Text(if (doc.fileName.isNotBlank()) "📄 ${doc.fileName}" else "Ver") }
                             }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9"); color(Color("#64748b")) } }) { Text(doc.uploadedDate) }

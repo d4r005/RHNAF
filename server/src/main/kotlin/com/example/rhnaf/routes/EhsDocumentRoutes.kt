@@ -36,7 +36,23 @@ fun Route.ehsDocumentRouting() {
             requireAuthOr401(call) ?: return@get
             val categoria = call.request.queryParameters["categoria"]
             val items = DatabaseFactory.dbQuery {
-                val base = EhsDocumentTable.selectAll()
+                // IMPORTANTE: no usar selectAll aqui. content_base64 puede pesar hasta 10 MB
+                // por registro y hacía que el listado descargara todos los archivos completos
+                // aunque la respuesta solo incluyera metadatos. Seleccionamos únicamente las
+                // columnas visibles para que la pestaña cargue de inmediato.
+                val metadataColumns = listOf(
+                    EhsDocumentTable.id,
+                    EhsDocumentTable.categoria,
+                    EhsDocumentTable.titulo,
+                    EhsDocumentTable.fecha,
+                    EhsDocumentTable.fileName,
+                    EhsDocumentTable.mimeType,
+                    EhsDocumentTable.fileSize,
+                    EhsDocumentTable.notas,
+                    EhsDocumentTable.uploadedBy,
+                    EhsDocumentTable.uploadedDate
+                )
+                val base = EhsDocumentTable.select(metadataColumns)
                 val filtered = if (categoria.isNullOrBlank()) base else base.where { EhsDocumentTable.categoria eq categoria }
                 filtered.orderBy(EhsDocumentTable.id, SortOrder.DESC).map {
                     EhsDocument(
