@@ -275,7 +275,7 @@ class Translations(val lang: Language) {
 }
 
 enum class Module {
-    DASHBOARD, EHS_AUDITS, GRC_SECURITY,
+    DASHBOARD, EHS_AUDITS, LEGAL_MATRIX, GRC_SECURITY,
     CONTROLLING, PURCHASING, PRODUCTION, QUALITY, GTS_TRADE,
     FINANCIAL_ACCOUNTING, PLANT_MAINTENANCE, RECRUITMENT_SAP, EMPLOYEES, ATTENDANCE, PRE_NOMINA,
     WAREHOUSE, SHIPPING, FERRETERIA, RECEPCION_MP, SETTINGS, USER_MGMT
@@ -285,10 +285,11 @@ enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, AL
 
 fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
-    if (role == UserRole.RH) return module in listOf(Module.DASHBOARD, Module.EMPLOYEES, Module.ATTENDANCE, Module.PRE_NOMINA, Module.SETTINGS)
+    if (role == UserRole.RH) return module in listOf(Module.DASHBOARD, Module.RECRUITMENT_SAP, Module.EMPLOYEES, Module.ATTENDANCE, Module.PRE_NOMINA, Module.SETTINGS)
     if (role == UserRole.ALMACEN) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_AUDITS, Module.SETTINGS)
     if (role == UserRole.IMPORT_EXPORT) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_AUDITS, Module.SETTINGS)
     if (role == UserRole.FINANZAS) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_AUDITS, Module.SETTINGS)
+    if (role == UserRole.SEGURIDAD) return module in listOf(Module.DASHBOARD, Module.EHS_AUDITS, Module.LEGAL_MATRIX, Module.SETTINGS)
     return module in listOf(Module.DASHBOARD, Module.EHS_AUDITS, Module.SETTINGS)
 }
 
@@ -388,6 +389,7 @@ fun main() {
                         when (activeModule) {
                             Module.DASHBOARD -> DashboardView(employees, t)
                             Module.EHS_AUDITS -> EhsAuditsModule(client, scope, t)
+                            Module.LEGAL_MATRIX -> LegalMatrixModule(client, scope)
                             Module.GRC_SECURITY -> GrcSecurityModule(client, scope, t)
                             Module.CONTROLLING -> ControllingModule(client, scope, t)
                             Module.PURCHASING -> PurchasingModule(client, scope, t)
@@ -423,59 +425,83 @@ fun main() {
 fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) -> Unit) {
     Nav({
         style {
-            width(260.px)
+            width(270.px)
             backgroundColor(SidebarColor)
             color(Color.white)
             display(DisplayStyle.Flex)
             flexDirection(FlexDirection.Column)
         }
     }) {
-        Div({ style { padding(32.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
-            // LOGO NAF CONNECT (Versión Sidebar)
-            H2({ style { margin(0.px); fontSize(22.px); fontFamily("Inter", "sans-serif"); color(Color.white) } }) { 
+        Div({ style { padding(28.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center) } }) {
+            H2({ style { margin(0.px); fontSize(22.px); color(Color.white) } }) {
                 Span({ style { fontWeight("900"); property("font-style", "italic") } }) { Text("NAF") }
-                Span({ style { fontWeight("300"); color(Color("#94a3b8")); marginLeft(6.px); property("font-style", "normal") } }) { Text("CONNECT") }
+                Span({ style { fontWeight("300"); color(Color("#94a3b8")); marginLeft(6.px) } }) { Text("CONNECT") }
             }
         }
 
         Input(InputType.Text) {
-            style {
-                property("margin", "0 20px 24px 20px")
-                padding(10.px, 14.px)
-                backgroundColor(Color("#1e293b"))
-                property("border", "1px solid #334155")
-                borderRadius(8.px)
-                color(Color.white)
-                property("outline", "none")
-            }
+            style { property("margin", "0 20px 20px 20px"); padding(10.px, 14.px); backgroundColor(Color("#1e293b")); property("border", "1px solid #334155"); borderRadius(8.px); color(Color.white); property("outline", "none") }
             placeholder("Buscar...")
         }
 
-        Div({ style { flex(1); overflowY("auto"); padding(0.px, 16.px) } }) {
+        Div({ style { flex(1); overflowY("auto"); padding(0.px, 14.px) } }) {
             if (isModuleVisible(Module.DASHBOARD, role)) SidebarLink(t.get("dashboard"), Module.DASHBOARD, active == Module.DASHBOARD, onSelect)
-            if (isModuleVisible(Module.EHS_AUDITS, role)) SidebarLink(t.get("safety_audits"), Module.EHS_AUDITS, active == Module.EHS_AUDITS, onSelect)
-            if (isModuleVisible(Module.GRC_SECURITY, role)) SidebarLink(t.get("it_security_grc"), Module.GRC_SECURITY, active == Module.GRC_SECURITY, onSelect)
-            if (isModuleVisible(Module.CONTROLLING, role)) SidebarLink(t.get("controlling"), Module.CONTROLLING, active == Module.CONTROLLING, onSelect)
-            if (isModuleVisible(Module.PURCHASING, role)) SidebarLink(t.get("purchasing"), Module.PURCHASING, active == Module.PURCHASING, onSelect)
-            if (isModuleVisible(Module.PRODUCTION, role)) SidebarLink(t.get("production_planning"), Module.PRODUCTION, active == Module.PRODUCTION, onSelect)
-            if (isModuleVisible(Module.QUALITY, role)) SidebarLink(t.get("quality_management"), Module.QUALITY, active == Module.QUALITY, onSelect)
-            if (isModuleVisible(Module.WAREHOUSE, role)) SidebarLink(t.get("warehouse"), Module.WAREHOUSE, active == Module.WAREHOUSE, onSelect)
-            if (isModuleVisible(Module.SHIPPING, role)) SidebarLink(t.get("shipping"), Module.SHIPPING, active == Module.SHIPPING, onSelect)
-            if (isModuleVisible(Module.FERRETERIA, role)) SidebarLink(t.get("ferreteria"), Module.FERRETERIA, active == Module.FERRETERIA, onSelect)
-            if (isModuleVisible(Module.RECEPCION_MP, role)) SidebarLink(t.get("recepcion_mp"), Module.RECEPCION_MP, active == Module.RECEPCION_MP, onSelect)
-            if (isModuleVisible(Module.GTS_TRADE, role)) SidebarLink(t.get("gts_trade"), Module.GTS_TRADE, active == Module.GTS_TRADE, onSelect)
-            if (isModuleVisible(Module.FINANCIAL_ACCOUNTING, role)) SidebarLink(t.get("financial_accounting"), Module.FINANCIAL_ACCOUNTING, active == Module.FINANCIAL_ACCOUNTING, onSelect)
-            if (isModuleVisible(Module.PLANT_MAINTENANCE, role)) SidebarLink(t.get("plant_maintenance"), Module.PLANT_MAINTENANCE, active == Module.PLANT_MAINTENANCE, onSelect)
-            if (isModuleVisible(Module.RECRUITMENT_SAP, role)) SidebarLink(t.get("recruitment_sap"), Module.RECRUITMENT_SAP, active == Module.RECRUITMENT_SAP, onSelect)
-            if (isModuleVisible(Module.EMPLOYEES, role)) SidebarLink("Empleados", Module.EMPLOYEES, active == Module.EMPLOYEES, onSelect)
-            if (isModuleVisible(Module.ATTENDANCE, role)) SidebarLink("Asistencia", Module.ATTENDANCE, active == Module.ATTENDANCE, onSelect)
-            if (isModuleVisible(Module.PRE_NOMINA, role)) SidebarLink("Pre-Nómina", Module.PRE_NOMINA, active == Module.PRE_NOMINA, onSelect)
-            if (isModuleVisible(Module.USER_MGMT, role)) SidebarLink(t.get("user_mgmt"), Module.USER_MGMT, active == Module.USER_MGMT, onSelect)
-            SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
+
+            SidebarGroup("RECURSOS HUMANOS", active, role, onSelect, listOf(
+                Module.EMPLOYEES to "Empleados",
+                Module.ATTENDANCE to "Asistencia",
+                Module.PRE_NOMINA to "Pre-Nómina",
+                Module.RECRUITMENT_SAP to "Reclutamiento",
+                Module.USER_MGMT to t.get("user_mgmt")
+            ))
+            SidebarGroup("EHS Y CUMPLIMIENTO", active, role, onSelect, listOf(
+                Module.EHS_AUDITS to t.get("safety_audits"),
+                Module.LEGAL_MATRIX to "Matriz Legal",
+                Module.GRC_SECURITY to t.get("it_security_grc")
+            ))
+            SidebarGroup("OPERACIONES", active, role, onSelect, listOf(
+                Module.PRODUCTION to t.get("production_planning"),
+                Module.QUALITY to t.get("quality_management"),
+                Module.PLANT_MAINTENANCE to t.get("plant_maintenance")
+            ))
+            SidebarGroup("SUMINISTRO Y LOGÍSTICA", active, role, onSelect, listOf(
+                Module.PURCHASING to t.get("purchasing"),
+                Module.WAREHOUSE to t.get("warehouse"),
+                Module.FERRETERIA to t.get("ferreteria"),
+                Module.RECEPCION_MP to t.get("recepcion_mp"),
+                Module.SHIPPING to t.get("shipping"),
+                Module.GTS_TRADE to t.get("gts_trade")
+            ))
+            SidebarGroup("FINANZAS", active, role, onSelect, listOf(
+                Module.CONTROLLING to t.get("controlling"),
+                Module.FINANCIAL_ACCOUNTING to t.get("financial_accounting")
+            ))
+
+            if (isModuleVisible(Module.SETTINGS, role)) SidebarLink(t.get("settings"), Module.SETTINGS, active == Module.SETTINGS, onSelect)
         }
 
-        Div({ style { padding(24.px); property("border-top", "1px solid #1e293b") } }) {
-            P({ style { fontSize(11.px); color(Color("#64728b")); textAlign("center") } }) { Text("NAF CONNECT v3.0") }
+        Div({ style { padding(20.px); property("border-top", "1px solid #1e293b") } }) {
+            P({ style { fontSize(11.px); color(Color("#64748b")); textAlign("center") } }) { Text("NAF CONNECT v3.1") }
+        }
+    }
+}
+
+@Composable
+fun SidebarGroup(title: String, active: Module, role: UserRole, onSelect: (Module) -> Unit, entries: List<Pair<Module, String>>) {
+    val visibleEntries = entries.filter { isModuleVisible(it.first, role) }
+    if (visibleEntries.isEmpty()) return
+    var expanded by remember { mutableStateOf(visibleEntries.any { it.first == active }) }
+
+    Div({ style { marginTop(10.px); marginBottom(6.px) } }) {
+        Div({
+            style { padding(9.px, 12.px); display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); cursor("pointer"); color(Color("#94a3b8")); fontSize(11.px); fontWeight("700"); property("letter-spacing", "0.6px") }
+            onClick { expanded = !expanded }
+        }) {
+            Text(title)
+            Span { Text(if (expanded) "▾" else "▸") }
+        }
+        if (expanded) visibleEntries.forEach { (module, label) ->
+            SidebarLink(label, module, active == module, onSelect)
         }
     }
 }
