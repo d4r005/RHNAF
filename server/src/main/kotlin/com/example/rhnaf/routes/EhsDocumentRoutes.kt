@@ -82,7 +82,7 @@ fun Route.ehsDocumentRouting() {
                         it[contentBase64] = req.contentBase64
                     } get EhsDocumentTable.id
                 }
-                call.respond(mapOf("status" to "ok", "id" to id))
+                call.respond(mapOf("status" to "ok", "id" to id.toString()))
             }
         }
 
