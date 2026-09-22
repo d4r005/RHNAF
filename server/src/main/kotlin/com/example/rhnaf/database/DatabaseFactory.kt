@@ -34,6 +34,13 @@ object DatabaseFactory {
             Database.connect(createHikariDataSource("jdbc:h2:file:./build/db", "org.h2.Driver"))
         }
 
+        // Si la base esta en modo solo-lectura (ej. Supabase por cuota de
+        // almacenamiento excedida) SchemaUtils/los seeds de abajo lanzan
+        // PSQLException y ANTES no estaba capturado -> tumbaba el proceso
+        // completo en el arranque (ni siquiera login funcionaba). Ahora
+        // degradamos a modo lectura: la app arranca y sirve lo que ya hay,
+        // en vez de crashear.
+        try {
         transaction(database) {
             SchemaUtils.createMissingTablesAndColumns(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, SafetyIncidentTable, WorkPermitTable, PpeDeliveryTable, SafetyTrainingTable, EmergencyDrillTable, RiskMatrixTable, AccessAuditLogTable, EnvironmentalWasteTable, OccupationalHealthTable, ChemicalInventoryTable, ShiftTable, AttendancePolicyTable, EmployeeShiftTable, JustificationTable, PrePayrollTable, SystemTaskTable, WarehouseLocationTable, WarehouseOutgoingLogTable, WarehouseAuditTable, OrderTable, DeliveryRouteTable, TraceabilityEventTable, FerreteriaTable, RecepcionMPTable, TarimaTable, ContenedorChinaTable, SelloStockTable, GasConsumoTable, PersonalTallaTable, ApprovalWorkflowTable, DocumentLogTable, LegalMatrixTable, EhsDocumentTable)
 
@@ -168,6 +175,11 @@ object DatabaseFactory {
                     }
                 }
             }
+        }
+        } catch (e: Exception) {
+            println("[DatabaseFactory] ADVERTENCIA: no se pudo crear/migrar esquema o cargar seeds " +
+                "(posible base de datos en modo solo-lectura, ej. cuota de Supabase excedida). " +
+                "La app sigue arrancando en modo lectura. Detalle: ${e.message}")
         }
     }
 
