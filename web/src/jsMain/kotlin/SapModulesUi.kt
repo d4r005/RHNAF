@@ -638,11 +638,15 @@ fun EhsChemicalsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 @Composable
 fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     var items by remember { mutableStateOf(emptyList<SafetyInspection>()) }
+    var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) {
         isLoading = true
-        try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
+        try {
+            items = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body()
+            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=inspection").body()
+        } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
     var f_fecha by remember { mutableStateOf("") }
@@ -669,8 +673,8 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
-            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Area") }; Th { Text("Inspector") }; Th { Text("Hallazgos") }; Th { Text("Riesgo") }; Th { Text("Acciones") }; Th { Text("F.Cierre") }; Th { Text("Estado") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipoInspeccion) }; Td { Text(row.area) }; Td { Text(row.inspector) }; Td { Text(row.hallazgos) }; Td { Text(row.riesgo) }; Td { Text(row.accionesCorrectivas) }; Td { Text(row.fechaCierre) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/inspecciones/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Area") }; Th { Text("Inspector") }; Th { Text("Hallazgos") }; Th { Text("Riesgo") }; Th { Text("Acciones") }; Th { Text("F.Cierre") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipoInspeccion) }; Td { Text(row.area) }; Td { Text(row.inspector) }; Td { Text(row.hallazgos) }; Td { Text(row.riesgo) }; Td { Text(row.accionesCorrectivas) }; Td { Text(row.fechaCierre) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/inspecciones/${row.id}"); refresh() } } }) { Text("X") } } } } }
         }
     }
 }
@@ -789,9 +793,13 @@ fun EhsPpeTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
 @Composable
 fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     var items by remember { mutableStateOf(emptyList<SafetyTraining>()) }
+    var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
-    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/capacitaciones").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    LaunchedEffect(refreshKey) { isLoading = true; try {
+        items = client.get("$BACKEND_URL/api/v1/sap/ehs/capacitaciones").body()
+        evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=training").body()
+    } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     var f_fecha by remember { mutableStateOf("") }
     var f_tema by remember { mutableStateOf("") }
@@ -813,8 +821,8 @@ fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
-            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tema") }; Th { Text("Instructor") }; Th { Text("Asist.") }; Th { Text("Vigencia") }; Th { Text("Prox.Fecha") }; Th { Text("Estado") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tema) }; Td { Text(row.instructor) }; Td { Text(row.asistentes) }; Td { Text(row.vigenciaMeses) }; Td { Text(row.proximaFecha) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/capacitaciones/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tema") }; Th { Text("Instructor") }; Th { Text("Asist.") }; Th { Text("Vigencia") }; Th { Text("Prox.Fecha") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tema) }; Td { Text(row.instructor) }; Td { Text(row.asistentes) }; Td { Text(row.vigenciaMeses) }; Td { Text(row.proximaFecha) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/capacitaciones/${row.id}"); refresh() } } }) { Text("X") } } } } }
         }
     }
 }
@@ -823,9 +831,13 @@ fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 @Composable
 fun EhsDrillsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     var items by remember { mutableStateOf(emptyList<EmergencyDrill>()) }
+    var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
-    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/simulacros").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    LaunchedEffect(refreshKey) { isLoading = true; try {
+        items = client.get("$BACKEND_URL/api/v1/sap/ehs/simulacros").body()
+        evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=drill").body()
+    } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     var f_fecha by remember { mutableStateOf("") }
     var f_tipo by remember { mutableStateOf("") }
@@ -847,8 +859,8 @@ fun EhsDrillsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
-            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Particip.") }; Th { Text("T.Evacuac.") }; Th { Text("Resultado") }; Th { Text("Observaciones") }; Th { Text("Estado") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipo) }; Td { Text(row.participantes) }; Td { Text(row.tiempoEvacuacion) }; Td { Text(row.resultado) }; Td { Text(row.observaciones) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/simulacros/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Particip.") }; Th { Text("T.Evacuac.") }; Th { Text("Resultado") }; Th { Text("Observaciones") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
+            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipo) }; Td { Text(row.participantes) }; Td { Text(row.tiempoEvacuacion) }; Td { Text(row.resultado) }; Td { Text(row.observaciones) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/simulacros/${row.id}"); refresh() } } }) { Text("X") } } } } }
         }
     }
 }
@@ -1234,6 +1246,41 @@ fun RecruitmentSapModule(client: HttpClient, scope: kotlinx.coroutines.Coroutine
     }
 }
 
+// Abre una evidencia usando el token de la sesión. window.open(url) no sirve
+// porque una pestaña nueva no envía el header Authorization.
+@Composable
+fun EhsEvidenceButtons(documents: List<EhsDocument>) {
+    if (documents.isEmpty()) {
+        Span({ style { color(Color("#94a3b8")); fontSize(12.px) } }) { Text("Sin evidencia") }
+        return
+    }
+    Div({ style { display(DisplayStyle.Flex); gap(4.px); flexWrap(FlexWrap.Wrap) } }) {
+        documents.forEach { doc ->
+            Button({
+                style { padding(4.px, 8.px); backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(5.px); cursor("pointer"); fontSize(11.px) }
+                onClick {
+                    val url = "$BACKEND_URL/api/v1/ehs/documentos/${doc.id}/descargar"
+                    val options = js("({})")
+                    options.method = "GET"
+                    options.headers = js("({})")
+                    options.headers.Authorization = "Bearer $apiAuthToken"
+                    window.asDynamic().fetch(url, options)
+                        .then { response: dynamic ->
+                            if (!response.ok) throw Exception("HTTP " + response.status)
+                            response.blob()
+                        }
+                        .then { blob: dynamic ->
+                            val blobUrl = window.asDynamic().URL.createObjectURL(blob)
+                            window.open(blobUrl as String, "_blank")
+                            window.setTimeout({ window.asDynamic().URL.revokeObjectURL(blobUrl) }, 60000)
+                        }
+                        .`catch` { err: dynamic -> window.alert("No se pudo abrir ${doc.fileName}: " + (err.message ?: "error de descarga")) }
+                }
+            }) { Text(doc.fileName.ifBlank { doc.titulo }) }
+        }
+    }
+}
+
 // EHS-12. Evidencia Documental: subir archivos (PDF/imagen) que respaldan
 // simulacros, estudios, capacitaciones, dictamenes, etc. Se guardan en el
 // servidor y se pueden ver/descargar desde la tabla.
@@ -1244,11 +1291,17 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     var refreshKey by remember { mutableStateOf(0) }
     var statusMsg by remember { mutableStateOf("") }
     var uploading by remember { mutableStateOf(false) }
+    var inspections by remember { mutableStateOf(emptyList<SafetyInspection>()) }
+    var trainings by remember { mutableStateOf(emptyList<SafetyTraining>()) }
+    var drills by remember { mutableStateOf(emptyList<EmergencyDrill>()) }
 
     LaunchedEffect(refreshKey) {
         isLoading = true
         try {
             items = client.get("$BACKEND_URL/api/v1/ehs/documentos").body()
+            inspections = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body()
+            trainings = client.get("$BACKEND_URL/api/v1/sap/ehs/capacitaciones").body()
+            drills = client.get("$BACKEND_URL/api/v1/sap/ehs/simulacros").body()
             statusMsg = ""
         } catch (e: Exception) {
             statusMsg = "No se pudo cargar la evidencia documental: ${e.message ?: "error del servidor"}"
@@ -1264,21 +1317,43 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     var f_fileMime by remember { mutableStateOf("") }
     var f_fileB64 by remember { mutableStateOf<String?>(null) }
     var f_fileSize by remember { mutableStateOf(0) }
+    var f_moduleRecordId by remember { mutableStateOf(0) }
 
     val categorias = listOf("Simulacro", "Capacitacion", "Estudio", "Inspeccion", "Dictamen", "ExamenMedico", "Otro")
+    val moduleType = when (f_categoria) {
+        "Inspeccion" -> "inspection"
+        "Simulacro" -> "drill"
+        "Capacitacion" -> "training"
+        else -> ""
+    }
+    val linkOptions: List<Pair<Int, String>> = when (moduleType) {
+        "inspection" -> inspections.map { it.id to "#${it.id} · ${it.fecha} · ${it.tipoInspeccion} · ${it.area}" }
+        "drill" -> drills.map { it.id to "#${it.id} · ${it.fecha} · ${it.tipo}" }
+        "training" -> trainings.map { it.id to "#${it.id} · ${it.fecha} · ${it.tema}" }
+        else -> emptyList()
+    }
 
     Div({ style { backgroundColor(Color.white); padding(20.px); borderRadius(12.px); marginBottom(20.px); property("border", "1px solid #e2e8f0") } }) {
         H4({ style { margin(0.px, 0.px, 12.px, 0.px); color(Color("#0f172a")) } }) { Text("Subir evidencia documental") }
         Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(10.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
             Select({
                 style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) }
-                onChange { f_categoria = it.value ?: "Otro" }
+                onChange { f_categoria = it.value ?: "Otro"; f_moduleRecordId = 0 }
             }) {
                 categorias.forEach { Option(it) { Text(it) } }
             }
             Input(InputType.Text) { placeholder("Título * (ej. Simulacro de evacuación)"); value(f_titulo); onInput { f_titulo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) } }
             Input(InputType.Text) { placeholder("Fecha (dd/MM/aaaa)"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
             Input(InputType.Text) { placeholder("Notas"); value(f_notas); onInput { f_notas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+            if (moduleType.isNotBlank()) {
+                Select({
+                    style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); minWidth(300.px) }
+                    onChange { f_moduleRecordId = it.value?.toIntOrNull() ?: 0 }
+                }) {
+                    Option("0") { Text("Vincular con ${f_categoria.lowercase()} existente...") }
+                    linkOptions.forEach { (id, label) -> Option(id.toString()) { Text(label) } }
+                }
+            }
         }
         Div({ style { display(DisplayStyle.Flex); gap(10.px); alignItems(AlignItems.Center); flexWrap(FlexWrap.Wrap) } }) {
             Input(InputType.File) {
@@ -1317,7 +1392,9 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             Button({
                 style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
                 onClick {
-                    if (f_titulo.isNotBlank() && f_fileB64 != null && !uploading) {
+                    if (moduleType.isNotBlank() && f_moduleRecordId == 0) {
+                        statusMsg = "Selecciona el registro de ${f_categoria.lowercase()} al que pertenece la evidencia."
+                    } else if (f_titulo.isNotBlank() && f_fileB64 != null && !uploading) {
                         uploading = true; statusMsg = "Subiendo..."
                         scope.launch {
                             try {
@@ -1326,10 +1403,12 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                                     setBody(EhsDocumentUpload(
                                         categoria = f_categoria, titulo = f_titulo, fecha = f_fecha, notas = f_notas,
                                         fileName = f_fileName, mimeType = f_fileMime, fileSize = f_fileSize,
-                                        contentBase64 = f_fileB64!!
+                                        contentBase64 = f_fileB64!!,
+                                        moduleType = moduleType,
+                                        moduleRecordId = f_moduleRecordId
                                     ))
                                 }
-                                f_titulo = ""; f_fecha = ""; f_notas = ""; f_fileB64 = null; f_fileName = ""; f_fileSize = 0
+                                f_titulo = ""; f_fecha = ""; f_notas = ""; f_fileB64 = null; f_fileName = ""; f_fileSize = 0; f_moduleRecordId = 0
                                 statusMsg = "Evidencia subida correctamente."
                                 refresh()
                             } catch (e: Exception) {

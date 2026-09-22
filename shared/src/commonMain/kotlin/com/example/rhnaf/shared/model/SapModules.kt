@@ -368,7 +368,9 @@ data class EhsDocument(
     val fileSize: Int = 0,                 // bytes
     val notas: String = "",
     val uploadedBy: String = "",
-    val uploadedDate: String = ""          // dd/MM/yyyy de cuando se subio
+    val uploadedDate: String = "",         // dd/MM/yyyy de cuando se subio
+    val moduleType: String = "",           // inspection, drill, training, etc.
+    val moduleRecordId: Int = 0             // ID del registro concreto asociado
 )
 
 @Serializable
@@ -380,5 +382,7 @@ data class EhsDocumentUpload(
     val fileName: String = "",
     val mimeType: String = "",
     val fileSize: Int = 0,
-    val contentBase64: String
+    val contentBase64: String,
+    val moduleType: String = "",
+    val moduleRecordId: Int = 0
 )

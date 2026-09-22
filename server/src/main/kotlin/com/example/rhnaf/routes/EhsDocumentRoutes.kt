@@ -35,6 +35,8 @@ fun Route.ehsDocumentRouting() {
         get {
             requireAuthOr401(call) ?: return@get
             val categoria = call.request.queryParameters["categoria"]
+            val moduleType = call.request.queryParameters["moduleType"]
+            val moduleRecordId = call.request.queryParameters["moduleRecordId"]?.toIntOrNull()
             val items = DatabaseFactory.dbQuery {
                 // IMPORTANTE: no usar selectAll aqui. content_base64 puede pesar hasta 10 MB
                 // por registro y hacía que el listado descargara todos los archivos completos
@@ -50,10 +52,14 @@ fun Route.ehsDocumentRouting() {
                     EhsDocumentTable.fileSize,
                     EhsDocumentTable.notas,
                     EhsDocumentTable.uploadedBy,
-                    EhsDocumentTable.uploadedDate
+                    EhsDocumentTable.uploadedDate,
+                    EhsDocumentTable.moduleType,
+                    EhsDocumentTable.moduleRecordId
                 )
-                val base = EhsDocumentTable.select(metadataColumns)
-                val filtered = if (categoria.isNullOrBlank()) base else base.where { EhsDocumentTable.categoria eq categoria }
+                var filtered = EhsDocumentTable.select(metadataColumns)
+                if (!categoria.isNullOrBlank()) filtered.andWhere { EhsDocumentTable.categoria eq categoria }
+                if (!moduleType.isNullOrBlank()) filtered.andWhere { EhsDocumentTable.moduleType eq moduleType }
+                if (moduleRecordId != null) filtered.andWhere { EhsDocumentTable.moduleRecordId eq moduleRecordId }
                 filtered.orderBy(EhsDocumentTable.id, SortOrder.DESC).map {
                     EhsDocument(
                         id = it[EhsDocumentTable.id],
@@ -65,7 +71,9 @@ fun Route.ehsDocumentRouting() {
                         fileSize = it[EhsDocumentTable.fileSize],
                         notas = it[EhsDocumentTable.notas],
                         uploadedBy = it[EhsDocumentTable.uploadedBy],
-                        uploadedDate = it[EhsDocumentTable.uploadedDate]
+                        uploadedDate = it[EhsDocumentTable.uploadedDate],
+                        moduleType = it[EhsDocumentTable.moduleType],
+                        moduleRecordId = it[EhsDocumentTable.moduleRecordId]
                     )
                 }
             }
@@ -95,6 +103,8 @@ fun Route.ehsDocumentRouting() {
                         it[fileSize] = if (req.fileSize > 0) req.fileSize else size
                         it[notas] = req.notas
                         it[uploadedDate] = today
+                        it[moduleType] = req.moduleType.trim().lowercase()
+                        it[moduleRecordId] = req.moduleRecordId
                         it[contentBase64] = req.contentBase64
                     } get EhsDocumentTable.id
                 }

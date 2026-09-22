@@ -343,6 +343,10 @@ object EhsDocumentTable : Table("ehs_documents") {
     val notas = varchar("notas", 500).default("")
     val uploadedBy = varchar("uploaded_by", 200).default("")
     val uploadedDate = varchar("uploaded_date", 20).default("")
+    // Enlace polimórfico al registro EHS dueño de esta evidencia.
+    // Ej.: module_type="inspection", module_record_id=15.
+    val moduleType = varchar("module_type", 50).default("")
+    val moduleRecordId = integer("module_record_id").default(0)
     val contentBase64 = text("content_base64")
     override val primaryKey = PrimaryKey(id)
 }
