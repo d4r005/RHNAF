@@ -25,6 +25,7 @@ import com.example.rhnaf.routes.extendedRouting
 import com.example.rhnaf.routes.workflowRouting
 import com.example.rhnaf.routes.legalMatrixRouting
 import com.example.rhnaf.routes.ehsDocumentRouting
+import com.example.rhnaf.routes.googleDriveRouting
 import com.example.rhnaf.auth.Roles
 import com.example.rhnaf.auth.requireRoleOr403
 import io.ktor.server.request.*
@@ -56,7 +57,9 @@ fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 private val PUBLIC_PATHS = setOf(
     "/api/login",
     "/api/v1/asistencia/hikvision",
-    "/api/v1/asistencia/sync"
+    "/api/v1/asistencia/sync",
+    "/api/v1/google-drive/auth-url",
+    "/api/v1/google-drive/callback"
 )
 
 fun Application.module() {
@@ -175,6 +178,7 @@ fun Application.module() {
         workflowRouting()
         legalMatrixRouting()
         ehsDocumentRouting()
+        googleDriveRouting()
 
         // Sirve la Web App (Compose HTML) desde una carpeta física
         staticFiles("/", File("static"), index = "index.html")

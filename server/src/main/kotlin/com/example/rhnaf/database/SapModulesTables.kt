@@ -330,8 +330,8 @@ object LegalMatrixTable : Table("ehs_legal_matrix") {
 }
 
 // EHS - Evidencia documental: archivos (PDF/imagen) que respaldan simulacros,
-// estudios, capacitaciones, dictamenes, etc. El contenido se guarda como base64
-// en columna TEXT (mismo patron que las fotos de empleado en photoUrl).
+// estudios, capacitaciones, dictamenes, etc. La columna content_base64 conserva
+// base64 legacy o un puntero compacto gdrive:<fileId> para archivos nuevos.
 object EhsDocumentTable : Table("ehs_documents") {
     val id = integer("id").autoIncrement()
     val categoria = varchar("categoria", 50).default("Otro")
