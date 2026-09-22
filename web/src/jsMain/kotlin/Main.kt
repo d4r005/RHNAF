@@ -6,6 +6,7 @@ import org.jetbrains.compose.web.attributes.*
 import io.ktor.client.*
 import io.ktor.client.engine.js.*
 import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.defaultRequest
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.client.request.*
 import io.ktor.client.call.*
@@ -295,9 +296,18 @@ fun isModuleVisible(module: Module, role: UserRole): Boolean {
 // Apuntamos directamente al servidor de Hugging Face para que funcione desde nafconnect.pages.dev
 val BACKEND_URL = "https://d4r005-rhnaf-industrial.hf.space"
 
+// Token de la sesión actual. DefaultRequest lo agrega automáticamente a todas
+// las llamadas posteriores al login, incluidos los módulos que comparten el cliente.
+private var apiAuthToken = ""
+
 fun main() {
     val client = HttpClient(Js) {
         install(ContentNegotiation) { json() }
+        defaultRequest {
+            if (apiAuthToken.isNotBlank()) {
+                header(HttpHeaders.Authorization, "Bearer $apiAuthToken")
+            }
+        }
     }
 
     renderComposable(rootElementId = "root") {
@@ -333,6 +343,7 @@ fun main() {
                             val role = try { UserRole.valueOf(roleFromServer) } catch (e: Exception) { UserRole.EMPLEADO }
                             userRole = role
                             authToken = body["token"] ?: ""
+                            apiAuthToken = authToken
 
                             // Siempre sobreescribimos el nombre mostrado con el que regresa el
                             // servidor para esta cuenta (evita que quede pegado el nombre de otra
