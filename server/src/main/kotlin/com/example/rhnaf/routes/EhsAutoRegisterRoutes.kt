@@ -169,8 +169,18 @@ fun Route.ehsAutoRegisterRouting() {
         data class Omitido(val id: Int?, val titulo: String?, val categoria: String?, val motivo: String)
         val creados = mutableListOf<Creado>()
         val omitidos = mutableListOf<Omitido>()
+        // Puede haber cientos de evidencias pendientes y cada una implica una
+        // descarga a Google Drive + lectura del documento: procesar todas en
+        // una sola llamada supera el timeout del proxy de Hugging Face y el
+        // navegador nunca recibe respuesta. Se procesa un lote acotado por
+        // llamada; el resto queda pendiente para el siguiente clic (los ya
+        // procesados no se repiten porque quedan con module_record_id > 0).
+        val LOTE_MAXIMO = 25
+        var procesados = 0
+        var pendientesRestantes = false
 
         for (categoria in categoriasAProcesar) {
+            if (procesados >= LOTE_MAXIMO) { pendientesRestantes = true; break }
             val spec = specs[categoria]
             if (spec == null) {
                 omitidos.add(Omitido(id = null, titulo = null, categoria = categoria, motivo = "Categoría sin creación automática de registros"))
@@ -195,7 +205,10 @@ fun Route.ehsAutoRegisterRouting() {
                     )
                 }
             }
+            if (pendientes.size + procesados > LOTE_MAXIMO) pendientesRestantes = true
             for (doc in pendientes) {
+                if (procesados >= LOTE_MAXIMO) { pendientesRestantes = true; break }
+                procesados++
                 val docId = doc.docId
                 val titulo = doc.titulo
                 val fechaDoc = doc.fechaDoc
@@ -260,7 +273,9 @@ fun Route.ehsAutoRegisterRouting() {
                     put("motivo", o.motivo)
                 }
             }))
-            put("message", "Los campos no encontrados en el propio documento se dejan vacíos para completarlos manualmente; no se inventa información.")
+            val mensajeBase = "Los campos no encontrados en el propio documento se dejan vacíos para completarlos manualmente; no se inventa información."
+            put("pendientesRestantes", pendientesRestantes)
+            put("message", if (pendientesRestantes) "$mensajeBase Quedan más evidencias por procesar: vuelve a pulsar el botón para continuar con el siguiente lote." else mensajeBase)
         }
         call.respond(respuesta)
     }

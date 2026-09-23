@@ -47,7 +47,9 @@ fun AutoRegisterFromEvidencePanel(client: HttpClient, scope: kotlinx.coroutines.
                         } else {
                             val creados = obj["creados"]?.jsonPrimitive?.int ?: 0
                             val omitidos = obj["omitidos"]?.jsonPrimitive?.int ?: 0
-                            msg = "Listo: $creados registros creados y vinculados; $omitidos evidencias omitidas (revisa el detalle si esperabas más)."
+                            val quedanMas = obj["pendientesRestantes"]?.jsonPrimitive?.content == "true"
+                            msg = "Listo: $creados registros creados y vinculados; $omitidos evidencias omitidas (revisa el detalle si esperabas más)." +
+                                if (quedanMas) " Quedan más evidencias pendientes: pulsa el botón otra vez para seguir procesando." else ""
                         }
                     } catch (e: Exception) {
                         msg = "No se pudo completar: ${e.message ?: "error del servidor"}"
