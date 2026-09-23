@@ -7,17 +7,18 @@ import io.ktor.server.plugins.origin
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
+// Hugging Face Spaces sirve el backend solo por HTTPS de cara al publico,
+// pero su proxy interno no siempre reenvia X-Forwarded-Proto -- eso hacia que
+// calculariamos "http://..." y Google rechazaba el redirect_uri con
+// "redirect_uri_mismatch" aunque en Google Cloud estuviera dado de alta con
+// https. PUBLIC_BASE_URL permite fijar la URL exacta por variable de entorno;
+// si no esta definida, forzamos https (nunca hay un despliegue publico real
+// en http para este servicio).
 private fun ApplicationCall.publicBaseUrl(): String {
-    val forwardedProto = request.headers["X-Forwarded-Proto"]?.substringBefore(',')?.trim()
+    System.getenv("PUBLIC_BASE_URL")?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() }?.let { return it }
     val forwardedHost = request.headers["X-Forwarded-Host"]?.substringBefore(',')?.trim()
-    if (!forwardedProto.isNullOrBlank() && !forwardedHost.isNullOrBlank()) {
-        return "$forwardedProto://$forwardedHost"
-    }
-    val origin = request.origin
-    val defaultPort = (origin.scheme == "https" && origin.serverPort == 443) ||
-        (origin.scheme == "http" && origin.serverPort == 80)
-    return if (defaultPort) "${origin.scheme}://${origin.serverHost}"
-    else "${origin.scheme}://${origin.serverHost}:${origin.serverPort}"
+    val host = forwardedHost?.takeIf { it.isNotBlank() } ?: request.origin.serverHost
+    return "https://$host"
 }
 
 fun Route.googleDriveRouting() {
