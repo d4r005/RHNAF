@@ -2,6 +2,13 @@
 
 Inspiración funcional: EHSoft, ACM Suite, GeISS/Twind, Prysmex, MassWare y Enkel. No se copian código, catálogos ni material propietario. Una pantalla no prueba cumplimiento legal.
 
+## División del módulo EHS (decisión del dueño)
+- La operación EHS se divide en tres pilares: **Seguridad**, **Salud Ocupacional** y **Medio Ambiente**.
+- Seguridad: inspecciones, incidentes, permisos de trabajo, EPP, capacitaciones, simulacros, matriz de riesgos, dictámenes y normativa.
+- Salud Ocupacional: registros de salud ocupacional (restringidos a ADMIN/SEGURIDAD) e inventario químico con hojas de seguridad.
+- Medio Ambiente: residuos, huella de carbono y estudios ambientales.
+- Existe un endpoint de purga (DELETE /api/v1/ehs/purge?confirm=ELIMINAR, solo ADMIN) que borra la evidencia de Google Drive y los registros EHS para recargas manuales; no toca usuarios ni logs de auditoría.
+
 ## Entrega 0: ya disponible
 - Inspecciones, incidentes, permisos de trabajo, EPP, capacitaciones, simulacros, matriz de riesgos, residuos, salud ocupacional y químicos.
 - Matriz legal editable con vigencias básicas y catálogo inicial; evidencia documental vinculada a Google Drive; acceso restringido por rol.

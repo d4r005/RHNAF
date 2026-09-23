@@ -449,17 +449,35 @@ fun GtsTradeModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope,
 }
 
 @Composable
-fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations, role: UserRole) {
+/** División del módulo EHS en pilares, según el dueño: seguridad, salud ocupacional y medio ambiente. */
+enum class EhsPillar(val titulo: String, val descripcion: String) {
+    SEGURIDAD("Seguridad", "Inspecciones, incidentes, permisos de trabajo, EPP, capacitaciones, simulacros y matriz de riesgos."),
+    SALUD("Salud Ocupacional", "Registros de salud ocupacional e inventario químico con hojas de seguridad."),
+    AMBIENTE("Medio Ambiente", "Residuos, huella de carbono y estudios ambientales.")
+}
+
+private val ehsPillarTabs: Map<EhsPillar, List<Pair<Int, String>>> = mapOf(
+    EhsPillar.SEGURIDAD to listOf(
+        0 to "Inspecciones", 1 to "Incidentes", 2 to "Permisos Trabajo", 3 to "EPP",
+        4 to "Capacitaciones", 5 to "Simulacros", 6 to "Matriz Riesgos",
+        12 to "Dictámenes", 13 to "Normativa"
+    ),
+    EhsPillar.SALUD to listOf(9 to "Salud Ocupacional", 10 to "Químicos"),
+    EhsPillar.AMBIENTE to listOf(7 to "Residuos", 8 to "Huella de Carbono", 11 to "Estudios")
+)
+
+fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations, role: UserRole, pillar: EhsPillar) {
     var activeTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Inspecciones", "Incidentes", "Permisos Trabajo", "EPP", "Capacitaciones", "Simulacros", "Matriz Riesgos", "Medio Ambiente", "Huella de Carbono", "Salud Ocupacional", "Químicos", "Estudios", "Dictámenes", "Normativa")
+    val tabs = ehsPillarTabs.getValue(pillar)
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3({ style { margin(0.px); marginBottom(16.px) } }) { Text("EHS \u00b7 Seguridad, Salud y Ambiente") }
+        H3({ style { margin(0.px); marginBottom(4.px) } }) { Text("EHS \u00b7 ${pillar.titulo}") }
+        P({ style { margin(0.px, 0.px, 16.px, 0.px); color(Color("#64748b")); fontSize(13.px) } }) { Text(pillar.descripcion) }
         AutoRegisterFromEvidencePanel(client, scope)
 
         // Tab bar
         Div({ style { display(DisplayStyle.Flex); gap(4.px); marginBottom(20.px); flexWrap(FlexWrap.Wrap) } }) {
-            tabs.forEachIndexed { idx, label ->
+            tabs.forEachIndexed { idx, (_, label) ->
                 Button({
                     style {
                         padding(8.px, 14.px); borderRadius(6.px); cursor("pointer")
@@ -471,7 +489,7 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             }
         }
 
-        when (activeTab) {
+        when (tabs[activeTab].first) {
             0 -> EhsInspectionsTab(client, scope)
             1 -> EhsIncidentsTab(client, scope)
             2 -> EhsWorkPermitsTab(client, scope)
@@ -487,6 +505,7 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             11 -> EhsCategoryEvidence(client, "Estudio")
             12 -> EhsCategoryEvidence(client, "Dictamen")
             13 -> EhsCategoryEvidence(client, "Normativa")
+            else -> P { Text("Sección no disponible.") }
         }
     }
 }

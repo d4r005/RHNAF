@@ -317,6 +317,36 @@ object GoogleDriveService {
     }
 
     /** Elimina un archivo de Drive por su fileId. */
+
+    /** Lista (id, mimeType) de los archivos/carpetas directos de una carpeta, sin trashed. */
+    suspend fun listFilesInFolder(folderId: String): List<Pair<String, String>>? {
+        val token = getAccessToken() ?: return null
+        val result = mutableListOf<Pair<String, String>>()
+        var pageToken: String? = null
+        do {
+            val response: HttpResponse = client.get(DRIVE_FILES_URL) {
+                header(HttpHeaders.Authorization, "Bearer $token")
+                parameter("q", "'$folderId' in parents and trashed = false")
+                parameter("pageSize", "200")
+                parameter("fields", "nextPageToken,files(id,mimeType)")
+                if (pageToken != null) parameter("pageToken", pageToken)
+            }
+            if (response.status != HttpStatusCode.OK) {
+                println("[GoogleDriveService] Error listando carpeta ${response.status}")
+                return null
+            }
+            val json = Json.parseToJsonElement(response.bodyAsText()).jsonObject
+            json["files"]?.jsonArray?.forEach { element ->
+                val file = element.jsonObject
+                val id = file["id"]?.jsonPrimitive?.contentOrNull
+                val mimeType = file["mimeType"]?.jsonPrimitive?.contentOrNull ?: ""
+                if (id != null) result.add(id to mimeType)
+            }
+            pageToken = json["nextPageToken"]?.jsonPrimitive?.contentOrNull
+        } while (pageToken != null)
+        return result
+    }
+
     suspend fun deleteFile(fileId: String): Boolean {
         val accessToken = getAccessToken() ?: return false
         val response: HttpResponse = client.delete("$DRIVE_FILES_URL/$fileId") {

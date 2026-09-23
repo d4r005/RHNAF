@@ -275,7 +275,7 @@ class Translations(val lang: Language) {
 }
 
 enum class Module {
-    DASHBOARD, EHS_HOME, EHS_AUDITS, EHS_METRICS, EHS_CALENDAR, EHS_ACTIONS, EHS_CONTRACTORS, EHS_ALERTS, EHS_RATES, LEGAL_MATRIX, STPS, EHS_DOCUMENTS, GRC_SECURITY,
+    DASHBOARD, EHS_HOME, EHS_SEGURIDAD, EHS_SALUD, EHS_AMBIENTE, EHS_METRICS, EHS_CALENDAR, EHS_ACTIONS, EHS_CONTRACTORS, EHS_ALERTS, EHS_RATES, LEGAL_MATRIX, STPS, EHS_DOCUMENTS, GRC_SECURITY,
     CONTROLLING, PURCHASING, PRODUCTION, QUALITY, GTS_TRADE,
     FINANCIAL_ACCOUNTING, PLANT_MAINTENANCE, RECRUITMENT_SAP, EMPLOYEES, ATTENDANCE, PRE_NOMINA,
     WAREHOUSE, SHIPPING, FERRETERIA, RECEPCION_MP, SETTINGS, USER_MGMT
@@ -286,11 +286,11 @@ enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, AL
 fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
     if (role == UserRole.RH) return module in listOf(Module.DASHBOARD, Module.RECRUITMENT_SAP, Module.EMPLOYEES, Module.ATTENDANCE, Module.PRE_NOMINA, Module.SETTINGS)
-    if (role == UserRole.ALMACEN) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_AUDITS, Module.EHS_DOCUMENTS, Module.SETTINGS)
-    if (role == UserRole.IMPORT_EXPORT) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_AUDITS, Module.EHS_DOCUMENTS, Module.SETTINGS)
-    if (role == UserRole.FINANZAS) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_AUDITS, Module.EHS_DOCUMENTS, Module.SETTINGS)
-    if (role == UserRole.SEGURIDAD) return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_AUDITS, Module.EHS_METRICS, Module.EHS_CALENDAR, Module.EHS_ACTIONS, Module.EHS_CONTRACTORS, Module.EHS_ALERTS, Module.EHS_RATES, Module.LEGAL_MATRIX, Module.STPS, Module.EHS_DOCUMENTS, Module.SETTINGS)
-    return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_AUDITS, Module.EHS_DOCUMENTS, Module.SETTINGS)
+    if (role == UserRole.ALMACEN) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.SETTINGS)
+    if (role == UserRole.IMPORT_EXPORT) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.SETTINGS)
+    if (role == UserRole.FINANZAS) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.SETTINGS)
+    if (role == UserRole.SEGURIDAD) return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_METRICS, Module.EHS_CALENDAR, Module.EHS_ACTIONS, Module.EHS_CONTRACTORS, Module.EHS_ALERTS, Module.EHS_RATES, Module.LEGAL_MATRIX, Module.STPS, Module.EHS_DOCUMENTS, Module.SETTINGS)
+    return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.SETTINGS)
 }
 
 // CONFIGURACIÓN DE URL DE BACKEND
@@ -391,7 +391,9 @@ fun main() {
                         when (activeModule) {
                             Module.DASHBOARD -> DashboardView(employees, t)
                             Module.EHS_HOME -> EhsHomeModule(userRole) { activeModule = it }
-                            Module.EHS_AUDITS -> EhsAuditsModule(client, scope, t, userRole)
+                            Module.EHS_SEGURIDAD -> EhsAuditsModule(client, scope, t, userRole, EhsPillar.SEGURIDAD)
+                            Module.EHS_SALUD -> EhsAuditsModule(client, scope, t, userRole, EhsPillar.SALUD)
+                            Module.EHS_AMBIENTE -> EhsAuditsModule(client, scope, t, userRole, EhsPillar.AMBIENTE)
                             Module.EHS_METRICS -> EhsMetricsModule(client, scope)
                             Module.EHS_CALENDAR -> EhsCalendarModule(client, scope)
                             Module.EHS_ACTIONS -> EhsActionModule(client, scope)
@@ -466,7 +468,9 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
             ))
             SidebarGroup("EHS Y CUMPLIMIENTO", active, role, onSelect, listOf(
                 Module.EHS_HOME to "Centro EHS",
-                Module.EHS_AUDITS to "Operación EHS",
+                Module.EHS_SEGURIDAD to "Seguridad",
+                Module.EHS_SALUD to "Salud Ocupacional",
+                Module.EHS_AMBIENTE to "Medio Ambiente",
                 Module.EHS_METRICS to "Indicadores EHS",
                 Module.EHS_ACTIONS to "Planes de acción",
                 Module.EHS_CONTRACTORS to "Contratistas",

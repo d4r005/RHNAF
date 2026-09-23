@@ -12,19 +12,42 @@ fun EhsHomeModule(role: UserRole, onSelect: (Module) -> Unit) {
         P({ style { color(Color("#475569")); marginBottom(24.px) } }) {
             Text("Seguridad, salud, ambiente y control documental en una sola operación.")
         }
+        H2({ style { margin(0.px, 0.px, 10.px, 0.px); fontSize(18.px); color(Color("#0f172a")) } }) { Text("Operación por pilar") }
+        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fit, minmax(230px, 1fr))"); gap(16.px); marginBottom(26.px) } }) {
+            listOf(
+                Triple(Module.EHS_SEGURIDAD, "Seguridad", "Inspecciones, incidentes, permisos de trabajo, EPP, capacitaciones, simulacros, matriz de riesgos, dictámenes y normativa."),
+                Triple(Module.EHS_SALUD, "Salud Ocupacional", "Registros de salud ocupacional e inventario químico con hojas de seguridad."),
+                Triple(Module.EHS_AMBIENTE, "Medio Ambiente", "Residuos, huella de carbono y estudios ambientales.")
+            ).filter { (module, _, _) -> isModuleVisible(module, role) }.forEach { (module, title, description) ->
+                Button({
+                    style {
+                        padding(22.px); textAlign("left"); backgroundColor(Color.white)
+                        property("border", "1px solid #e2e8f0"); borderRadius(12.px)
+                        cursor("pointer"); property("min-height", "150px")
+                        property("border-top", "3px solid #2563eb")
+                    }
+                    onClick { onSelect(module) }
+                }) {
+                    H3({ style { margin(0.px, 0.px, 10.px, 0.px); color(Color("#0f172a")) } }) { Text(title) }
+                    P({ style { margin(0.px); color(Color("#475569")) } }) { Text(description) }
+                }
+            }
+        }
+        H2({ style { margin(0.px, 0.px, 10.px, 0.px); fontSize(18.px); color(Color("#0f172a")) } }) { Text("Gestión y cumplimiento") }
         Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fit, minmax(230px, 1fr))"); gap(16.px) } }) {
             listOf(
-                Triple(Module.EHS_AUDITS, "Operación EHS", "Inspecciones, incidentes, permisos, EPP, capacitación, simulacros y riesgos."),
-                Triple(Module.EHS_METRICS, "Indicadores EHS", "Incidentes, días perdidos declarados, inspecciones y capacitaciones por vencer."),
+                Triple(Module.EHS_CALENDAR, "Calendario", "Vencimientos de obligaciones, capacitaciones y simulacros."),
+                Triple(Module.EHS_DOCUMENTS, "Evidencia documental", "Cargar, consultar y vincular archivos en Google Drive."),
                 Triple(Module.LEGAL_MATRIX, "Matriz legal", "Obligaciones por categoría, aplicabilidad, responsables y vigencias."),
-                Triple(Module.STPS, "Normas STPS", "Vista enfocada en obligaciones de seguridad y salud laboral."),
-                Triple(Module.EHS_DOCUMENTS, "Evidencia documental", "Cargar, consultar y vincular archivos en Google Drive.")
-            ).filter { (module, _, _) -> module != Module.EHS_METRICS || role == UserRole.ADMIN || role == UserRole.SEGURIDAD }.plus(
-                if (role == UserRole.ADMIN || role == UserRole.SEGURIDAD) listOf(Triple(Module.EHS_ACTIONS, "Planes de acción", "Acciones correctivas, responsables, vencimientos y evidencia de cierre."),
+                Triple(Module.STPS, "Normas STPS", "Vista enfocada en obligaciones de seguridad y salud laboral.")
+            ).plus(
+                if (role == UserRole.ADMIN || role == UserRole.SEGURIDAD) listOf(
+                    Triple(Module.EHS_METRICS, "Indicadores EHS", "Incidentes, días perdidos declarados, inspecciones y capacitaciones por vencer."),
+                    Triple(Module.EHS_ACTIONS, "Planes de acción", "Acciones correctivas, responsables, vencimientos y evidencia de cierre."),
                     Triple(Module.EHS_CONTRACTORS, "Contratistas", "Empresas, actividades, expedientes y vigencia documental."),
                     Triple(Module.EHS_ALERTS, "Avisos EHS", "Vencimientos de acciones, contratistas, capacitaciones y obligaciones."),
                     Triple(Module.EHS_RATES, "Tasas EHS", "Frecuencia y gravedad por millón de horas validadas.")) else emptyList()
-            ).forEach { (module, title, description) ->
+            ).filter { (module, _, _) -> isModuleVisible(module, role) }.forEach { (module, title, description) ->
                 Button({
                     style {
                         padding(22.px); textAlign("left"); backgroundColor(Color.white)
