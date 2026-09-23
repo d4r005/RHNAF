@@ -30,6 +30,7 @@ import com.example.rhnaf.routes.ehsActionRouting
 import com.example.rhnaf.routes.ehsMetricsRouting
 import com.example.rhnaf.routes.legalMatrixRouting
 import com.example.rhnaf.routes.ehsDocumentRouting
+import com.example.rhnaf.routes.ehsAutoRegisterRouting
 import com.example.rhnaf.routes.documentReaderRouting
 import com.example.rhnaf.routes.googleDriveRouting
 import com.example.rhnaf.auth.Roles
@@ -189,7 +190,10 @@ fun Application.module() {
         ehsAlertsRouting()
         ehsRateRouting()
         // Evitar registrar rutas de documentos cuando esa tabla no se migra.
-        if (System.getenv("OMIT_EHS_DOCUMENTS") != "true") ehsDocumentRouting()
+        if (System.getenv("OMIT_EHS_DOCUMENTS") != "true") {
+            ehsDocumentRouting()
+            ehsAutoRegisterRouting()
+        }
         googleDriveRouting()
         documentReaderRouting()
 

@@ -456,6 +456,7 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3({ style { margin(0.px); marginBottom(16.px) } }) { Text("EHS \u00b7 Seguridad, Salud y Ambiente") }
         DocumentImportPanel(scope) { /* refresco por pestaña; cada tab recarga al volver a entrar */ }
+        AutoRegisterFromEvidencePanel(client, scope)
 
         // Tab bar
         Div({ style { display(DisplayStyle.Flex); gap(4.px); marginBottom(20.px); flexWrap(FlexWrap.Wrap) } }) {
