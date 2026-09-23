@@ -8,6 +8,7 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.serialization.json.*
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.ConcurrentHashMap
 import java.io.File
 import java.io.FileInputStream
 
@@ -159,12 +160,17 @@ object GoogleDriveService {
     }
 
     /** Carpeta Normativa/AAAA dentro de la carpeta configurada para evidencias. */
+    private val yearFolders = ConcurrentHashMap<Int, String>()
+
     suspend fun normativeYearFolder(year: Int): String? {
         if (year !in 1900..2100) return null
+        yearFolders[year]?.let { return it }
         val token = getAccessToken() ?: return null
         val root = folderId ?: return null
         val normative = findOrCreateFolder("Normativa", root, token) ?: return null
-        return findOrCreateFolder(year.toString(), normative, token)
+        val folder = findOrCreateFolder(year.toString(), normative, token) ?: return null
+        yearFolders[year] = folder
+        return folder
     }
 
     /** Subida reanudable a Drive en fragmentos de 8 MiB, sin duplicar todo el archivo en RAM. */

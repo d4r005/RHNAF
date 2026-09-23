@@ -379,6 +379,7 @@ data class EhsDocumentUpload(
     val categoria: String = "Otro",
     val titulo: String,
     val fecha: String = "",
+    val anio: Int = 0,
     val notas: String = "",
     val fileName: String = "",
     val mimeType: String = "",

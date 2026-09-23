@@ -82,7 +82,17 @@ fun Route.ehsDocumentRouting() {
                     )
                 }
 
-                val folderId = GoogleDriveService.folderId!!
+                // La ruta JSON antigua también respeta Normativa/año. Si el cliente
+                // no proporciona año ni fecha, rechazamos para no falsear históricos.
+                val documentYear = req.anio.takeIf { it in 1900..2100 }
+                    ?: runCatching { LocalDate.parse(req.fecha, DateTimeFormatter.ofPattern("dd/MM/uuuu")).year }.getOrNull()
+                if (documentYear == null || documentYear !in 1900..2100) {
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest,
+                        mapOf("status" to "error", "message" to "Indica el anio documental antes de subir"))
+                }
+                val folderId = GoogleDriveService.normativeYearFolder(documentYear)
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
+                        mapOf("status" to "error", "message" to "No se pudo crear Normativa/$documentYear"))
                 val safeFileName = req.fileName.ifBlank { "evidencia" }
                 val mimeType = req.mimeType.ifBlank { "application/octet-stream" }
                 val driveFileId = GoogleDriveService.uploadFile(bytes, safeFileName, mimeType, folderId)
@@ -98,10 +108,10 @@ fun Route.ehsDocumentRouting() {
 
                 try {
                     val id = try {
-                        insertDocument(req, safeFileName, mimeType, bytes.size, uploadedBy, today, pointer, includeModuleLink = true)
+                        insertDocument(req, safeFileName, mimeType, bytes.size, uploadedBy, today, pointer, includeModuleLink = true, year = documentYear)
                     } catch (e: Exception) {
                         println("[EhsDocumentRoutes] Insert con esquema nuevo fallo; intentando legacy: ${e.message}")
-                        insertDocument(req, safeFileName, mimeType, bytes.size, uploadedBy, today, pointer, includeModuleLink = false)
+                        insertDocument(req, safeFileName, mimeType, bytes.size, uploadedBy, today, pointer, includeModuleLink = false, year = documentYear)
                     }
                     call.respond(mapOf("status" to "ok", "id" to id.toString(), "storage" to "google_drive"))
                 } catch (e: Exception) {
