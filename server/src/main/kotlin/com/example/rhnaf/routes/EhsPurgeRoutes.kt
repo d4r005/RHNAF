@@ -8,6 +8,8 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.*
 
@@ -54,8 +56,15 @@ fun Route.ehsPurgeRouting() {
             var driveFailed = 0
             var foldersDeleted = 0
 
+            // Un solo archivo atascado en Drive no debe abortar la purga completa:
+            // límite de 20 s por llamada y un reintento con espera.
+            suspend fun tryDelete(fileId: String): Boolean =
+                runCatching { withTimeout(20_000) { GoogleDriveService.deleteFile(fileId) } }.getOrDefault(false)
+
             suspend fun deleteWithCount(fileId: String) {
-                if (GoogleDriveService.deleteFile(fileId)) deletedIds.add(fileId) else driveFailed++
+                if (tryDelete(fileId)) { deletedIds.add(fileId); return }
+                delay(300)
+                if (tryDelete(fileId)) deletedIds.add(fileId) else driveFailed++
             }
 
             // 2) Todo el árbol de la carpeta de evidencia (archivos y subcarpetas).
@@ -64,7 +73,7 @@ fun Route.ehsPurgeRouting() {
                 for ((id, mime) in entries) {
                     if (mime == FOLDER_MIME) {
                         purgeFolder(id)
-                        if (GoogleDriveService.deleteFile(id)) foldersDeleted++
+                        if (tryDelete(id)) foldersDeleted++
                     } else {
                         deleteWithCount(id)
                     }
