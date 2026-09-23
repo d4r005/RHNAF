@@ -22,7 +22,8 @@ fun EhsHomeModule(role: UserRole, onSelect: (Module) -> Unit) {
             ).filter { (module, _, _) -> module != Module.EHS_METRICS || role == UserRole.ADMIN || role == UserRole.SEGURIDAD }.plus(
                 if (role == UserRole.ADMIN || role == UserRole.SEGURIDAD) listOf(Triple(Module.EHS_ACTIONS, "Planes de acción", "Acciones correctivas, responsables, vencimientos y evidencia de cierre."),
                     Triple(Module.EHS_CONTRACTORS, "Contratistas", "Empresas, actividades, expedientes y vigencia documental."),
-                    Triple(Module.EHS_ALERTS, "Avisos EHS", "Vencimientos de acciones, contratistas, capacitaciones y obligaciones.")) else emptyList()
+                    Triple(Module.EHS_ALERTS, "Avisos EHS", "Vencimientos de acciones, contratistas, capacitaciones y obligaciones."),
+                    Triple(Module.EHS_RATES, "Tasas EHS", "Frecuencia y gravedad por millón de horas validadas.")) else emptyList()
             ).forEach { (module, title, description) ->
                 Button({
                     style {

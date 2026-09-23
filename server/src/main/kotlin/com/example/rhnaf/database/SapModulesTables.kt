@@ -381,3 +381,19 @@ object EhsContractorTable : Table("ehs_contractors") {
     val notas = varchar("notas", 500).default("")
     override val primaryKey = PrimaryKey(id)
 }
+
+// Tasas internas: entradas auditables y versionadas por mes, NO derivadas
+// automáticamente de nómina o accidentes sin revisión del responsable.
+object EhsRatePeriodTable : Table("ehs_rate_periods") {
+    val id = integer("id").autoIncrement()
+    val periodo = varchar("periodo", 7)
+    val version = integer("version")
+    val horasTrabajadas = double("horas_trabajadas")
+    val accidentesRegistrables = integer("accidentes_registrables")
+    val diasPerdidos = integer("dias_perdidos")
+    val fuenteHoras = varchar("fuente_horas", 300)
+    val validadoPor = varchar("validado_por", 200)
+    val motivoRevision = varchar("motivo_revision", 500).default("")
+    override val primaryKey = PrimaryKey(id)
+    init { uniqueIndex("ux_ehs_rate_period_version", periodo, version) }
+}

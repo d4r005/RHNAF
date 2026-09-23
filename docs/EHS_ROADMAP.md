@@ -9,7 +9,7 @@ Inspiración funcional: EHSoft, ACM Suite, GeISS/Twind, Prysmex, MassWare y Enke
 
 ## Entrega 1: indicadores EHS (implementada)
 - Conteos verificables de incidentes, días perdidos declarados, capacitaciones pendientes/vencidas y hallazgos abiertos.
-- Mostrar ausencia de horas trabajadas en lugar de inventar tasas de frecuencia/gravedad. Antes de publicar dichas tasas se requieren horas reales por período, fórmula aprobada y criterio para incidentes registrables.
+- El tablero anterior muestra ausencia de horas trabajadas sin inventar tasas. Se agregó captura versionada por mes, con fuente y responsable validador; las tasas internas sólo aparecen después de ingresar horas reales, accidentes registrables y días perdidos validados, usando por defecto una base explícita de 1,000,000 horas. No se infieren de pre-nómina ni se presentan como tasas oficiales.
 
 ## Entrega 2: planes de acción y cumplimiento legal operativo
 - Identificar centro de trabajo, domicilio/estado, giro, actividades y riesgos con confirmación del responsable EHS/legal.
@@ -23,7 +23,7 @@ Inspiración funcional: EHSoft, ACM Suite, GeISS/Twind, Prysmex, MassWare y Enke
 - Auditoría operativa móvil, registros sin conexión (con reconciliación), informes/exportación y tableros por planta/área.
 
 ## Entrega 4: analítica avanzada (sin NOM-035)
-- Ratios de accidentabilidad sólo con denominadores auditables (horas trabajadas/días programados), definiciones acordadas y periodos comparables.
+- Para presentar tasas oficiales o comparables falta aprobar la metodología (registro de accidentes, denominadores, periodos y exclusiones) y conciliarlas contra las fuentes verificadas.
 - Asistencia IA sólo como apoyo a redacción/clasificación, con revisión humana y fuentes trazables; nunca dictamina cumplimiento.
 
 ## Prerrequisitos de negocio para desplegar el conjunto

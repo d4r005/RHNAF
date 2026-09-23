@@ -1,7 +1,7 @@
 name: Verify server
 on:
   push:
-    branches: [fix/enable-rls, feature/ehs-suite, feature/ehs-actions, feature/ehs-next]
+    branches: [fix/enable-rls, feature/ehs-suite, feature/ehs-actions, feature/ehs-next, feature/ehs-rates]
 permissions:
   contents: read
 jobs:
