@@ -14,11 +14,11 @@ Inspiración funcional: EHSoft, ACM Suite, GeISS/Twind, Prysmex, MassWare y Enke
 ## Entrega 2: planes de acción y cumplimiento legal operativo
 - Identificar centro de trabajo, domicilio/estado, giro, actividades y riesgos con confirmación del responsable EHS/legal.
 - Catálogo de NOMs, permisos y fundamento verificable con versión, jurisdicción, fecha de publicación y fuente oficial. Revisiones periódicas y vigencia normativa. El catálogo actual es sólo una lista inicial y puede estar desactualizado.
-- Cuestionario de aplicabilidad versionado con justificación, evidencia y revisión humana; auditorías por requisito; permisos críticos, evidencia y vencimientos.
-- Planes de acción: creación, vínculo con obligación/inspección/incidente, responsable, prioridad, fecha y cierre con evidencia HTTPS están implementados en la entrega 2 inicial. Falta aprobación, auditoría de cambios y notificaciones de vencimiento sin revelar datos sensibles.
+- Evaluación manual de aplicabilidad, justificación, responsable y evidencia disponible en la matriz. Pendientes: cuestionario versionado por centro, auditorías por requisito y permisos críticos, sujetos a revisión jurídica.
+- Planes de acción: creación, vínculo con obligación/inspección/incidente, responsable, prioridad, fecha y cierre con evidencia HTTPS están implementados en la entrega 2 inicial. Falta aprobación y auditoría de cambios. Los avisos internos de vencimiento se implementaron; faltan notificaciones enviadas con consentimiento, canal y destinatario verificados.
 
 ## Entrega 3: operación y terceros
-- Contratistas y proveedores: expedientes, requisitos por actividad, verificación documental, vigencias, permisos de trabajo, accesos autorizados y trazabilidad por centro.
+- Contratistas y proveedores: expediente básico por empresa/centro, enlace HTTPS, vigencia y estado de revisión implementados. Pendientes: requisitos documentales por actividad, permisos de trabajo vinculados, acceso físico e historial auditable. El expediente no concede acceso.
 - EPP y constancias: entregas por trabajador, recibos/firmas verificables, caducidad, reposición y DC-3 revisada por RH; brigadas y planes de emergencia.
 - Auditoría operativa móvil, registros sin conexión (con reconciliación), informes/exportación y tableros por planta/área.
 

@@ -27,6 +27,7 @@ fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
     var error by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("") }
+    var editing by remember { mutableStateOf<LegalMatrixItem?>(null) }
 
     fun refresh() {
         scope.launch {
@@ -94,6 +95,20 @@ fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         }
 
         if (error.isNotBlank()) P({ style { color(Color("#dc2626")); padding(12.px); backgroundColor(Color("#fef2f2")); borderRadius(8.px) } }) { Text(error) }
+        editing?.let { selected ->
+            LegalApplicabilityEditor(selected, onCancel = { editing = null }) { changed ->
+                scope.launch {
+                    try {
+                        val response = client.put("$BACKEND_URL/api/v1/ehs/matriz-legal/${changed.id}") {
+                            contentType(ContentType.Application.Json); setBody(changed)
+                        }
+                        if (!response.status.isSuccess()) error = "No se guardó la evaluación (${response.status.value}). Revisa la justificación, responsable y fecha."
+                        else { editing = null; refresh() }
+                    } catch (e: Exception) { error = "No se pudo actualizar: ${e.message ?: "error"}" }
+                }
+            }
+        }
+
         if (loading) {
             P { Text("Cargando matriz legal...") }
         } else if (items.isEmpty()) {
@@ -104,7 +119,7 @@ fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         } else {
             Div({ style { backgroundColor(Color.white); borderRadius(12.px); property("border", "1px solid #e2e8f0"); overflow("auto") } }) {
                 Table({ style { width(100.percent); property("border-collapse", "collapse"); fontSize(13.px) } }) {
-                    Thead { Tr { listOf("Clave", "Obligación", "Categoría", "Aplica", "Estado", "Vigencia", "Responsable").forEach { Th({ style { padding(12.px); textAlign("left"); backgroundColor(Color("#f8fafc")); color(Color("#475569")); property("border-bottom", "1px solid #e2e8f0") } }) { Text(it) } } } }
+                    Thead { Tr { listOf("Clave", "Obligación", "Categoría", "Aplica", "Estado", "Vigencia", "Responsable", "Evaluar").forEach { Th({ style { padding(12.px); textAlign("left"); backgroundColor(Color("#f8fafc")); color(Color("#475569")); property("border-bottom", "1px solid #e2e8f0") } }) { Text(it) } } } }
                     Tbody {
                         items.forEach { item ->
                             Tr {
@@ -115,6 +130,7 @@ fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
                                 Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { LegalStatus(item.estado) }
                                 Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(item.fechaVigencia.ifBlank { "Sin fecha" }) }
                                 Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(item.responsable.ifBlank { "Sin asignar" }) }
+                                Td { Button({ onClick { editing = item } }) { Text("Evaluar") } }
                             }
                         }
                     }
@@ -136,4 +152,35 @@ private fun LegalStat(label: String, value: String, accent: String) {
 private fun LegalStatus(status: String) {
     val color = when (status) { "Vigente" -> "#16a34a"; "PorVencer" -> "#d97706"; "Vencido" -> "#dc2626"; else -> "#64748b" }
     Span({ style { color(Color(color)); fontWeight("600") } }) { Text(status.ifBlank { "Pendiente" }) }
+}
+
+
+/** Revisión humana asistida: guarda el criterio, nunca declara cumplimiento legal. */
+@Composable
+private fun LegalApplicabilityEditor(item: LegalMatrixItem, onCancel: () -> Unit, onSave: (LegalMatrixItem) -> Unit) {
+    var applies by remember(item.id) { mutableStateOf(item.aplica) }
+    var reason by remember(item.id) { mutableStateOf(item.justificacion) }
+    var owner by remember(item.id) { mutableStateOf(item.responsable) }
+    var expiry by remember(item.id) { mutableStateOf(item.fechaVigencia) }
+    var url by remember(item.id) { mutableStateOf(item.documentoUrl) }
+    var problem by remember(item.id) { mutableStateOf("") }
+    Div({ style { padding(18.px); marginBottom(18.px); backgroundColor(Color.white); borderRadius(10.px); property("border", "1px solid #e2e8f0") } }) {
+        H3 { Text("Evaluar ${item.clave}: ${item.titulo}") }
+        P({ style { color(Color("#475569")) } }) { Text("Anota la razón y responsable de la decisión. Pendiente no significa que la norma no aplique; la vigencia se refiere a tu evidencia, no a la vigencia legal de la norma.") }
+        Select({ onChange { applies = it.value ?: "Pendiente" }; style { padding(9.px) } }) {
+            listOf("Pendiente", "Si", "No").forEach { choice -> Option(choice, { if (choice == applies) selected() }) { Text(choice) } }
+        }
+        Input(InputType.Text) { placeholder("Justificación de aplicabilidad"); value(reason); onInput { reason = it.value }; style { padding(9.px); marginLeft(8.px); property("min-width", "260px") } }
+        Input(InputType.Text) { placeholder("Responsable de revisión"); value(owner); onInput { owner = it.value }; style { padding(9.px); marginLeft(8.px) } }
+        Input(InputType.Text) { placeholder("Vigencia evidencia AAAA-MM-DD"); value(expiry); onInput { expiry = it.value }; style { padding(9.px); marginTop(8.px) } }
+        Input(InputType.Text) { placeholder("URL HTTPS evidencia"); value(url); onInput { url = it.value }; style { padding(9.px); marginLeft(8.px) } }
+        if (problem.isNotBlank()) P({ style { color(Color("#b91c1c")) } }) { Text(problem) }
+        Div({ style { marginTop(10.px) } }) {
+            Button({ onClick {
+                problem = if (applies != "Pendiente" && (reason.isBlank() || owner.isBlank())) "La decisión requiere justificación y responsable." else ""
+                if (problem.isBlank()) onSave(item.copy(aplica = applies, justificacion = reason.trim(), responsable = owner.trim(), fechaVigencia = expiry.trim(), documentoUrl = url.trim()))
+            }; style { padding(9.px) } }) { Text("Guardar evaluación") }
+            Button({ onClick { onCancel() }; style { padding(9.px); marginLeft(8.px) } }) { Text("Cancelar") }
+        }
+    }
 }

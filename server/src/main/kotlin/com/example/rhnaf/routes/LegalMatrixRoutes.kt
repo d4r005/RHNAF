@@ -249,6 +249,19 @@ fun Route.legalMatrixRouting() {
                 requireRoleOr403(call, Roles.EHS_WRITE) ?: return@safeApiCall
                 val id = call.parameters["id"]?.toIntOrNull() ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
                 val item = call.receive<LegalMatrixItem>()
+                val problem = when {
+                    item.id != id -> "ID de obligación no coincide"
+                    item.aplica !in setOf("Si", "No", "Pendiente") -> "Aplicabilidad inválida"
+                    item.aplica != "Pendiente" && (item.justificacion.isBlank() || item.responsable.isBlank()) -> "Se requiere justificación y responsable"
+                    item.fechaVigencia.isNotBlank() && runCatching { LocalDate.parse(item.fechaVigencia) }.isFailure -> "Fecha de evidencia inválida"
+                    item.documentoUrl.isNotBlank() && !item.documentoUrl.startsWith("https://") -> "Evidencia debe ser URL HTTPS"
+                    item.justificacion.length > 500 || item.responsable.length > 200 || item.documentoUrl.length > 500 -> "Campo demasiado largo"
+                    else -> null
+                }
+                if (problem != null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to problem))
+                    return@safeApiCall
+                }
                 DatabaseFactory.dbQuery {
                     LegalMatrixTable.update({ LegalMatrixTable.id eq id }) {
                         it[clave] = item.clave
