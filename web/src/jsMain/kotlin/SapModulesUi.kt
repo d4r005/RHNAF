@@ -1757,7 +1757,34 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                     items.filter { filtroCategoria == "Todas" || it.categoria == filtroCategoria }.forEach { doc ->
                         Tr {
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.id.toString()) }
-                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(when (doc.anio) { -1 -> "General"; 0 -> "-"; else -> doc.anio.toString() }) }
+                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
+                                // Sin año/fecha el registro nunca puede vincularse
+                                // automaticamente (el sistema no inventa la fecha de
+                                // un documento): se permite completarlo aqui mismo.
+                                if (doc.anio <= 0 && doc.fecha.isBlank()) {
+                                    Input(InputType.Text, attrs = {
+                                        attr("placeholder", "Año")
+                                        attr("inputmode", "numeric")
+                                        style { width(70.px); fontSize(12.px) }
+                                        onChange { event ->
+                                            val nuevoAnio = event.value?.toIntOrNull()
+                                            if (nuevoAnio != null && nuevoAnio in 2000..2100) scope.launch {
+                                                try {
+                                                    client.patch("$BACKEND_URL/api/v1/ehs/documentos/${doc.id}/fecha") {
+                                                        contentType(ContentType.Application.Json)
+                                                        setBody(mapOf("anio" to nuevoAnio.toString()))
+                                                    }
+                                                    refresh()
+                                                } catch (e: Exception) {
+                                                    statusMsg = "No se pudo guardar el año de #${doc.id}: ${e.message}"
+                                                }
+                                            }
+                                        }
+                                    })
+                                } else {
+                                    Text(when (doc.anio) { -1 -> "General"; 0 -> "-"; else -> doc.anio.toString() })
+                                }
+                            }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
                                 // Libre: se puede reclasificar cualquier evidencia a cualquier
                                 // categoria, no solo las que llegaron como "Otro".

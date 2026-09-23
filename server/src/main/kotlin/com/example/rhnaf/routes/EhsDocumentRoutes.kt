@@ -262,6 +262,35 @@ fun Route.ehsDocumentRouting() {
             }
         }
 
+        // Completa manualmente el año/fecha documental cuando el archivo no lo
+        // trae (p. ej. evidencias en la carpeta "General"). Sin esto, esas
+        // evidencias nunca pueden vincularse automaticamente a un registro
+        // porque el sistema nunca inventa una fecha que el documento no tiene.
+        patch("/{id}/fecha") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.EHS_WRITE) ?: return@safeApiCall
+                val id = call.parameters["id"]?.toIntOrNull()
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("message" to "ID inválido"))
+                val body = call.receive<Map<String, String>>()
+                val anio = body["anio"]?.trim()?.toIntOrNull()
+                val fecha = body["fecha"]?.trim().orEmpty()
+                if ((anio == null || anio < 2000 || anio > 2100) && fecha.isBlank()) {
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest,
+                        mapOf("message" to "Indica un año valido (2000-2100) o una fecha"))
+                }
+                val exists = DatabaseFactory.dbQuery {
+                    EhsDocumentTable.selectAll().where { EhsDocumentTable.id eq id }.singleOrNull()
+                } ?: return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("message" to "Evidencia inexistente"))
+                DatabaseFactory.dbQuery {
+                    EhsDocumentTable.update({ EhsDocumentTable.id eq id }) {
+                        if (anio != null) it[EhsDocumentTable.anio] = anio
+                        if (fecha.isNotBlank()) it[EhsDocumentTable.fecha] = fecha
+                    }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+        }
+
         // Vincula una evidencia ya subida con un registro estructurado (p.ej. un
         // quimico, una inspeccion) sin volver a subir el archivo. Idempotente:
         // reintentar con el mismo destino no falla.
