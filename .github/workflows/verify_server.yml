@@ -1,7 +1,7 @@
 name: Verify server
 on:
   push:
-    branches: [fix/enable-rls]
+    branches: [fix/enable-rls, feature/ehs-suite]
 permissions:
   contents: read
 jobs:
@@ -16,4 +16,4 @@ jobs:
       - name: Compile server
         run: |
           chmod +x gradlew
-          SKIP_ANDROID=true ./gradlew :server:compileKotlin --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx2g"
+          SKIP_ANDROID=true ./gradlew :server:compileKotlin :web:compileKotlinJs --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx2g"

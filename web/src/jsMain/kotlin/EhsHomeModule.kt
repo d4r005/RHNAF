@@ -15,6 +15,7 @@ fun EhsHomeModule(onSelect: (Module) -> Unit) {
         Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fit, minmax(230px, 1fr))"); gap(16.px) } }) {
             listOf(
                 Triple(Module.EHS_AUDITS, "Operación EHS", "Inspecciones, incidentes, permisos, EPP, capacitación, simulacros y riesgos."),
+                Triple(Module.EHS_METRICS, "Indicadores EHS", "Incidentes, días perdidos declarados, inspecciones y capacitaciones por vencer."),
                 Triple(Module.LEGAL_MATRIX, "Matriz legal", "Obligaciones por categoría, aplicabilidad, responsables y vigencias."),
                 Triple(Module.STPS, "Normas STPS", "Vista enfocada en obligaciones de seguridad y salud laboral."),
                 Triple(Module.EHS_DOCUMENTS, "Evidencia documental", "Cargar, consultar y vincular archivos en Google Drive.")

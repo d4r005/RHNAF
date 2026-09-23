@@ -23,6 +23,7 @@ import com.example.rhnaf.routes.prePayrollRouting
 import com.example.rhnaf.routes.sapModulesRouting
 import com.example.rhnaf.routes.extendedRouting
 import com.example.rhnaf.routes.workflowRouting
+import com.example.rhnaf.routes.ehsMetricsRouting
 import com.example.rhnaf.routes.legalMatrixRouting
 import com.example.rhnaf.routes.ehsDocumentRouting
 import com.example.rhnaf.routes.googleDriveRouting
@@ -177,6 +178,7 @@ fun Application.module() {
         extendedRouting()
         workflowRouting()
         legalMatrixRouting()
+        ehsMetricsRouting()
         // Evitar registrar rutas de documentos cuando esa tabla no se migra.
         if (System.getenv("OMIT_EHS_DOCUMENTS") != "true") ehsDocumentRouting()
         googleDriveRouting()
