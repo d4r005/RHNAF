@@ -32,6 +32,12 @@ dependencies {
     implementation("com.h2database:h2:2.2.224")
     implementation("org.postgresql:postgresql:42.7.4") // Persistencia real (Neon/Supabase/Render)
     implementation("com.zaxxer:HikariCP:5.1.0")
+
+    // Lector de documentos: extrae texto/tablas de PDF, Word (.docx) y Excel (.xlsx/.xls)
+    // para poblar formularios de alta en lote en toda la plataforma (EHS y modulos SAP).
+    implementation("org.apache.pdfbox:pdfbox:2.0.29")
+    implementation("org.apache.poi:poi:5.2.5")
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
 }
 
 application {

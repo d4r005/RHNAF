@@ -30,6 +30,7 @@ import com.example.rhnaf.routes.ehsActionRouting
 import com.example.rhnaf.routes.ehsMetricsRouting
 import com.example.rhnaf.routes.legalMatrixRouting
 import com.example.rhnaf.routes.ehsDocumentRouting
+import com.example.rhnaf.routes.documentReaderRouting
 import com.example.rhnaf.routes.googleDriveRouting
 import com.example.rhnaf.auth.Roles
 import com.example.rhnaf.auth.requireRoleOr403
@@ -190,6 +191,7 @@ fun Application.module() {
         // Evitar registrar rutas de documentos cuando esa tabla no se migra.
         if (System.getenv("OMIT_EHS_DOCUMENTS") != "true") ehsDocumentRouting()
         googleDriveRouting()
+        documentReaderRouting()
 
         // Sirve la Web App (Compose HTML) desde una carpeta física
         staticFiles("/", File("static"), index = "index.html")

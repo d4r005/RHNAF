@@ -1,5 +1,7 @@
 package com.example.rhnaf.routes
 
+import com.example.rhnaf.auth.Roles
+import com.example.rhnaf.auth.requireRoleOr403
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.JournalEntryTable
 import com.example.rhnaf.database.CostCenterTable
@@ -434,7 +436,15 @@ fun Route.sapModulesRouting() {
             call.respond(items)
         }
         post {
+            requireRoleOr403(call, Roles.EHS_WRITE) ?: return@post
             val item = call.receive<SafetyInspection>()
+            if (item.fecha.isBlank() || item.fecha.length > 50 || item.tipoInspeccion.length > 50 ||
+                item.area.length > 200 || item.inspector.length > 200 || item.hallazgos.length > 400 ||
+                item.riesgo.length > 50 || item.accionesCorrectivas.length > 500 ||
+                item.fechaCierre.length > 50 || item.evidencia.length > 500 || item.estado.length > 50) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Fecha obligatoria o campo demasiado largo"))
+                return@post
+            }
             DatabaseFactory.dbQuery {
                 SafetyInspectionTable.insert {
                     it[fecha] = item.fecha
@@ -452,6 +462,7 @@ fun Route.sapModulesRouting() {
             call.respond(HttpStatusCode.Created, mapOf("status" to "ok"))
         }
         delete("/{id}") {
+            requireRoleOr403(call, Roles.EHS_WRITE) ?: return@delete
             val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
             DatabaseFactory.dbQuery {
                 SafetyInspectionTable.deleteWhere { SafetyInspectionTable.id eq id }

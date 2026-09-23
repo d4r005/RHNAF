@@ -667,28 +667,158 @@ fun EhsChemicalsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 }
 
 // EHS-1. Inspecciones de Seguridad
+// Lee un PDF, Word o Excel sin almacenarlo; devuelve filas para revisión humana.
+private suspend fun previewDocument(file: org.w3c.files.File): List<List<String>> =
+    suspendCoroutine { continuation ->
+        val form = js("new FormData()")
+        form.append("file", file, file.name)
+        val options = js("({})")
+        options.method = "POST"
+        options.headers = js("({})")
+        options.headers.Authorization = "Bearer $apiAuthToken"
+        options.body = form
+        window.asDynamic().fetch("$BACKEND_URL/api/v1/documentos/extraer", options).then(
+            { response: dynamic ->
+                response.json().then({ result: dynamic ->
+                    if (!response.ok) {
+                        continuation.resumeWithException(IllegalStateException(result.message?.toString() ?: "Error HTTP ${response.status}"))
+                    } else {
+                        val data: dynamic = result.rows
+                        val rows = (0 until (data.length as Int)).map { i ->
+                            val row: dynamic = data[i]
+                            (0 until (row.length as Int)).map { j -> row[j].toString() }
+                        }
+                        continuation.resume(rows)
+                    }
+                }, { _: dynamic -> continuation.resumeWithException(IllegalStateException("Respuesta ilegible")) })
+            },
+            { _: dynamic -> continuation.resumeWithException(IllegalStateException("Error de red")) }
+        )
+    }
+
 @Composable
 fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     var items by remember { mutableStateOf(emptyList<SafetyInspection>()) }
     var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
+    var fecha by remember { mutableStateOf("") }
+    var tipo by remember { mutableStateOf("") }
+    var area by remember { mutableStateOf("") }
+    var inspector by remember { mutableStateOf("") }
+    var hallazgos by remember { mutableStateOf("") }
+    var riesgo by remember { mutableStateOf("") }
+    var acciones by remember { mutableStateOf("") }
+    var cierre by remember { mutableStateOf("") }
+    var estado by remember { mutableStateOf("") }
+    var previewRows by remember { mutableStateOf(emptyList<List<String>>()) }
+    var previewName by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
     LaunchedEffect(refreshKey) {
         isLoading = true
         try {
             items = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body()
             evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Inspeccion").body()
-        } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
+        } catch (e: Exception) { error = e.message ?: "Error cargando inspecciones" } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
+    fun fillFromRow(row: List<String>) {
+        if (previewRows.isEmpty()) return
+        val headers = previewRows.first().map { it.trim().lowercase() }
+        fun value(vararg words: String): String {
+            val index = headers.indexOfFirst { heading -> words.any { heading.contains(it) } }
+            return row.getOrNull(index)?.takeIf { index >= 0 }?.trim().orEmpty()
+        }
+        // Sólo sugiere campos si la primera fila contiene encabezados reconocibles.
+        if (headers.none { it.contains("fecha") || it.contains("inspector") || it.contains("área") || it.contains("area") }) {
+            error = "No se reconocieron encabezados. Usa la vista previa para capturar manualmente."
+            return
+        }
+        fecha = value("fecha")
+        tipo = value("tipo")
+        area = value("área", "area")
+        inspector = value("inspector", "responsable")
+        hallazgos = value("hallazgo", "observaci")
+        riesgo = value("riesgo")
+        acciones = value("acci")
+        cierre = value("cierre")
+        estado = value("estado", "estatus")
+        error = "Campos sugeridos a partir de una fila. Comprueba y corrige antes de guardar."
+    }
     Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} registros") }
     Div({ style { marginBottom(16.px) } }) {
-        // El formato de captura (campos, requeridos) se define contigo antes de
-        // activar el alta; por ahora el botón solo lo anticipa.
-        Button({
-            style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
-            onClick { window.alert("En cuanto definamos el formato de captura, este botón abrirá el alta de inspecciones.") }
-        }) { Text("+ Agregar inspección") }
+        H4 { Text("Nueva inspección") }
+        P { Text("Captura manualmente o carga un PDF, Word (.docx) o Excel (.xlsx/.xls) para revisar sus datos. El archivo no se guarda al analizarlo; las evidencias se suben por separado en Evidencia Documental.") }
+        Div({ style { display(DisplayStyle.Flex); gap(8.px); flexWrap(FlexWrap.Wrap); marginBottom(10.px) } }) {
+            Input(InputType.Text) { placeholder("Fecha *"); value(fecha); onInput { fecha = it.value } }
+            Input(InputType.Text) { placeholder("Tipo de inspección"); value(tipo); onInput { tipo = it.value } }
+            Input(InputType.Text) { placeholder("Área"); value(area); onInput { area = it.value } }
+            Input(InputType.Text) { placeholder("Inspector"); value(inspector); onInput { inspector = it.value } }
+            Input(InputType.Text) { placeholder("Hallazgos"); value(hallazgos); onInput { hallazgos = it.value } }
+            Input(InputType.Text) { placeholder("Riesgo"); value(riesgo); onInput { riesgo = it.value } }
+            Input(InputType.Text) { placeholder("Acciones correctivas"); value(acciones); onInput { acciones = it.value } }
+            Input(InputType.Text) { placeholder("Fecha de cierre"); value(cierre); onInput { cierre = it.value } }
+            Input(InputType.Text) { placeholder("Estado"); value(estado); onInput { estado = it.value } }
+        }
+        Button({ onClick {
+            if (busy) return@onClick
+            if (fecha.isBlank()) { error = "La fecha es obligatoria."; return@onClick }
+            busy = true
+            scope.launch {
+                try {
+                    val response = client.post("$BACKEND_URL/api/v1/sap/ehs/inspecciones") {
+                        contentType(ContentType.Application.Json)
+                        setBody(SafetyInspection(fecha = fecha, tipoInspeccion = tipo, area = area,
+                            inspector = inspector, hallazgos = hallazgos, riesgo = riesgo,
+                            accionesCorrectivas = acciones, fechaCierre = cierre, estado = estado))
+                    }
+                    if (response.status != HttpStatusCode.Created) error = "No se pudo guardar: HTTP ${response.status}"
+                    else {
+                        fecha = ""; tipo = ""; area = ""; inspector = ""; hallazgos = "";
+                        riesgo = ""; acciones = ""; cierre = ""; estado = ""
+                        error = "Inspección guardada."; refresh()
+                    }
+                } catch (e: Exception) { error = e.message ?: "No se pudo guardar la inspección" }
+                finally { busy = false }
+            }
+        } }) { Text(if (busy) "Guardando..." else "+ Guardar inspección") }
+        Div({ style { marginTop(14.px) } }) {
+            Input(InputType.File) {
+                id("inspection-import-file")
+                attr("accept", ".pdf,.docx,.xlsx,.xls")
+                onChange {
+                    val file = (document.getElementById("inspection-import-file") as? HTMLInputElement)?.files?.item(0)
+                    if (file != null) {
+                        if (file.size.toLong() > 15L * 1024 * 1024) { error = "Máximo 15 MiB por archivo." }
+                        else {
+                            busy = true; error = "Extrayendo texto del documento..."
+                            scope.launch {
+                                try { previewRows = previewDocument(file); previewName = file.name; error = "Revisa los datos extraídos antes de crear registros." }
+                                catch (e: Exception) { previewRows = emptyList(); error = e.message ?: "No se pudo leer el documento" }
+                                finally { busy = false }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (error.isNotBlank()) P { Text(error) }
+        if (previewRows.isNotEmpty()) {
+            H4 { Text("Vista previa: $previewName (${previewRows.size} filas mostradas)") }
+            P { Text("Pulsa Usar fila para sugerir campos. Nada de esta tabla se guarda automáticamente.") }
+            Table {
+                Tbody {
+                    previewRows.take(50).forEachIndexed { i, row ->
+                        Tr {
+                            Td { Text(row.joinToString(" | ").take(800)) }
+                            Td { if (i > 0) Button({ onClick { fillFromRow(row) } }) { Text("Usar fila") } }
+                        }
+                    }
+                }
+            }
+            if (previewRows.size > 50) P { Text("Mostrando las primeras 50 filas; el archivo puede contener más.") }
+        }
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
