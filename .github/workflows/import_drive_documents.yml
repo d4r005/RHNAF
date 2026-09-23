@@ -1,0 +1,86 @@
+name: Connect Google Drive and register existing documents
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  connect-and-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      GOOGLE_DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
+      GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Google Drive secrets in the Space
+        run: |
+          test -n "$HF_TOKEN" && test -n "$GOOGLE_DRIVE_REFRESH_TOKEN" && test -n "$GOOGLE_DRIVE_FOLDER_ID"
+          python -m pip install --quiet huggingface_hub
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          repo_id = "d4r005/RHNAF-Industrial"
+          api.add_space_secret(repo_id=repo_id, key="GOOGLE_REFRESH_TOKEN", value=os.environ["GOOGLE_DRIVE_REFRESH_TOKEN"])
+          api.add_space_variable(repo_id=repo_id, key="GOOGLE_DRIVE_FOLDER_ID", value=os.environ["GOOGLE_DRIVE_FOLDER_ID"])
+          print("Secrets GOOGLE_REFRESH_TOKEN/GOOGLE_DRIVE_FOLDER_ID configurados en el Space")
+          PY
+
+      - name: Restart the Space with Drive enabled
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          api.restart_space(repo_id="d4r005/RHNAF-Industrial")
+          print("Reinicio del Space solicitado")
+          PY
+
+      - name: Wait until the Space is running again
+        run: |
+          python - <<'PY'
+          import json, time, urllib.request
+          for attempt in range(60):
+              try:
+                  with urllib.request.urlopen("https://huggingface.co/api/spaces/d4r005/RHNAF-Industrial/runtime", timeout=15) as r:
+                      stage = json.load(r).get("stage")
+                  print("stage:", stage)
+                  if stage == "RUNNING":
+                      break
+                  if stage in ("BUILD_ERROR", "RUNTIME_ERROR", "ERROR"):
+                      raise SystemExit("El Space no arrancó: " + str(stage))
+              except (TimeoutError, OSError, ValueError):
+                  pass
+              time.sleep(15)
+          else:
+              raise SystemExit("Tiempo de espera agotado esperando al Space")
+          PY
+
+      - name: Verify Drive is configured in the running app
+        run: |
+          for attempt in 1 2 3 4 5; do
+            STATUS=$(curl -s --max-time 20 https://d4r005-rhnaf-industrial.hf.space/api/v1/google-drive/status || true)
+            echo "$STATUS"
+            if echo "$STATUS" | grep -q '"configured": *true'; then
+              echo "Google Drive conectado en la app"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "La app no reporta Drive configurado" >&2
+          exit 1
+
+      - name: Register existing Drive documents in the database
+        env:
+          DATABASE_URL: ${{ secrets.RHNAF_NEW_DATABASE_URL }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID || secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET || secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+        run: |
+          test -n "$DATABASE_URL" && test -n "$GOOGLE_CLIENT_ID" && test -n "$GOOGLE_CLIENT_SECRET"
+          python -m pip install --quiet psycopg2-binary
+          python server/scripts/import_drive_documents.py
