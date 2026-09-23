@@ -1,0 +1,35 @@
+name: Enable EHS documents (Google Drive evidence)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  enable:
+    runs-on: ubuntu-latest
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - name: Remove OMIT_EHS_DOCUMENTS and restart Space
+        run: |
+          test -n "$HF_TOKEN"
+          python -m pip install --quiet huggingface_hub
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          repo_id = "d4r005/RHNAF-Industrial"
+
+          try:
+              api.delete_space_secret(repo_id=repo_id, key="OMIT_EHS_DOCUMENTS")
+              print("OMIT_EHS_DOCUMENTS secret removed")
+          except Exception as e:
+              print("delete_space_secret failed, setting value to 'false' instead:", e)
+              api.add_space_secret(repo_id=repo_id, key="OMIT_EHS_DOCUMENTS", value="false")
+
+          api.restart_space(repo_id=repo_id)
+          print("Space restart requested")
+          PY
