@@ -59,6 +59,39 @@ object DatabaseFactory {
                 runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN employee_id TYPE VARCHAR(100)") }
             }
 
+            // SEGURIDAD: Supabase Advisor marca como CRITICO cualquier tabla en el
+            // esquema public sin Row Level Security. Esta app nunca se consulta via
+            // el API REST publico de Supabase (anon/authenticated) - todo el acceso
+            // real pasa por este backend Ktor con su propio Bearer auth, usando la
+            // conexion Postgres directa (rol propietario/superuser, que SIEMPRE
+            // sigue viendo todas las filas aunque RLS este activo). Por eso activar
+            // RLS sin policies es la correccion correcta: bloquea el API publico de
+            // Supabase (anon/authenticated) y no afecta en nada a esta app.
+            // Idempotente y seguro de correr en cada arranque.
+            if (!rawDatabaseUrl.isNullOrBlank()) {
+                val publicTablesRequiringRls = listOf(
+                    "attendance_logs", "co_cost_centers", "contenedor_china", "debug_logs",
+                    "ehs_chemical_inventory", "ehs_documents", "ehs_emergency_drills",
+                    "ehs_environmental_waste", "ehs_legal_matrix", "ehs_occupational_health",
+                    "ehs_ppe_deliveries", "ehs_risk_matrix", "ehs_safety_incidents",
+                    "ehs_safety_inspections", "ehs_safety_trainings", "ehs_work_permits",
+                    "employees", "ewm_warehouse_tasks", "ferreteria", "fi_journal_entries",
+                    "gas_consumo", "grc_access_audit_log", "gts_customs_declarations",
+                    "hcm_recruitment_vacancies", "incidents", "mm_purchase_orders",
+                    "personal_talla", "pm_maintenance_orders", "pp_employee_shifts",
+                    "pp_justifications", "pp_policies", "pp_pre_payroll", "pp_production_orders",
+                    "pp_shifts", "qm_quality_inspections", "recepcion_mp", "sello_stock",
+                    "shipment_summary", "shipments", "shipping_delivery_routes",
+                    "shipping_orders", "shipping_traceability_events", "sys_document_log",
+                    "system_tasks", "tarimas", "users", "warehouse_audit",
+                    "warehouse_incoming_log", "warehouse_inventory", "warehouse_location",
+                    "warehouse_outgoing_log", "wf_approvals"
+                )
+                publicTablesRequiringRls.forEach { table ->
+                    runCatching { exec("ALTER TABLE IF EXISTS $table ENABLE ROW LEVEL SECURITY") }
+                }
+            }
+
             // CARGA DE USUARIOS DEL SISTEMA (ADMIN/OPERACIONES)
             if (UserTable.selectAll().empty()) {
                 val systemUsers = listOf(
