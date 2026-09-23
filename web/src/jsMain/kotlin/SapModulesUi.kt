@@ -449,9 +449,9 @@ fun GtsTradeModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope,
 }
 
 @Composable
-fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations) {
+fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations, role: UserRole) {
     var activeTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Inspecciones", "Incidentes", "Permisos Trabajo", "EPP", "Capacitaciones", "Simulacros", "Matriz Riesgos", "Medio Ambiente", "Huella de Carbono", "Salud Ocupacional", "Químicos")
+    val tabs = listOf("Inspecciones", "Incidentes", "Permisos Trabajo", "EPP", "Capacitaciones", "Simulacros", "Matriz Riesgos", "Medio Ambiente", "Huella de Carbono", "Salud Ocupacional", "Químicos", "Estudios", "Dictámenes", "Normativa")
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3({ style { margin(0.px); marginBottom(16.px) } }) { Text("EHS \u00b7 Seguridad, Salud y Ambiente") }
@@ -480,8 +480,12 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             6 -> EhsRiskMatrixTab(client, scope)
             7 -> EhsEnvironmentTab(client, scope)
             8 -> CarbonFootprintTab(client, scope)
-            9 -> EhsOccupationalHealthTab(client, scope)
+            9 -> if (role == UserRole.ADMIN || role == UserRole.SEGURIDAD) EhsOccupationalHealthTab(client, scope)
+                else P { Text("Solo Seguridad puede consultar evidencias médicas.") }
             10 -> EhsChemicalsTab(client, scope)
+            11 -> EhsCategoryEvidence(client, "Estudio")
+            12 -> EhsCategoryEvidence(client, "Dictamen")
+            13 -> EhsCategoryEvidence(client, "Normativa")
         }
     }
 }
@@ -489,6 +493,7 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 // EHS-8. Medio Ambiente (Residuos)
 @Composable
 fun EhsEnvironmentTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    EhsCategoryEvidence(client, "Residuos")
     var items by remember { mutableStateOf(emptyList<WasteManifest>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
@@ -541,6 +546,7 @@ fun EhsEnvironmentTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
 // EHS-9. Salud Ocupacional (Examenes)
 @Composable
 fun EhsOccupationalHealthTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    EhsCategoryEvidence(client, "ExamenMedico")
     var items by remember { mutableStateOf(emptyList<MedicalExam>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
@@ -591,6 +597,7 @@ fun EhsOccupationalHealthTab(client: HttpClient, scope: kotlinx.coroutines.Corou
 // EHS-10. Quimicos (MSDS)
 @Composable
 fun EhsChemicalsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    EhsCategoryEvidence(client, "Quimicos")
     var items by remember { mutableStateOf(emptyList<ChemicalProduct>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
@@ -639,6 +646,7 @@ fun EhsChemicalsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 // EHS-1. Inspecciones de Seguridad
 @Composable
 fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    EhsCategoryEvidence(client, "Inspeccion")
     var items by remember { mutableStateOf(emptyList<SafetyInspection>()) }
     var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -647,6 +655,7 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         isLoading = true
         try {
             items = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body()
+            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=inspection").body()
         } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
@@ -683,6 +692,7 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
 // EHS-2. Incidentes y Accidentes
 @Composable
 fun EhsIncidentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    EhsCategoryEvidence(client, "Incidente")
     var items by remember { mutableStateOf(emptyList<SafetyIncident>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
@@ -723,6 +733,7 @@ fun EhsIncidentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 // EHS-3. Permisos de Trabajo
 @Composable
 fun EhsWorkPermitsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    EhsCategoryEvidence(client, "PermisoTrabajo")
     var items by remember { mutableStateOf(emptyList<WorkPermit>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
@@ -761,6 +772,7 @@ fun EhsWorkPermitsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
 // EHS-4. Entrega de EPP
 @Composable
 fun EhsPpeTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    EhsCategoryEvidence(client, "EPP")
     var items by remember { mutableStateOf(emptyList<PpeDelivery>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
@@ -793,12 +805,14 @@ fun EhsPpeTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
 // EHS-5. Capacitaciones de Seguridad
 @Composable
 fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    EhsCategoryEvidence(client, "Capacitacion")
     var items by remember { mutableStateOf(emptyList<SafetyTraining>()) }
     var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) { isLoading = true; try {
         items = client.get("$BACKEND_URL/api/v1/sap/ehs/capacitaciones").body()
+            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=training").body()
 
     } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
@@ -831,12 +845,14 @@ fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 // EHS-6. Simulacros de Emergencia
 @Composable
 fun EhsDrillsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    EhsCategoryEvidence(client, "Simulacro")
     var items by remember { mutableStateOf(emptyList<EmergencyDrill>()) }
     var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) { isLoading = true; try {
         items = client.get("$BACKEND_URL/api/v1/sap/ehs/simulacros").body()
+            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=drill").body()
 
     } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
@@ -869,6 +885,7 @@ fun EhsDrillsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
 // EHS-7. Matriz de Riesgos / IPER
 @Composable
 fun EhsRiskMatrixTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    EhsCategoryEvidence(client, "Riesgos")
     var items by remember { mutableStateOf(emptyList<RiskMatrix>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
@@ -1247,6 +1264,36 @@ fun RecruitmentSapModule(client: HttpClient, scope: kotlinx.coroutines.Coroutine
     }
 }
 
+// Una evidencia clasificada aparece en su seccion aun sin existir un registro
+// operativo. No inventamos inspecciones ni asociamos IDs a partir del nombre.
+@Composable
+fun EhsCategoryEvidence(client: HttpClient, categoria: String) {
+    var documents by remember(categoria) { mutableStateOf(emptyList<EhsDocument>()) }
+    var error by remember(categoria) { mutableStateOf("") }
+    LaunchedEffect(categoria) {
+        try {
+            documents = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=$categoria").body()
+            error = ""
+        } catch (e: Exception) {
+            error = "No se pudieron cargar las evidencias: ${e.message ?: "error"}"
+        }
+    }
+    Div({ style { padding(12.px); marginBottom(16.px); backgroundColor(Color.white); borderRadius(8.px); property("border", "1px solid #e2e8f0") } }) {
+        H4({ style { margin(0.px, 0.px, 8.px, 0.px) } }) { Text("Evidencias de $categoria (${documents.size})") }
+        if (error.isNotBlank()) P { Text(error) }
+        else if (documents.isEmpty()) P { Text("No hay evidencias de esta categoría.") }
+        else Div({ style { maxHeight(300.px); overflow("auto") } }) {
+            documents.forEach { doc ->
+                Div({ style { marginBottom(5.px) } }) {
+                    Span { Text("#${doc.id} · ${doc.titulo} · ") }
+                    EhsEvidenceButtons(listOf(doc))
+                    if (doc.moduleRecordId > 0) Span { Text(" · registro #${doc.moduleRecordId}") }
+                }
+            }
+        }
+    }
+}
+
 // Abre una evidencia usando el token de la sesión. window.open(url) no sirve
 // porque una pestaña nueva no envía el header Authorization.
 @Composable
@@ -1330,6 +1377,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
     var statusMsg by remember { mutableStateOf("") }
+    var filtroCategoria by remember { mutableStateOf("Todas") }
     var uploading by remember { mutableStateOf(false) }
     var inspections by remember { mutableStateOf(emptyList<SafetyInspection>()) }
     var trainings by remember { mutableStateOf(emptyList<SafetyTraining>()) }
@@ -1348,7 +1396,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     }
     fun refresh() { refreshKey++ }
 
-    var f_categoria by remember { mutableStateOf("Otro") }
+    var f_categoria by remember { mutableStateOf("Inspeccion") }
     var f_titulo by remember { mutableStateOf("") }
     var f_fecha by remember { mutableStateOf("") }
     var f_anio by remember { mutableStateOf("") }
@@ -1358,7 +1406,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     var completedFiles by remember { mutableStateOf(emptySet<org.w3c.files.File>()) }
     var f_moduleRecordId by remember { mutableStateOf(0) }
 
-    val categorias = listOf("Otro", "Simulacro", "Capacitacion", "Estudio", "Inspeccion", "Dictamen", "ExamenMedico")
+    val categorias = listOf("Inspeccion", "Capacitacion", "Simulacro", "Estudio", "Dictamen", "ExamenMedico", "Incidente", "PermisoTrabajo", "EPP", "Residuos", "Riesgos", "Quimicos", "Auditoria", "Normativa", "Otro")
     val moduleType = when (f_categoria) {
         "Inspeccion" -> "inspection"
         "Simulacro" -> "drill"
@@ -1502,7 +1550,14 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
         if (statusMsg.isNotBlank()) P({ style { marginTop(10.px); fontSize(13.px); color(Color("#2563eb")); marginBottom(0.px) } }) { Text(statusMsg) }
     }
 
-    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} evidencias registradas") }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(8.px); alignItems(AlignItems.Center) } }) {
+        Span({ style { color(Color.gray); fontSize(13.px) } }) { Text("${items.size} evidencias registradas") }
+        Select({ onChange { filtroCategoria = it.value ?: "Todas" } }) {
+            Option("Todas") { Text("Todas las categorías") }
+            Option("Otro") { Text("Otro: pendiente de revisar") }
+            categorias.filter { it != "Otro" }.forEach { Option(it) { Text(it) } }
+        }
+    }
     if (isLoading) { P { Text("Cargando...") } } else if (items.isEmpty()) {
         P({ style { color(Color.gray); fontSize(13.px) } }) { Text("Aún no hay evidencias. Sube el primer archivo arriba.") }
     } else {
@@ -1510,11 +1565,33 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             Table({ style { width(100.percent); property("border-collapse", "collapse"); fontSize(13.px); backgroundColor(Color.white) } }) {
                 Thead { Tr { listOf("ID", "Año", "Categoría", "Título", "Fecha doc.", "Archivo", "Subido", "Notas", "").forEach { Th({ style { padding(10.px, 12.px); textAlign("left"); backgroundColor(Color("#f8fafc")); color(Color("#475569")); property("border-bottom", "1px solid #e2e8f0") } }) { Text(it) } } } }
                 Tbody {
-                    items.forEach { doc ->
+                    items.filter { filtroCategoria == "Todas" || it.categoria == filtroCategoria }.forEach { doc ->
                         Tr {
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.id.toString()) }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(when (doc.anio) { -1 -> "General"; 0 -> "-"; else -> doc.anio.toString() }) }
-                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.categoria) }
+                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
+                                if (doc.categoria == "Otro") {
+                                    Select({
+                                        onChange { event ->
+                                            val selected = event.value ?: "Otro"
+                                            if (selected != "Otro") scope.launch {
+                                                try {
+                                                    client.patch("$BACKEND_URL/api/v1/ehs/documentos/${doc.id}/categoria") {
+                                                        contentType(ContentType.Application.Json)
+                                                        setBody(mapOf("categoria" to selected))
+                                                    }
+                                                    refresh()
+                                                } catch (e: Exception) {
+                                                    statusMsg = "No se pudo reclasificar #${doc.id}: ${e.message}"
+                                                }
+                                            }
+                                        }
+                                    }) {
+                                        Option("Otro") { Text("Otro (revisar)") }
+                                        categorias.filter { it != "Otro" }.forEach { Option(it) { Text(it) } }
+                                    }
+                                } else Text(doc.categoria)
+                            }
                             Td({ style { padding(10.px, 12.px); fontWeight("600"); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.titulo) }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.fecha.ifBlank { "-" }) }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) {

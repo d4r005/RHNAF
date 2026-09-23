@@ -17,3 +17,15 @@ jobs:
         run: |
           chmod +x gradlew
           SKIP_ANDROID=true ./gradlew :web:compileKotlinJs --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx2g"
+  compile-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile server
+        run: |
+          chmod +x gradlew
+          SKIP_ANDROID=true ./gradlew :server:compileKotlin --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx2g"

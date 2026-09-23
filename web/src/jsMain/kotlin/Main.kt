@@ -389,7 +389,7 @@ fun main() {
                         when (activeModule) {
                             Module.DASHBOARD -> DashboardView(employees, t)
                             Module.EHS_HOME -> EhsHomeModule(userRole) { activeModule = it }
-                            Module.EHS_AUDITS -> EhsAuditsModule(client, scope, t)
+                            Module.EHS_AUDITS -> EhsAuditsModule(client, scope, t, userRole)
                             Module.EHS_METRICS -> EhsMetricsModule(client, scope)
                             Module.EHS_ACTIONS -> EhsActionModule(client, scope)
                             Module.EHS_CONTRACTORS -> EhsContractorModule(client, scope)

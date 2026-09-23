@@ -36,19 +36,23 @@ private const val DRIVE_POINTER_PREFIX = "gdrive:"
 fun Route.ehsDocumentRouting() {
     route("/api/v1/ehs/documentos") {
         get {
-            requireAuthOr401(call) ?: return@get
+            val role = requireAuthOr401(call) ?: return@get
             val categoria = call.request.queryParameters["categoria"]
             val moduleType = call.request.queryParameters["moduleType"]
             val moduleRecordId = call.request.queryParameters["moduleRecordId"]?.toIntOrNull()
+            if (categoria == "ExamenMedico" && role !in Roles.EHS_WRITE) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("message" to "Acceso reservado a Seguridad"))
+                return@get
+            }
 
             // La BD de produccion puede seguir con el esquema anterior, sin
             // module_type/module_record_id. Intentamos el esquema nuevo y, si
             // esas columnas aun no existen, servimos los metadatos legacy.
             val items = try {
-                loadDocumentMetadata(categoria, moduleType, moduleRecordId, includeModuleLink = true)
+                loadDocumentMetadata(categoria, moduleType, moduleRecordId, includeModuleLink = true, excludeMedical = role !in Roles.EHS_WRITE)
             } catch (e: Exception) {
                 println("[EhsDocumentRoutes] Esquema legacy detectado al listar: ${e.message}")
-                loadDocumentMetadata(categoria, null, null, includeModuleLink = false)
+                loadDocumentMetadata(categoria, null, null, includeModuleLink = false, excludeMedical = role !in Roles.EHS_WRITE)
             }
             call.respond(items)
         }
@@ -142,7 +146,7 @@ fun Route.ehsDocumentRouting() {
                     var fileSize = 0L
                     var invalidFile = false
                     var filesSeen = 0
-                    call.receiveMultipart().forEachPart { part ->
+                    call.receiveMultipart(formFieldLimit = 500L * 1024 * 1024).forEachPart { part ->
                         try {
                             when (part) {
                                 is PartData.FormItem -> if (part.name != null) fields[part.name!!] = part.value
@@ -207,6 +211,54 @@ fun Route.ehsDocumentRouting() {
                         throw e
                     }
                 } finally { temp.delete() }
+            }
+        }
+
+        // Reclasificar un archivo existente sin duplicarlo ni perder el vínculo
+        // gdrive:<id>. La categoría debe ser elegida explícitamente para evitar
+        // adivinar a partir de nombres ambiguos o fotografías sin descripción.
+        patch("/{id}/categoria") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.EHS_WRITE) ?: return@safeApiCall
+                val id = call.parameters["id"]?.toIntOrNull()
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("message" to "ID inválido"))
+                val categoria = call.receive<Map<String, String>>()["categoria"]?.trim().orEmpty()
+                val allowed = setOf("Inspeccion", "Capacitacion", "Simulacro", "Estudio", "Dictamen",
+                    "ExamenMedico", "Incidente", "PermisoTrabajo", "EPP", "Residuos", "Riesgos",
+                    "Quimicos", "Auditoria", "Normativa", "Otro")
+                if (categoria !in allowed) return@safeApiCall call.respond(HttpStatusCode.BadRequest,
+                    mapOf("message" to "Categoría desconocida"))
+                val row = DatabaseFactory.dbQuery {
+                    EhsDocumentTable.selectAll().where { EhsDocumentTable.id eq id }.singleOrNull()
+                } ?: return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("message" to "Evidencia inexistente"))
+                val previous = row[EhsDocumentTable.categoria]
+                if (previous == categoria) return@safeApiCall call.respond(mapOf("status" to "ok"))
+                val pointer = row[EhsDocumentTable.contentBase64]
+                if (!pointer.startsWith(DRIVE_POINTER_PREFIX)) return@safeApiCall call.respond(
+                    HttpStatusCode.Conflict, mapOf("message" to "Migra el archivo antiguo a Drive antes de reclasificar"))
+                val year = row[EhsDocumentTable.anio]
+                val target = GoogleDriveService.categoryYearFolder(categoria, year)
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
+                        mapOf("message" to "No se pudo crear la carpeta de destino"))
+                val fileId = pointer.removePrefix(DRIVE_POINTER_PREFIX)
+                val oldParent = GoogleDriveService.moveFile(fileId, target)
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
+                        mapOf("message" to "No se pudo mover el archivo en Drive"))
+                try {
+                    DatabaseFactory.dbQuery {
+                        val changed = EhsDocumentTable.update({ (EhsDocumentTable.id eq id) and
+                            (EhsDocumentTable.categoria eq previous) }) {
+                            it[EhsDocumentTable.categoria] = categoria
+                            it[EhsDocumentTable.moduleType] = ""
+                            it[EhsDocumentTable.moduleRecordId] = 0
+                        }
+                        check(changed == 1) { "La evidencia cambió durante la operación" }
+                    }
+                } catch (e: Exception) {
+                    if (oldParent != target) GoogleDriveService.moveFile(fileId, oldParent)
+                    throw e
+                }
+                call.respond(mapOf("status" to "ok", "categoria" to categoria))
             }
         }
 
@@ -286,7 +338,7 @@ fun Route.ehsDocumentRouting() {
         }
 
         get("/{id}/descargar") {
-            requireAuthOr401(call) ?: return@get
+            val role = requireAuthOr401(call) ?: return@get
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "ID invalido"))
@@ -300,6 +352,10 @@ fun Route.ehsDocumentRouting() {
                 return@get
             }
 
+            if (row[EhsDocumentTable.categoria] == "ExamenMedico" && role !in Roles.EHS_WRITE) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("message" to "Acceso reservado a Seguridad"))
+                return@get
+            }
             val storedContent = row[EhsDocumentTable.contentBase64]
             val bytes = if (storedContent.startsWith(DRIVE_POINTER_PREFIX)) {
                 val fileId = storedContent.removePrefix(DRIVE_POINTER_PREFIX)
@@ -358,7 +414,8 @@ private suspend fun loadDocumentMetadata(
     categoria: String?,
     moduleType: String?,
     moduleRecordId: Int?,
-    includeModuleLink: Boolean
+    includeModuleLink: Boolean,
+    excludeMedical: Boolean = false
 ): List<EhsDocument> = DatabaseFactory.dbQuery {
     val columns = mutableListOf<Expression<*>>(
         EhsDocumentTable.id,
@@ -379,6 +436,7 @@ private suspend fun loadDocumentMetadata(
     }
     var query = EhsDocumentTable.select(columns)
     if (!categoria.isNullOrBlank()) query = query.andWhere { EhsDocumentTable.categoria eq categoria }
+    if (excludeMedical) query = query.andWhere { EhsDocumentTable.categoria neq "ExamenMedico" }
     if (includeModuleLink && !moduleType.isNullOrBlank()) query = query.andWhere { EhsDocumentTable.moduleType eq moduleType }
     if (includeModuleLink && moduleRecordId != null) query = query.andWhere { EhsDocumentTable.moduleRecordId eq moduleRecordId }
     query.orderBy(EhsDocumentTable.id, SortOrder.DESC).map {

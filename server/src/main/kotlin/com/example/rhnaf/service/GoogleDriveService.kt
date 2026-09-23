@@ -278,6 +278,30 @@ object GoogleDriveService {
         return json["id"]?.jsonPrimitive?.content
     }
 
+    /** Mueve un archivo ya registrado entre carpetas de evidencias; conserva el ID. */
+    suspend fun moveFile(fileId: String, targetFolderId: String): String? {
+        val token = getAccessToken() ?: return null
+        val metadata: HttpResponse = client.get("$DRIVE_FILES_URL/${fileId.encodeURLPath()}") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            parameter("fields", "id,parents")
+        }
+        if (metadata.status != HttpStatusCode.OK) return null
+        val parent = Json.parseToJsonElement(metadata.bodyAsText()).jsonObject["parents"]
+            ?.jsonArray?.singleOrNull()?.jsonPrimitive?.content ?: return null
+        if (parent == targetFolderId) return parent
+        val changed: HttpResponse = client.patch("$DRIVE_FILES_URL/${fileId.encodeURLPath()}") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            parameter("addParents", targetFolderId)
+            parameter("removeParents", parent)
+            parameter("fields", "id,parents")
+            contentType(ContentType.Application.Json)
+            setBody("{}")
+        }
+        if (changed.status != HttpStatusCode.OK) return null
+        val parents = Json.parseToJsonElement(changed.bodyAsText()).jsonObject["parents"]?.jsonArray.orEmpty()
+        return parent.takeIf { old -> parents.any { it.jsonPrimitive.content == targetFolderId } }
+    }
+
     /** Descarga el contenido binario de un archivo por su fileId. Null si fallo. */
     suspend fun downloadFile(fileId: String): ByteArray? {
         val accessToken = getAccessToken() ?: return null
