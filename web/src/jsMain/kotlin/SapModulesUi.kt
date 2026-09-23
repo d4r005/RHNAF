@@ -455,7 +455,6 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3({ style { margin(0.px); marginBottom(16.px) } }) { Text("EHS \u00b7 Seguridad, Salud y Ambiente") }
-        DocumentImportPanel(scope) { /* refresco por pestaña; cada tab recarga al volver a entrar */ }
         AutoRegisterFromEvidencePanel(client, scope)
 
         // Tab bar
@@ -1760,27 +1759,29 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.id.toString()) }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(when (doc.anio) { -1 -> "General"; 0 -> "-"; else -> doc.anio.toString() }) }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
-                                if (doc.categoria == "Otro") {
-                                    Select({
-                                        onChange { event ->
-                                            val selected = event.value ?: "Otro"
-                                            if (selected != "Otro") scope.launch {
-                                                try {
-                                                    client.patch("$BACKEND_URL/api/v1/ehs/documentos/${doc.id}/categoria") {
-                                                        contentType(ContentType.Application.Json)
-                                                        setBody(mapOf("categoria" to selected))
-                                                    }
-                                                    refresh()
-                                                } catch (e: Exception) {
-                                                    statusMsg = "No se pudo reclasificar #${doc.id}: ${e.message}"
+                                // Libre: se puede reclasificar cualquier evidencia a cualquier
+                                // categoria, no solo las que llegaron como "Otro".
+                                Select({
+                                    onChange { event ->
+                                        val selected = event.value ?: doc.categoria
+                                        if (selected != doc.categoria) scope.launch {
+                                            try {
+                                                client.patch("$BACKEND_URL/api/v1/ehs/documentos/${doc.id}/categoria") {
+                                                    contentType(ContentType.Application.Json)
+                                                    setBody(mapOf("categoria" to selected))
                                                 }
+                                                refresh()
+                                            } catch (e: Exception) {
+                                                statusMsg = "No se pudo reclasificar #${doc.id}: ${e.message}"
                                             }
                                         }
-                                    }) {
-                                        Option("Otro") { Text("Otro (revisar)") }
-                                        categorias.filter { it != "Otro" }.forEach { Option(it) { Text(it) } }
                                     }
-                                } else Text(doc.categoria)
+                                }) {
+                                    val opciones = (listOf(doc.categoria) + categorias.filter { it != doc.categoria }).distinct()
+                                    opciones.forEach { opt ->
+                                        Option(opt, { if (opt == doc.categoria) selected() }) { Text(if (opt == "Otro") "Otro (revisar)" else opt) }
+                                    }
+                                }
                             }
                             Td({ style { padding(10.px, 12.px); fontWeight("600"); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.titulo) }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.fecha.ifBlank { "-" }) }

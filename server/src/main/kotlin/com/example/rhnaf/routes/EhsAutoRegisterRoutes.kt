@@ -18,6 +18,10 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 private const val DRIVE_POINTER_PREFIX = "gdrive:"
 
@@ -161,13 +165,15 @@ fun Route.ehsAutoRegisterRouting() {
         )
 
         val categoriasAProcesar = if (soloCategoria.isNullOrBlank()) specs.keys.toList() else listOf(soloCategoria)
-        val creados = mutableListOf<Map<String, Any>>()
-        val omitidos = mutableListOf<Map<String, Any>>()
+        data class Creado(val id: Int, val titulo: String, val categoria: String, val moduleType: String, val moduleRecordId: Int)
+        data class Omitido(val id: Int?, val titulo: String?, val categoria: String?, val motivo: String)
+        val creados = mutableListOf<Creado>()
+        val omitidos = mutableListOf<Omitido>()
 
         for (categoria in categoriasAProcesar) {
             val spec = specs[categoria]
             if (spec == null) {
-                omitidos.add(mapOf("categoria" to categoria, "motivo" to "Categoría sin creación automática de registros"))
+                omitidos.add(Omitido(id = null, titulo = null, categoria = categoria, motivo = "Categoría sin creación automática de registros"))
                 continue
             }
             // Todos los campos de la fila (incluida contentBase64, que es una
@@ -212,14 +218,14 @@ fun Route.ehsAutoRegisterRouting() {
 
                 val fecha = bestEffortDate(fechaDoc, titulo, anio)
                 if (spec.requiresOnlyDate && fecha == null) {
-                    omitidos.add(mapOf("id" to docId, "titulo" to titulo, "motivo" to "Sin fecha ni año documental; complétalo manualmente"))
+                    omitidos.add(Omitido(id = docId, titulo = titulo, categoria = categoria, motivo = "Sin fecha ni año documental; complétalo manualmente"))
                     continue
                 }
 
                 val nuevoId = try {
                     spec.insert(fecha ?: "", titulo, camposExtraidos)
                 } catch (e: Exception) {
-                    omitidos.add(mapOf("id" to docId, "titulo" to titulo, "motivo" to "Error al crear el registro: ${e.message}"))
+                    omitidos.add(Omitido(id = docId, titulo = titulo, categoria = categoria, motivo = "Error al crear el registro: ${e.message}"))
                     continue
                 }
 
@@ -229,17 +235,33 @@ fun Route.ehsAutoRegisterRouting() {
                         it[EhsDocumentTable.moduleRecordId] = nuevoId
                     }
                 }
-                creados.add(mapOf("id" to docId, "titulo" to titulo, "categoria" to categoria, "moduleType" to spec.moduleType, "moduleRecordId" to nuevoId))
+                creados.add(Creado(id = docId, titulo = titulo, categoria = categoria, moduleType = spec.moduleType, moduleRecordId = nuevoId))
             }
         }
 
-        call.respond(mapOf(
-            "status" to "ok",
-            "creados" to creados.size,
-            "omitidos" to omitidos.size,
-            "detalleCreados" to creados,
-            "detalleOmitidos" to omitidos,
-            "message" to "Los campos no encontrados en el propio documento se dejan vacíos para completarlos manualmente; no se inventa información."
-        ))
+        val respuesta = buildJsonObject {
+            put("status", "ok")
+            put("creados", creados.size)
+            put("omitidos", omitidos.size)
+            put("detalleCreados", JsonArray(creados.map { c ->
+                buildJsonObject {
+                    put("id", c.id)
+                    put("titulo", c.titulo)
+                    put("categoria", c.categoria)
+                    put("moduleType", c.moduleType)
+                    put("moduleRecordId", c.moduleRecordId)
+                }
+            }))
+            put("detalleOmitidos", JsonArray(omitidos.map { o ->
+                buildJsonObject {
+                    put("id", o.id)
+                    put("titulo", o.titulo)
+                    put("categoria", o.categoria)
+                    put("motivo", o.motivo)
+                }
+            }))
+            put("message", "Los campos no encontrados en el propio documento se dejan vacíos para completarlos manualmente; no se inventa información.")
+        }
+        call.respond(respuesta)
     }
 }
