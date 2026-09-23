@@ -262,6 +262,34 @@ fun Route.ehsDocumentRouting() {
             }
         }
 
+        // Vincula una evidencia ya subida con un registro estructurado (p.ej. un
+        // quimico, una inspeccion) sin volver a subir el archivo. Idempotente:
+        // reintentar con el mismo destino no falla.
+        patch("/{id}/vincular") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.EHS_WRITE) ?: return@safeApiCall
+                val id = call.parameters["id"]?.toIntOrNull()
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("message" to "ID inválido"))
+                val body = call.receive<Map<String, String>>()
+                val moduleType = body["moduleType"]?.trim().orEmpty()
+                val moduleRecordId = body["moduleRecordId"]?.toIntOrNull()
+                if (moduleType.isBlank() || moduleRecordId == null || moduleRecordId <= 0) {
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest,
+                        mapOf("message" to "moduleType y moduleRecordId (>0) son obligatorios"))
+                }
+                val exists = DatabaseFactory.dbQuery {
+                    EhsDocumentTable.selectAll().where { EhsDocumentTable.id eq id }.singleOrNull()
+                } ?: return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("message" to "Evidencia inexistente"))
+                DatabaseFactory.dbQuery {
+                    EhsDocumentTable.update({ EhsDocumentTable.id eq id }) {
+                        it[EhsDocumentTable.moduleType] = moduleType
+                        it[EhsDocumentTable.moduleRecordId] = moduleRecordId
+                    }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+        }
+
         // Migra de forma idempotente archivos antiguos guardados como base64.
         // Requiere que Supabase ya permita escrituras. Se limita por llamada
         // para no agotar memoria ni exceder el tiempo de respuesta del Space.

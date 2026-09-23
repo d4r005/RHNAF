@@ -493,13 +493,16 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 // EHS-8. Medio Ambiente (Residuos)
 @Composable
 fun EhsEnvironmentTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    EhsCategoryEvidence(client, "Residuos")
     var items by remember { mutableStateOf(emptyList<WasteManifest>()) }
+    var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) {
         isLoading = true
-        try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/residuos").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
+        try {
+            items = client.get("$BACKEND_URL/api/v1/sap/ehs/residuos").body()
+            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Residuos").body()
+        } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
 
@@ -537,8 +540,11 @@ fun EhsEnvironmentTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
-            Thead { Tr { Th { Text("Fecha") }; Th { Text("Residuo") }; Th { Text("Tipo") }; Th { Text("Cant") }; Th { Text("Transportista") }; Th { Text("Destino") }; Th { Text("Manifiesto") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.residuo) }; Td { Text(row.tipo) }; Td { Text(row.cantidad) }; Td { Text(row.transportista) }; Td { Text(row.destinoFinal) }; Td { Text(row.numeroManifiesto) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/residuos/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Residuo") }; Th { Text("Tipo") }; Th { Text("Cant") }; Th { Text("Transportista") }; Th { Text("Destino") }; Th { Text("Manifiesto") }; Th { Text("Evidencias") }; Th { Text("") } } }
+            Tbody {
+                items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.residuo) }; Td { Text(row.tipo) }; Td { Text(row.cantidad) }; Td { Text(row.transportista) }; Td { Text(row.destinoFinal) }; Td { Text(row.numeroManifiesto) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/residuos/${row.id}"); refresh() } } }) { Text("X") } } } }
+                EhsPendingEvidenceRows(evidence, colSpan = 9)
+            }
         }
     }
 }
@@ -546,13 +552,16 @@ fun EhsEnvironmentTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
 // EHS-9. Salud Ocupacional (Examenes)
 @Composable
 fun EhsOccupationalHealthTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    EhsCategoryEvidence(client, "ExamenMedico")
     var items by remember { mutableStateOf(emptyList<MedicalExam>()) }
+    var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) {
         isLoading = true
-        try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/salud").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
+        try {
+            items = client.get("$BACKEND_URL/api/v1/sap/ehs/salud").body()
+            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=ExamenMedico").body()
+        } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
 
@@ -588,8 +597,11 @@ fun EhsOccupationalHealthTab(client: HttpClient, scope: kotlinx.coroutines.Corou
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
-            Thead { Tr { Th { Text("ID Emp") }; Th { Text("Nombre") }; Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Resultado") }; Th { Text("Prox. Cita") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.empleadoId) }; Td { Text(row.nombreEmpleado) }; Td { Text(row.fecha) }; Td { Text(row.tipoExamen) }; Td { Text(row.resultado) }; Td { Text(row.proximaCita) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/salud/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Thead { Tr { Th { Text("ID Emp") }; Th { Text("Nombre") }; Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Resultado") }; Th { Text("Prox. Cita") }; Th { Text("Evidencias") }; Th { Text("") } } }
+            Tbody {
+                items.forEach { row -> Tr { Td { Text(row.empleadoId) }; Td { Text(row.nombreEmpleado) }; Td { Text(row.fecha) }; Td { Text(row.tipoExamen) }; Td { Text(row.resultado) }; Td { Text(row.proximaCita) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/salud/${row.id}"); refresh() } } }) { Text("X") } } } }
+                EhsPendingEvidenceRows(evidence, colSpan = 8)
+            }
         }
     }
 }
@@ -597,13 +609,16 @@ fun EhsOccupationalHealthTab(client: HttpClient, scope: kotlinx.coroutines.Corou
 // EHS-10. Quimicos (MSDS)
 @Composable
 fun EhsChemicalsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    EhsCategoryEvidence(client, "Quimicos")
     var items by remember { mutableStateOf(emptyList<ChemicalProduct>()) }
+    var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) {
         isLoading = true
-        try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/quimicos").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
+        try {
+            items = client.get("$BACKEND_URL/api/v1/sap/ehs/quimicos").body()
+            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Quimicos").body()
+        } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
 
@@ -637,8 +652,16 @@ fun EhsChemicalsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
-            Thead { Tr { Th { Text("Producto") }; Th { Text("Fabricante") }; Th { Text("Area") }; Th { Text("Riesgo") }; Th { Text("MSDS") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.nombre) }; Td { Text(row.fabricante) }; Td { Text(row.areaUso) }; Td { Text(row.nivelRiesgo) }; Td { if(row.hojaSeguridadUrl.isNotEmpty()) A(href = row.hojaSeguridadUrl) { Text("Ver PDF") } else Text("-") }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/quimicos/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Thead { Tr { Th { Text("Producto") }; Th { Text("Fabricante") }; Th { Text("Area") }; Th { Text("Riesgo") }; Th { Text("MSDS / Evidencia") }; Th { Text("") } } }
+            Tbody {
+                items.forEach { row -> Tr { Td { Text(row.nombre) }; Td { Text(row.fabricante) }; Td { Text(row.areaUso) }; Td { Text(row.nivelRiesgo) }; Td {
+                    val linked = evidence.filter { it.moduleRecordId == row.id }
+                    if (linked.isNotEmpty()) EhsEvidenceButtons(linked)
+                    else if (row.hojaSeguridadUrl.isNotEmpty()) A(href = row.hojaSeguridadUrl) { Text("Ver PDF") }
+                    else Text("-")
+                }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/quimicos/${row.id}"); refresh() } } }) { Text("X") } } } }
+                EhsPendingEvidenceRows(evidence, colSpan = 6)
+            }
         }
     }
 }
@@ -646,7 +669,6 @@ fun EhsChemicalsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 // EHS-1. Inspecciones de Seguridad
 @Composable
 fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    EhsCategoryEvidence(client, "Inspeccion")
     var items by remember { mutableStateOf(emptyList<SafetyInspection>()) }
     var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -655,36 +677,26 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         isLoading = true
         try {
             items = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body()
-            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=inspection").body()
+            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Inspeccion").body()
         } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
-    var f_fecha by remember { mutableStateOf("") }
-    var f_tipoInspeccion by remember { mutableStateOf("") }
-    var f_area by remember { mutableStateOf("") }
-    var f_inspector by remember { mutableStateOf("") }
-    var f_hallazgos by remember { mutableStateOf("") }
-    var f_riesgo by remember { mutableStateOf("") }
-    var f_accionesCorrectivas by remember { mutableStateOf("") }
-    var f_fechaCierre by remember { mutableStateOf("") }
-    var f_estado by remember { mutableStateOf("") }
     Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} registros") }
-    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
-        Input(InputType.Text) { placeholder("Tipo (Programada/No prog.)"); value(f_tipoInspeccion); onInput { f_tipoInspeccion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
-        Input(InputType.Text) { placeholder("Area"); value(f_area); onInput { f_area = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-        Input(InputType.Text) { placeholder("Inspector"); value(f_inspector); onInput { f_inspector = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-        Input(InputType.Text) { placeholder("Hallazgos"); value(f_hallazgos); onInput { f_hallazgos = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
-        Input(InputType.Text) { placeholder("Riesgo"); value(f_riesgo); onInput { f_riesgo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-        Input(InputType.Text) { placeholder("Acciones correctivas"); value(f_accionesCorrectivas); onInput { f_accionesCorrectivas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
-        Input(InputType.Text) { placeholder("Fecha cierre"); value(f_fechaCierre); onInput { f_fechaCierre = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
-        Input(InputType.Text) { placeholder("Estado"); value(f_estado); onInput { f_estado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) } }
-        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick { if (f_fecha.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/sap/ehs/inspecciones") { contentType(ContentType.Application.Json); setBody(SafetyInspection(fecha = f_fecha, tipoInspeccion = f_tipoInspeccion, area = f_area, inspector = f_inspector, hallazgos = f_hallazgos, riesgo = f_riesgo, accionesCorrectivas = f_accionesCorrectivas, fechaCierre = f_fechaCierre, estado = f_estado)) }; f_fecha = ""; f_tipoInspeccion = ""; f_area = ""; f_inspector = ""; f_hallazgos = ""; f_riesgo = ""; f_accionesCorrectivas = ""; f_fechaCierre = ""; f_estado = ""; refresh() } } else { window.alert("La fecha es obligatoria.") } } }) { Text("+ Agregar") }
+    Div({ style { marginBottom(16.px) } }) {
+        // El formato de captura (campos, requeridos) se define contigo antes de
+        // activar el alta; por ahora el botón solo lo anticipa.
+        Button({
+            style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
+            onClick { window.alert("En cuanto definamos el formato de captura, este botón abrirá el alta de inspecciones.") }
+        }) { Text("+ Agregar inspección") }
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
             Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Area") }; Th { Text("Inspector") }; Th { Text("Hallazgos") }; Th { Text("Riesgo") }; Th { Text("Acciones") }; Th { Text("F.Cierre") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipoInspeccion) }; Td { Text(row.area) }; Td { Text(row.inspector) }; Td { Text(row.hallazgos) }; Td { Text(row.riesgo) }; Td { Text(row.accionesCorrectivas) }; Td { Text(row.fechaCierre) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/inspecciones/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Tbody {
+                items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipoInspeccion) }; Td { Text(row.area) }; Td { Text(row.inspector) }; Td { Text(row.hallazgos) }; Td { Text(row.riesgo) }; Td { Text(row.accionesCorrectivas) }; Td { Text(row.fechaCierre) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/inspecciones/${row.id}"); refresh() } } }) { Text("X") } } } }
+                EhsPendingEvidenceRows(evidence, colSpan = 11)
+            }
         }
     }
 }
@@ -692,11 +704,14 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
 // EHS-2. Incidentes y Accidentes
 @Composable
 fun EhsIncidentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    EhsCategoryEvidence(client, "Incidente")
     var items by remember { mutableStateOf(emptyList<SafetyIncident>()) }
+    var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
-    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/incidentes").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    LaunchedEffect(refreshKey) { isLoading = true; try {
+        items = client.get("$BACKEND_URL/api/v1/sap/ehs/incidentes").body()
+        evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Incidente").body()
+    } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     var f_fecha by remember { mutableStateOf("") }
     var f_tipo by remember { mutableStateOf("") }
@@ -724,8 +739,11 @@ fun EhsIncidentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
-            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Severidad") }; Th { Text("Persona") }; Th { Text("Depto") }; Th { Text("Cuerpo") }; Th { Text("Dias") }; Th { Text("Descripcion") }; Th { Text("Causa") }; Th { Text("Estado") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipo) }; Td { Text(row.severidad) }; Td { Text(row.personaAfectada) }; Td { Text(row.departamento) }; Td { Text(row.parteCuerpo) }; Td { Text(row.diasPerdidos) }; Td { Text(row.descripcion) }; Td { Text(row.causaRaiz) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/incidentes/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Severidad") }; Th { Text("Persona") }; Th { Text("Depto") }; Th { Text("Cuerpo") }; Th { Text("Dias") }; Th { Text("Descripcion") }; Th { Text("Causa") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
+            Tbody {
+                items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipo) }; Td { Text(row.severidad) }; Td { Text(row.personaAfectada) }; Td { Text(row.departamento) }; Td { Text(row.parteCuerpo) }; Td { Text(row.diasPerdidos) }; Td { Text(row.descripcion) }; Td { Text(row.causaRaiz) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/incidentes/${row.id}"); refresh() } } }) { Text("X") } } } }
+                EhsPendingEvidenceRows(evidence, colSpan = 12)
+            }
         }
     }
 }
@@ -733,11 +751,14 @@ fun EhsIncidentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 // EHS-3. Permisos de Trabajo
 @Composable
 fun EhsWorkPermitsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    EhsCategoryEvidence(client, "PermisoTrabajo")
     var items by remember { mutableStateOf(emptyList<WorkPermit>()) }
+    var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
-    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/permisos-trabajo").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    LaunchedEffect(refreshKey) { isLoading = true; try {
+        items = client.get("$BACKEND_URL/api/v1/sap/ehs/permisos-trabajo").body()
+        evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=PermisoTrabajo").body()
+    } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     var f_tipo by remember { mutableStateOf("") }
     var f_solicitante by remember { mutableStateOf("") }
@@ -763,8 +784,11 @@ fun EhsWorkPermitsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
-            Thead { Tr { Th { Text("Tipo") }; Th { Text("Solicitante") }; Th { Text("Autorizado") }; Th { Text("F.Inicio") }; Th { Text("F.Fin") }; Th { Text("Area") }; Th { Text("Riesgos") }; Th { Text("EPP") }; Th { Text("Estado") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.tipo) }; Td { Text(row.solicitante) }; Td { Text(row.autorizadoPor) }; Td { Text(row.fechaInicio) }; Td { Text(row.fechaFin) }; Td { Text(row.area) }; Td { Text(row.riesgosIdentificados) }; Td { Text(row.eppRequerido) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/permisos-trabajo/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Thead { Tr { Th { Text("Tipo") }; Th { Text("Solicitante") }; Th { Text("Autorizado") }; Th { Text("F.Inicio") }; Th { Text("F.Fin") }; Th { Text("Area") }; Th { Text("Riesgos") }; Th { Text("EPP") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
+            Tbody {
+                items.forEach { row -> Tr { Td { Text(row.tipo) }; Td { Text(row.solicitante) }; Td { Text(row.autorizadoPor) }; Td { Text(row.fechaInicio) }; Td { Text(row.fechaFin) }; Td { Text(row.area) }; Td { Text(row.riesgosIdentificados) }; Td { Text(row.eppRequerido) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/permisos-trabajo/${row.id}"); refresh() } } }) { Text("X") } } } }
+                EhsPendingEvidenceRows(evidence, colSpan = 11)
+            }
         }
     }
 }
@@ -772,11 +796,14 @@ fun EhsWorkPermitsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
 // EHS-4. Entrega de EPP
 @Composable
 fun EhsPpeTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    EhsCategoryEvidence(client, "EPP")
     var items by remember { mutableStateOf(emptyList<PpeDelivery>()) }
+    var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
-    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/entregas-epp").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    LaunchedEffect(refreshKey) { isLoading = true; try {
+        items = client.get("$BACKEND_URL/api/v1/sap/ehs/entregas-epp").body()
+        evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=EPP").body()
+    } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     var f_fecha by remember { mutableStateOf("") }
     var f_empleado by remember { mutableStateOf("") }
@@ -796,8 +823,11 @@ fun EhsPpeTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
-            Thead { Tr { Th { Text("Fecha") }; Th { Text("Empleado") }; Th { Text("Tipo EPP") }; Th { Text("Talla") }; Th { Text("Prox. Reposicion") }; Th { Text("Firma") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.empleado) }; Td { Text(row.tipoEpp) }; Td { Text(row.talla) }; Td { Text(row.proximaReposicion) }; Td { Text(row.firma) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/entregas-epp/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Thead { Tr { Th { Text("Fecha") }; Th { Text("Empleado") }; Th { Text("Tipo EPP") }; Th { Text("Talla") }; Th { Text("Prox. Reposicion") }; Th { Text("Firma") }; Th { Text("Evidencias") }; Th { Text("") } } }
+            Tbody {
+                items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.empleado) }; Td { Text(row.tipoEpp) }; Td { Text(row.talla) }; Td { Text(row.proximaReposicion) }; Td { Text(row.firma) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/entregas-epp/${row.id}"); refresh() } } }) { Text("X") } } } }
+                EhsPendingEvidenceRows(evidence, colSpan = 8)
+            }
         }
     }
 }
@@ -805,15 +835,13 @@ fun EhsPpeTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
 // EHS-5. Capacitaciones de Seguridad
 @Composable
 fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    EhsCategoryEvidence(client, "Capacitacion")
     var items by remember { mutableStateOf(emptyList<SafetyTraining>()) }
     var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) { isLoading = true; try {
         items = client.get("$BACKEND_URL/api/v1/sap/ehs/capacitaciones").body()
-            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=training").body()
-
+        evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Capacitacion").body()
     } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     var f_fecha by remember { mutableStateOf("") }
@@ -837,7 +865,10 @@ fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
             Thead { Tr { Th { Text("Fecha") }; Th { Text("Tema") }; Th { Text("Instructor") }; Th { Text("Asist.") }; Th { Text("Vigencia") }; Th { Text("Prox.Fecha") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tema) }; Td { Text(row.instructor) }; Td { Text(row.asistentes) }; Td { Text(row.vigenciaMeses) }; Td { Text(row.proximaFecha) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/capacitaciones/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Tbody {
+                items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tema) }; Td { Text(row.instructor) }; Td { Text(row.asistentes) }; Td { Text(row.vigenciaMeses) }; Td { Text(row.proximaFecha) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/capacitaciones/${row.id}"); refresh() } } }) { Text("X") } } } }
+                EhsPendingEvidenceRows(evidence, colSpan = 9)
+            }
         }
     }
 }
@@ -845,15 +876,13 @@ fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 // EHS-6. Simulacros de Emergencia
 @Composable
 fun EhsDrillsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    EhsCategoryEvidence(client, "Simulacro")
     var items by remember { mutableStateOf(emptyList<EmergencyDrill>()) }
     var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) { isLoading = true; try {
         items = client.get("$BACKEND_URL/api/v1/sap/ehs/simulacros").body()
-            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?moduleType=drill").body()
-
+        evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Simulacro").body()
     } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     var f_fecha by remember { mutableStateOf("") }
@@ -877,7 +906,10 @@ fun EhsDrillsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
             Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Particip.") }; Th { Text("T.Evacuac.") }; Th { Text("Resultado") }; Th { Text("Observaciones") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipo) }; Td { Text(row.participantes) }; Td { Text(row.tiempoEvacuacion) }; Td { Text(row.resultado) }; Td { Text(row.observaciones) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/simulacros/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Tbody {
+                items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipo) }; Td { Text(row.participantes) }; Td { Text(row.tiempoEvacuacion) }; Td { Text(row.resultado) }; Td { Text(row.observaciones) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/simulacros/${row.id}"); refresh() } } }) { Text("X") } } } }
+                EhsPendingEvidenceRows(evidence, colSpan = 9)
+            }
         }
     }
 }
@@ -885,11 +917,14 @@ fun EhsDrillsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
 // EHS-7. Matriz de Riesgos / IPER
 @Composable
 fun EhsRiskMatrixTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
-    EhsCategoryEvidence(client, "Riesgos")
     var items by remember { mutableStateOf(emptyList<RiskMatrix>()) }
+    var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
-    LaunchedEffect(refreshKey) { isLoading = true; try { items = client.get("$BACKEND_URL/api/v1/sap/ehs/matriz-riesgos").body() } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    LaunchedEffect(refreshKey) { isLoading = true; try {
+        items = client.get("$BACKEND_URL/api/v1/sap/ehs/matriz-riesgos").body()
+        evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Riesgos").body()
+    } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     var f_area by remember { mutableStateOf("") }
     var f_proceso by remember { mutableStateOf("") }
@@ -915,8 +950,11 @@ fun EhsRiskMatrixTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
-            Thead { Tr { Th { Text("Area") }; Th { Text("Proceso") }; Th { Text("Riesgo") }; Th { Text("Prob.") }; Th { Text("Sev.") }; Th { Text("Nivel") }; Th { Text("Controles") }; Th { Text("Responsable") }; Th { Text("Estado") }; Th { Text("") } } }
-            Tbody { items.forEach { row -> Tr { Td { Text(row.area) }; Td { Text(row.proceso) }; Td { Text(row.riesgoIdentificado) }; Td { Text(row.probabilidad) }; Td { Text(row.severidad) }; Td { Text(row.nivelRiesgo) }; Td { Text(row.controles) }; Td { Text(row.responsable) }; Td { Text(row.estado) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/matriz-riesgos/${row.id}"); refresh() } } }) { Text("X") } } } } }
+            Thead { Tr { Th { Text("Area") }; Th { Text("Proceso") }; Th { Text("Riesgo") }; Th { Text("Prob.") }; Th { Text("Sev.") }; Th { Text("Nivel") }; Th { Text("Controles") }; Th { Text("Responsable") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
+            Tbody {
+                items.forEach { row -> Tr { Td { Text(row.area) }; Td { Text(row.proceso) }; Td { Text(row.riesgoIdentificado) }; Td { Text(row.probabilidad) }; Td { Text(row.severidad) }; Td { Text(row.nivelRiesgo) }; Td { Text(row.controles) }; Td { Text(row.responsable) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/matriz-riesgos/${row.id}"); refresh() } } }) { Text("X") } } } }
+                EhsPendingEvidenceRows(evidence, colSpan = 11)
+            }
         }
     }
 }
@@ -1289,6 +1327,26 @@ fun EhsCategoryEvidence(client: HttpClient, categoria: String) {
                     EhsEvidenceButtons(listOf(doc))
                     if (doc.moduleRecordId > 0) Span { Text(" · registro #${doc.moduleRecordId}") }
                 }
+            }
+        }
+    }
+}
+
+// Fila de aviso para evidencia ya clasificada pero aun sin un registro
+// estructurado que la reclame (moduleRecordId == 0). Antes estos documentos
+// se listaban todos juntos arriba del modulo; ahora aparecen dentro de la
+// misma tabla, ocupando el ancho completo, hasta que se les cree su registro.
+@Composable
+fun EhsPendingEvidenceRows(evidence: List<EhsDocument>, colSpan: Int) {
+    evidence.filter { it.moduleRecordId == 0 }.forEach { doc ->
+        Tr({ style { backgroundColor(Color("#fffbeb")) } }) {
+            Td({
+                attr("colspan", colSpan.toString())
+                style { padding(8.px, 12.px); property("border-bottom", "1px solid #f1f5f9"); fontSize(13.px) }
+            }) {
+                Span({ style { color(Color("#92400e")); marginRight(8.px) } }) { Text("Evidencia sin registro vinculado ·") }
+                Span({ style { fontWeight("600"); marginRight(8.px) } }) { Text(doc.titulo) }
+                EhsEvidenceButtons(listOf(doc))
             }
         }
     }
