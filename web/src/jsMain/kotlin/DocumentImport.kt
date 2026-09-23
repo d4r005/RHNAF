@@ -289,9 +289,15 @@ fun AutoRegisterFromEvidencePanel(client: HttpClient, scope: kotlinx.coroutines.
                     try {
                         val text = client.post("$BACKEND_URL/api/v1/ehs/documentos/generar-registros") {}.bodyAsText()
                         val obj = kotlinx.serialization.json.Json.parseToJsonElement(text).jsonObject
-                        val creados = obj["creados"]?.jsonPrimitive?.int ?: 0
-                        val omitidos = obj["omitidos"]?.jsonPrimitive?.int ?: 0
-                        msg = "Listo: $creados registros creados y vinculados; $omitidos evidencias omitidas (revisa el detalle si esperabas más)."
+                        val status = obj["status"]?.jsonPrimitive?.content ?: "ok"
+                        if (status == "error") {
+                            val errMsg = obj["message"]?.jsonPrimitive?.content ?: "error del servidor"
+                            msg = "No se pudo completar: $errMsg"
+                        } else {
+                            val creados = obj["creados"]?.jsonPrimitive?.int ?: 0
+                            val omitidos = obj["omitidos"]?.jsonPrimitive?.int ?: 0
+                            msg = "Listo: $creados registros creados y vinculados; $omitidos evidencias omitidas (revisa el detalle si esperabas más)."
+                        }
                     } catch (e: Exception) {
                         msg = "No se pudo completar: ${e.message ?: "error del servidor"}"
                     } finally { busy = false }

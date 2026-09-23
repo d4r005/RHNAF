@@ -170,17 +170,31 @@ fun Route.ehsAutoRegisterRouting() {
                 omitidos.add(mapOf("categoria" to categoria, "motivo" to "Categoría sin creación automática de registros"))
                 continue
             }
+            // Todos los campos de la fila (incluida contentBase64, que es una
+            // columna TEXT) se deben leer DENTRO de la transaccion: Exposed evalua
+            // las columnas de texto/blob de forma perezosa y leerlas despues de
+            // cerrar la transaccion lanza "No transaction in context.".
+            data class PendienteDoc(val docId: Int, val titulo: String, val fechaDoc: String, val anio: Int, val pointer: String, val fileName: String)
             val pendientes = DatabaseFactory.dbQuery {
                 EhsDocumentTable.selectAll().where {
                     (EhsDocumentTable.categoria eq categoria) and (EhsDocumentTable.moduleRecordId eq 0)
-                }.toList()
+                }.map { row ->
+                    PendienteDoc(
+                        docId = row[EhsDocumentTable.id],
+                        titulo = row[EhsDocumentTable.titulo],
+                        fechaDoc = row[EhsDocumentTable.fecha],
+                        anio = row[EhsDocumentTable.anio],
+                        pointer = row[EhsDocumentTable.contentBase64],
+                        fileName = row[EhsDocumentTable.fileName]
+                    )
+                }
             }
-            for (row in pendientes) {
-                val docId = row[EhsDocumentTable.id]
-                val titulo = row[EhsDocumentTable.titulo]
-                val fechaDoc = row[EhsDocumentTable.fecha]
-                val anio = row[EhsDocumentTable.anio]
-                val pointer = row[EhsDocumentTable.contentBase64]
+            for (doc in pendientes) {
+                val docId = doc.docId
+                val titulo = doc.titulo
+                val fechaDoc = doc.fechaDoc
+                val anio = doc.anio
+                val pointer = doc.pointer
 
                 var camposExtraidos: Map<String, String> = emptyMap()
                 if (pointer.startsWith(DRIVE_POINTER_PREFIX)) {
@@ -188,7 +202,7 @@ fun Route.ehsAutoRegisterRouting() {
                         val fileId = pointer.removePrefix(DRIVE_POINTER_PREFIX)
                         val bytes = GoogleDriveService.downloadFile(fileId)
                         if (bytes != null) {
-                            val rows = DocumentReaderService.extractRows(bytes, row[EhsDocumentTable.fileName])
+                            val rows = DocumentReaderService.extractRows(bytes, doc.fileName)
                             camposExtraidos = extractFieldsFromRows(rows, emptyMap())
                         }
                     } catch (e: Exception) {
