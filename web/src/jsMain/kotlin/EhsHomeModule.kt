@@ -6,7 +6,7 @@ import io.ktor.client.HttpClient
 
 /** Punto de entrada a capacidades existentes, sin prometer cumplimiento automático. */
 @Composable
-fun EhsHomeModule(onSelect: (Module) -> Unit) {
+fun EhsHomeModule(role: UserRole, onSelect: (Module) -> Unit) {
     Div {
         H1({ style { marginBottom(4.px); color(Color("#0f172a")) } }) { Text("Centro EHS y cumplimiento") }
         P({ style { color(Color("#475569")); marginBottom(24.px) } }) {
@@ -19,6 +19,8 @@ fun EhsHomeModule(onSelect: (Module) -> Unit) {
                 Triple(Module.LEGAL_MATRIX, "Matriz legal", "Obligaciones por categoría, aplicabilidad, responsables y vigencias."),
                 Triple(Module.STPS, "Normas STPS", "Vista enfocada en obligaciones de seguridad y salud laboral."),
                 Triple(Module.EHS_DOCUMENTS, "Evidencia documental", "Cargar, consultar y vincular archivos en Google Drive.")
+            ).filter { (module, _, _) -> module != Module.EHS_METRICS || role == UserRole.ADMIN || role == UserRole.SEGURIDAD }.plus(
+                if (role == UserRole.ADMIN || role == UserRole.SEGURIDAD) listOf(Triple(Module.EHS_ACTIONS, "Planes de acción", "Acciones correctivas, responsables, vencimientos y evidencia de cierre.")) else emptyList()
             ).forEach { (module, title, description) ->
                 Button({
                     style {

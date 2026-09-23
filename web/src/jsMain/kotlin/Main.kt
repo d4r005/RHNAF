@@ -275,7 +275,7 @@ class Translations(val lang: Language) {
 }
 
 enum class Module {
-    DASHBOARD, EHS_HOME, EHS_AUDITS, EHS_METRICS, LEGAL_MATRIX, STPS, EHS_DOCUMENTS, GRC_SECURITY,
+    DASHBOARD, EHS_HOME, EHS_AUDITS, EHS_METRICS, EHS_ACTIONS, LEGAL_MATRIX, STPS, EHS_DOCUMENTS, GRC_SECURITY,
     CONTROLLING, PURCHASING, PRODUCTION, QUALITY, GTS_TRADE,
     FINANCIAL_ACCOUNTING, PLANT_MAINTENANCE, RECRUITMENT_SAP, EMPLOYEES, ATTENDANCE, PRE_NOMINA,
     WAREHOUSE, SHIPPING, FERRETERIA, RECEPCION_MP, SETTINGS, USER_MGMT
@@ -289,7 +289,7 @@ fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ALMACEN) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_AUDITS, Module.EHS_DOCUMENTS, Module.SETTINGS)
     if (role == UserRole.IMPORT_EXPORT) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_AUDITS, Module.EHS_DOCUMENTS, Module.SETTINGS)
     if (role == UserRole.FINANZAS) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_AUDITS, Module.EHS_DOCUMENTS, Module.SETTINGS)
-    if (role == UserRole.SEGURIDAD) return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_AUDITS, Module.EHS_METRICS, Module.LEGAL_MATRIX, Module.STPS, Module.EHS_DOCUMENTS, Module.SETTINGS)
+    if (role == UserRole.SEGURIDAD) return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_AUDITS, Module.EHS_METRICS, Module.EHS_ACTIONS, Module.LEGAL_MATRIX, Module.STPS, Module.EHS_DOCUMENTS, Module.SETTINGS)
     return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_AUDITS, Module.EHS_DOCUMENTS, Module.SETTINGS)
 }
 
@@ -388,9 +388,10 @@ fun main() {
                     Div({ style { padding(32.px) } }) {
                         when (activeModule) {
                             Module.DASHBOARD -> DashboardView(employees, t)
-                            Module.EHS_HOME -> EhsHomeModule { activeModule = it }
+                            Module.EHS_HOME -> EhsHomeModule(userRole) { activeModule = it }
                             Module.EHS_AUDITS -> EhsAuditsModule(client, scope, t)
                             Module.EHS_METRICS -> EhsMetricsModule(client, scope)
+                            Module.EHS_ACTIONS -> EhsActionModule(client, scope)
                             Module.EHS_DOCUMENTS -> EhsDocumentsModule(client, scope, userRole)
                             Module.STPS -> LegalMatrixModule(client, scope, fixedCategory = "STPS")
                             Module.LEGAL_MATRIX -> LegalMatrixModule(client, scope)
@@ -461,6 +462,7 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
                 Module.EHS_HOME to "Centro EHS",
                 Module.EHS_AUDITS to "Operación EHS",
                 Module.EHS_METRICS to "Indicadores EHS",
+                Module.EHS_ACTIONS to "Planes de acción",
                 Module.EHS_DOCUMENTS to "Evidencia documental",
                 Module.LEGAL_MATRIX to "Matriz Legal",
                 Module.STPS to "Normas STPS",

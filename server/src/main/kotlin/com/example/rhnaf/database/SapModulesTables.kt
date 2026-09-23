@@ -350,3 +350,20 @@ object EhsDocumentTable : Table("ehs_documents") {
     val contentBase64 = text("content_base64")
     override val primaryKey = PrimaryKey(id)
 }
+
+// EHS - Acciones correctivas vinculadas con hallazgos, incidentes y obligaciones.
+// Conservamos el histórico; no habilitamos borrado desde la API.
+object EhsActionTable : Table("ehs_action_plans") {
+    val id = integer("id").autoIncrement()
+    val titulo = varchar("titulo", 300)
+    val descripcion = varchar("descripcion", 1000).default("")
+    val origenTipo = varchar("origen_tipo", 30).default("manual")
+    val origenId = integer("origen_id").default(0)
+    val responsable = varchar("responsable", 200)
+    val fechaLimite = varchar("fecha_limite", 10)
+    val prioridad = varchar("prioridad", 20).default("Media")
+    val estado = varchar("estado", 20).default("Abierta")
+    val evidenciaUrl = varchar("evidencia_url", 500).default("")
+    val fechaCierre = varchar("fecha_cierre", 10).default("")
+    override val primaryKey = PrimaryKey(id)
+}

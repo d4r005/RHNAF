@@ -65,7 +65,6 @@ private val NOM_SEED: List<Triple<String, String, String>> = listOf(
     Triple("NOM-028-STPS-2012", "Sistema para la administración del trabajo - Seguridad en procesos con sustancias químicas", "STPS"),
     Triple("NOM-029-STPS-2011", "Mantenimiento de las instalaciones eléctricas en los centros de trabajo", "STPS"),
     Triple("NOM-030-STPS-2009", "Servicios preventivos de seguridad y salud en el trabajo", "STPS"),
-    Triple("NOM-035-STPS-2018", "Factores de riesgo psicosocial en el trabajo", "STPS"),
     Triple("PIPC", "Programa Interno de Protección Civil", "ProteccionCivil"),
     Triple("Dictamen de Riesgo", "Dictamen de riesgo de Protección Civil", "ProteccionCivil"),
     Triple("LAU", "Licencia Ambiental Única", "SEMARNAT"),

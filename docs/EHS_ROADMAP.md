@@ -7,11 +7,11 @@ Inspiración funcional: EHSoft, ACM Suite, GeISS/Twind, Prysmex, MassWare y Enke
 - Matriz legal editable con vigencias básicas y catálogo inicial; evidencia documental vinculada a Google Drive; acceso restringido por rol.
 - RLS de denegación por defecto para anon/authenticated de Supabase; acceso mediante backend propio. Revisar autenticación y auditoría antes de exponer datos sensibles.
 
-## Entrega 1: indicadores EHS (en esta rama)
+## Entrega 1: indicadores EHS (implementada)
 - Conteos verificables de incidentes, días perdidos declarados, capacitaciones pendientes/vencidas y hallazgos abiertos.
 - Mostrar ausencia de horas trabajadas en lugar de inventar tasas de frecuencia/gravedad. Antes de publicar dichas tasas se requieren horas reales por período, fórmula aprobada y criterio para incidentes registrables.
 
-## Entrega 2: cumplimiento legal operativo
+## Entrega 2: planes de acción y cumplimiento legal operativo
 - Identificar centro de trabajo, domicilio/estado, giro, actividades y riesgos con confirmación del responsable EHS/legal.
 - Catálogo de NOMs, permisos y fundamento verificable con versión, jurisdicción, fecha de publicación y fuente oficial. Revisiones periódicas y vigencia normativa. El catálogo actual es sólo una lista inicial y puede estar desactualizado.
 - Cuestionario de aplicabilidad versionado con justificación, evidencia y revisión humana; auditorías por requisito; permisos críticos, evidencia y vencimientos.
@@ -22,8 +22,7 @@ Inspiración funcional: EHSoft, ACM Suite, GeISS/Twind, Prysmex, MassWare y Enke
 - EPP y constancias: entregas por trabajador, recibos/firmas verificables, caducidad, reposición y DC-3 revisada por RH; brigadas y planes de emergencia.
 - Auditoría operativa móvil, registros sin conexión (con reconciliación), informes/exportación y tableros por planta/área.
 
-## Entrega 4: NOM-035 y analítica avanzada
-- Cuestionarios NOM-035 con versión oficial, cohortes/tamaños mínimos, consentimiento, accesos muy restrictivos, resultados agregados, plazos y revisión legal y de privacidad antes de recolectar respuestas. No usar tablas generales de empleados ni exponer respuestas individuales por defecto.
+## Entrega 4: analítica avanzada (sin NOM-035)
 - Ratios de accidentabilidad sólo con denominadores auditables (horas trabajadas/días programados), definiciones acordadas y periodos comparables.
 - Asistencia IA sólo como apoyo a redacción/clasificación, con revisión humana y fuentes trazables; nunca dictamina cumplimiento.
 
@@ -31,7 +30,9 @@ Inspiración funcional: EHSoft, ACM Suite, GeISS/Twind, Prysmex, MassWare y Enke
 1. Responsable EHS y asesor legal que validen alcance de NOMs, aplicabilidad y metodología de cálculo.
 2. Centros de trabajo, giro, actividades, estados/municipios, perfiles de permisos y matriz de responsables.
 3. Horas trabajadas reales y definiciones de incidentes registrables para KPIs de frecuencia/gravedad.
-4. Política de acceso/retención para salud y NOM-035; aprobación antes de captar datos sensibles.
+4. Política de acceso/retención para los registros de salud ocupacional existentes; no desarrollar ni captar respuestas NOM-035.
 5. Licencia/permiso para fuentes legales externas, integración documental y pruebas con datos de ejemplo sin información personal real.
+
+La NOM-035 queda expresamente fuera de este roadmap por instrucción del dueño. Esto no es una conclusión legal sobre su aplicabilidad: un especialista debe evaluar las obligaciones externas, pero RHNAF no incorpora ese módulo. El catálogo inicial nuevo no la incluirá; no se borran obligaciones preexistentes ni evidencia histórica sin una instrucción expresa.
 
 Cada entrega exige compilación, pruebas de autorización y verificación de despliegue antes de declararse lista. Orden secuencial salvo que el dueño cambie las prioridades. No se presupone equivalencia funcional completa ni una fecha de entrega.
