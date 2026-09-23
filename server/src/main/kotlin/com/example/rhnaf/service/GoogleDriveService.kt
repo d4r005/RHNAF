@@ -8,6 +8,8 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.serialization.json.*
 import java.util.concurrent.atomic.AtomicReference
+import java.io.File
+import java.io.FileInputStream
 
 /**
  * Integracion con Google Drive para reemplazar el almacenamiento de archivos
@@ -135,6 +137,7 @@ object GoogleDriveService {
             }
         } else {
             println("[GoogleDriveService] Error buscando carpeta '$name': ${searchResp.status} ${searchResp.bodyAsText()}")
+            return null // No crear duplicados cuando la búsqueda falla por permisos o cuota.
         }
 
         val metadata = buildJsonObject {
@@ -153,6 +156,74 @@ object GoogleDriveService {
         }
         val json = Json.parseToJsonElement(createResp.bodyAsText()).jsonObject
         return json["id"]?.jsonPrimitive?.content
+    }
+
+    /** Carpeta Normativa/AAAA dentro de la carpeta configurada para evidencias. */
+    suspend fun normativeYearFolder(year: Int): String? {
+        if (year !in 1900..2100) return null
+        val token = getAccessToken() ?: return null
+        val root = folderId ?: return null
+        val normative = findOrCreateFolder("Normativa", root, token) ?: return null
+        return findOrCreateFolder(year.toString(), normative, token)
+    }
+
+    /** Subida reanudable a Drive en fragmentos de 8 MiB, sin duplicar todo el archivo en RAM. */
+    suspend fun uploadLargeFile(file: File, fileName: String, mimeType: String, targetFolderId: String): String? {
+        val token = getAccessToken() ?: return null
+        val type = mimeType.ifBlank { "application/octet-stream" }
+        val metadata = buildJsonObject {
+            put("name", fileName)
+            putJsonArray("parents") { add(targetFolderId) }
+        }.toString()
+        val start: HttpResponse = client.post(DRIVE_UPLOAD_URL) {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            header("X-Upload-Content-Type", type)
+            header("X-Upload-Content-Length", file.length().toString())
+            contentType(ContentType.Application.Json)
+            parameter("uploadType", "resumable")
+            parameter("fields", "id")
+            setBody(metadata)
+        }
+        val session = start.headers[HttpHeaders.Location]
+        if (start.status != HttpStatusCode.OK || session.isNullOrBlank() ||
+            !session.startsWith("https://www.googleapis.com/upload/drive/v3/files")) {
+            println("[GoogleDriveService] No se pudo iniciar la subida reanudable: ${start.status}")
+            return null
+        }
+        val total = file.length()
+        val chunk = ByteArray(8 * 1024 * 1024)
+        var offset = 0L
+        FileInputStream(file).use { input ->
+            while (offset < total) {
+                var count = 0
+                val expected = minOf(chunk.size.toLong(), total - offset).toInt()
+                while (count < expected) {
+                    val n = input.read(chunk, count, expected - count)
+                    if (n < 0) return null
+                    count += n
+                }
+                val response: HttpResponse = client.put(session) {
+                    header(HttpHeaders.Authorization, "Bearer $token")
+                    header(HttpHeaders.ContentType, type)
+                    header(HttpHeaders.ContentRange, "bytes $offset-${offset + count - 1}/$total")
+                    setBody(if (count == chunk.size) chunk else chunk.copyOf(count))
+                }
+                offset += count
+                if (offset < total) {
+                    if (response.status.value != 308) {
+                        println("[GoogleDriveService] Error en fragmento $offset/$total: ${response.status}")
+                        return null
+                    }
+                } else {
+                    if (response.status != HttpStatusCode.OK && response.status != HttpStatusCode.Created) {
+                        println("[GoogleDriveService] Error finalizando subida: ${response.status}")
+                        return null
+                    }
+                    return Json.parseToJsonElement(response.bodyAsText()).jsonObject["id"]?.jsonPrimitive?.content
+                }
+            }
+        }
+        return null
     }
 
     /** Sube un archivo a la carpeta indicada. Devuelve el fileId de Drive, o null si fallo. */

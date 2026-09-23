@@ -18,6 +18,9 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Base64
+import java.io.File
+import java.io.FileOutputStream
+import io.ktor.http.content.PartData
 
 private const val DRIVE_POINTER_PREFIX = "gdrive:"
 
@@ -106,6 +109,89 @@ fun Route.ehsDocumentRouting() {
                     GoogleDriveService.deleteFile(driveFileId)
                     throw e
                 }
+            }
+        }
+
+        // Carga grande por multipart: hasta 500 MiB por archivo. El body pasa a
+        // un fichero temporal (no base64 ni ByteArray gigante) antes de Drive.
+        post("/subir-archivo") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.EHS_WRITE) ?: return@safeApiCall
+                if (!GoogleDriveService.isConfigured()) {
+                    return@safeApiCall call.respond(HttpStatusCode.ServiceUnavailable,
+                        mapOf("status" to "error", "message" to "Google Drive aun no esta conectado"))
+                }
+                val temp = File.createTempFile("rhnaf-evidence-", ".upload")
+                try {
+                    val fields = mutableMapOf<String, String>()
+                    var fileName = ""
+                    var mimeType = "application/octet-stream"
+                    var fileSize = 0L
+                    var invalidFile = false
+                    var filesSeen = 0
+                    call.receiveMultipart().forEachPart { part ->
+                        try {
+                            when (part) {
+                                is PartData.FormItem -> if (part.name != null) fields[part.name!!] = part.value
+                                is PartData.FileItem -> {
+                                    filesSeen++
+                                    if (filesSeen > 1) { invalidFile = true; return@forEachPart }
+                                    fileName = (part.originalFileName ?: "evidencia")
+                                        .substringAfterLast('/').substringAfterLast('\\').take(300)
+                                    mimeType = part.contentType?.toString()?.take(100) ?: "application/octet-stream"
+                                    part.streamProvider().use { input ->
+                                        FileOutputStream(temp).use { output ->
+                                            val buffer = ByteArray(1024 * 1024)
+                                            while (true) {
+                                                val n = input.read(buffer)
+                                                if (n < 0) break
+                                                fileSize += n
+                                                if (fileSize > 500L * 1024 * 1024) { invalidFile = true; break }
+                                                output.write(buffer, 0, n)
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> Unit
+                            }
+                        } finally { part.dispose() }
+                    }
+                    val year = fields["anio"]?.toIntOrNull()
+                    val title = fields["titulo"]?.trim().orEmpty()
+                    val date = fields["fecha"].orEmpty()
+                    if (invalidFile || fileSize == 0L || filesSeen != 1 || title.isBlank() ||
+                        year == null || year !in 1900..2100 || date.isNotBlank() &&
+                        runCatching { LocalDate.parse(date, DateTimeFormatter.ofPattern("dd/MM/uuuu")) }
+                            .getOrNull()?.year != year) {
+                        return@safeApiCall call.respond(HttpStatusCode.BadRequest,
+                            mapOf("status" to "error", "message" to "Archivo (max. 500 MiB), titulo y anio validos obligatorios; la fecha debe coincidir con el anio"))
+                    }
+                    val folder = GoogleDriveService.normativeYearFolder(year)
+                        ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
+                            mapOf("status" to "error", "message" to "No fue posible encontrar o crear Normativa/$year en Drive"))
+                    val driveId = GoogleDriveService.uploadLargeFile(temp, fileName, mimeType, folder)
+                        ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
+                            mapOf("status" to "error", "message" to "Drive no confirmo la subida del archivo"))
+                    val today = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    val uploadedBy = call.request.header(HttpHeaders.Authorization)
+                        ?.removePrefix("Bearer ")?.trim().orEmpty()
+                    val req = EhsDocumentUpload(
+                        categoria = fields["categoria"].orEmpty().ifBlank { "Otro" }, titulo = title,
+                        fecha = date, notas = fields["notas"].orEmpty(),
+                        moduleType = fields["moduleType"].orEmpty(),
+                        moduleRecordId = fields["moduleRecordId"]?.toIntOrNull() ?: 0,
+                        contentBase64 = ""
+                    )
+                    try {
+                        val id = insertDocument(req, fileName, mimeType, fileSize.toInt(), uploadedBy,
+                            today, "$DRIVE_POINTER_PREFIX$driveId", includeModuleLink = true, year = year)
+                        call.respond(mapOf("status" to "ok", "id" to id.toString(),
+                            "anio" to year.toString(), "folder" to "Normativa/$year"))
+                    } catch (e: Exception) {
+                        GoogleDriveService.deleteFile(driveId)
+                        throw e
+                    }
+                } finally { temp.delete() }
             }
         }
 
@@ -264,6 +350,7 @@ private suspend fun loadDocumentMetadata(
         EhsDocumentTable.categoria,
         EhsDocumentTable.titulo,
         EhsDocumentTable.fecha,
+        EhsDocumentTable.anio,
         EhsDocumentTable.fileName,
         EhsDocumentTable.mimeType,
         EhsDocumentTable.fileSize,
@@ -285,6 +372,7 @@ private suspend fun loadDocumentMetadata(
             categoria = it[EhsDocumentTable.categoria],
             titulo = it[EhsDocumentTable.titulo],
             fecha = it[EhsDocumentTable.fecha],
+            anio = it[EhsDocumentTable.anio],
             fileName = it[EhsDocumentTable.fileName],
             mimeType = it[EhsDocumentTable.mimeType],
             fileSize = it[EhsDocumentTable.fileSize],
@@ -305,12 +393,14 @@ private suspend fun insertDocument(
     uploadedBy: String,
     uploadedDate: String,
     pointer: String,
-    includeModuleLink: Boolean
+    includeModuleLink: Boolean,
+    year: Int = 0
 ): Int = DatabaseFactory.dbQuery {
     EhsDocumentTable.insert {
         it[categoria] = req.categoria.ifBlank { "Otro" }
         it[titulo] = req.titulo.trim()
         it[fecha] = req.fecha
+        it[anio] = year
         it[EhsDocumentTable.fileName] = fileName
         it[EhsDocumentTable.mimeType] = mimeType
         it[fileSize] = size

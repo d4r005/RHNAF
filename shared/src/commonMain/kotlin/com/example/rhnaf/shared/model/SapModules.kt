@@ -362,7 +362,8 @@ data class EhsDocument(
     val id: Int = 0,
     val categoria: String = "Otro",        // Simulacro, Capacitacion, Estudio, Inspeccion, Dictamen, ExamenMedico, Otro
     val titulo: String = "",
-    val fecha: String = "",                // dd/MM/yyyy del documento
+    val fecha: String = "",
+    val anio: Int = 0,                // dd/MM/yyyy del documento
     val fileName: String = "",
     val mimeType: String = "",
     val fileSize: Int = 0,                 // bytes

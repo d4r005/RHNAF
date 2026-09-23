@@ -337,6 +337,7 @@ object EhsDocumentTable : Table("ehs_documents") {
     val categoria = varchar("categoria", 50).default("Otro")
     val titulo = varchar("titulo", 300)
     val fecha = varchar("fecha", 20).default("")
+    val anio = integer("anio").default(0)
     val fileName = varchar("file_name", 300).default("")
     val mimeType = varchar("mime_type", 100).default("application/octet-stream")
     val fileSize = integer("file_size").default(0)

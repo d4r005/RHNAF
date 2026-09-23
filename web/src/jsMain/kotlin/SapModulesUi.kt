@@ -1282,21 +1282,42 @@ fun EhsEvidenceButtons(documents: List<EhsDocument>) {
     }
 }
 
-// Leer solo el archivo que se esta enviando evita conservar todo el lote en base64
-// dentro del navegador. El endpoint existente ya se encarga de Drive + metadatos.
-private suspend fun readEvidenceBase64(file: org.w3c.files.File): String = suspendCoroutine { continuation ->
-    val reader = js("new FileReader()")
-    reader.onload = { _: dynamic ->
-        val data = reader.result as? String
-        val comma = data?.indexOf(',') ?: -1
-        if (data != null && data.startsWith("data:") && comma >= 0) {
-            continuation.resume(data.substring(comma + 1))
-        } else {
-            continuation.resumeWithException(IllegalArgumentException("No se pudo leer el archivo"))
-        }
+// El navegador envia el File directamente como multipart, sin convertirlo a base64.
+private suspend fun uploadEvidenceFile(file: org.w3c.files.File, fields: Map<String, String>): String =
+    suspendCoroutine { continuation ->
+        val form = js("new FormData()")
+        fields.forEach { (key, value) -> form.append(key, value) }
+        form.append("file", file, file.name)
+        val options = js("({})")
+        options.method = "POST"
+        options.headers = js("({})")
+        options.headers.Authorization = "Bearer $apiAuthToken"
+        options.body = form
+        window.asDynamic().fetch("$BACKEND_URL/api/v1/ehs/documentos/subir-archivo", options).then(
+            { response: dynamic ->
+                response.json().then(
+                    { result: dynamic ->
+                        if (response.ok && result.status == "ok" && result.id != null) {
+                            continuation.resume(result.id.toString())
+                        } else {
+                            continuation.resumeWithException(IllegalStateException(
+                                result.message?.toString() ?: "HTTP ${response.status}"))
+                        }
+                    },
+                    { _: dynamic -> continuation.resumeWithException(IllegalStateException("Respuesta ilegible del servidor")) }
+                )
+            },
+            { _: dynamic -> continuation.resumeWithException(IllegalStateException("Error de red al subir")) }
+        )
     }
-    reader.onerror = { _: dynamic -> continuation.resumeWithException(IllegalArgumentException("Error leyendo el archivo")) }
-    reader.readAsDataURL(file)
+
+// Un año solo se deduce de una carpeta llamada exactamente AAAA, no del
+// nombre de una NOM (p. ej. NOM-035-2018 no demuestra el año del documento).
+private fun evidenceYear(file: org.w3c.files.File, fallback: String): Int? {
+    val path = (file.asDynamic().webkitRelativePath as? String).orEmpty()
+    val folderYears = path.split('/').dropLast(1).filter { it.matches(Regex("(19|20)\\d{2}")) }.distinct()
+    return if (folderYears.size == 1) folderYears[0].toInt()
+        else fallback.toIntOrNull()?.takeIf { it in 1900..2100 }
 }
 
 // EHS-12. Evidencia Documental: subir archivos (PDF/imagen) que respaldan
@@ -1329,6 +1350,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     var f_categoria by remember { mutableStateOf("Otro") }
     var f_titulo by remember { mutableStateOf("") }
     var f_fecha by remember { mutableStateOf("") }
+    var f_anio by remember { mutableStateOf("") }
     var f_notas by remember { mutableStateOf("") }
     var selectedFiles by remember { mutableStateOf(emptyList<org.w3c.files.File>()) }
     var completedFiles by remember { mutableStateOf(emptySet<org.w3c.files.File>()) }
@@ -1358,7 +1380,8 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                 categorias.forEach { Option(it) { Text(it) } }
             }
             Input(InputType.Text) { placeholder("Título (opcional si es un archivo)"); value(f_titulo); onInput { f_titulo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) } }
-            Input(InputType.Text) { placeholder("Fecha (dd/MM/aaaa)"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+            Input(InputType.Text) { placeholder("Fecha (dd/MM/aaaa, opcional)"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+            Input(InputType.Text) { placeholder("Año documental * (si no está en carpeta)"); value(f_anio); onInput { f_anio = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) } }
             Input(InputType.Text) { placeholder("Notas"); value(f_notas); onInput { f_notas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
             if (moduleType.isNotBlank()) {
                 Select({
@@ -1371,7 +1394,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             }
         }
         P({ style { fontSize(12.px); color(Color("#475569")) } }) {
-            Text("Selecciona varios archivos a la vez. La categoria, fecha, notas y vinculo se aplican a todo el lote; el titulo de cada archivo se toma de su nombre. Agrupa por categoria o registro cuando sean distintos. Maximo 10 MB por archivo.")
+            Text("Selecciona varios archivos a la vez. La categoria, fecha, notas y vinculo se aplican a todo el lote; el titulo de cada archivo se toma de su nombre. Agrupa por categoria o registro cuando sean distintos. Hasta 500 MiB por archivo. Cada archivo recibe un ID y se guarda en Drive/Normativa/AÑO. Para años mezclados, usa carpetas llamadas 2022, 2023, etc.; si no están así, selecciona un año para este lote.")
         }
         fun chooseFiles(id: String) {
             if (uploading) return
@@ -1405,57 +1428,55 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                     } else if (moduleType.isNotBlank() && f_moduleRecordId == 0) {
                         statusMsg = "Selecciona el registro de ${f_categoria.lowercase()} al que pertenecen todos los archivos, o elige otra categoria."
                     } else {
-                        val category = f_categoria
-                        val recordType = moduleType
-                        val recordId = f_moduleRecordId
-                        val date = f_fecha
-                        val notes = f_notas
-                        val singleTitle = f_titulo.trim()
-                        uploading = true
-                        scope.launch {
-                            var uploaded = 0
-                            var skipped = 0
-                            val failed = mutableListOf<String>()
-                            for ((index, file) in batch.withIndex()) {
-                                val name = file.name
-                                val size = file.size.toInt()
-                                statusMsg = "Procesando ${index + 1}/${batch.size}: $name. Subidos: $uploaded; omitidos: $skipped; errores: ${failed.size}. No cierres esta pestana."
-                                if (file in completedFiles) {
-                                    skipped++
-                                    continue
-                                }
-                                if (size <= 0 || size > 10 * 1024 * 1024) {
-                                    failed += "$name (vacio o supera 10 MB)"
-                                    continue
-                                }
-                                try {
-                                    val base64 = readEvidenceBase64(file)
-                                    val title = if (batch.size == 1 && singleTitle.isNotBlank()) singleTitle
-                                        else name.substringBeforeLast('.').ifBlank { name }
-                                    val response = client.post("$BACKEND_URL/api/v1/ehs/documentos") {
-                                        contentType(ContentType.Application.Json)
-                                        setBody(EhsDocumentUpload(
-                                            categoria = category, titulo = title, fecha = date, notas = notes,
-                                            fileName = name, mimeType = file.type.ifBlank { "application/octet-stream" },
-                                            fileSize = size, contentBase64 = base64,
-                                            moduleType = recordType, moduleRecordId = recordId
+                        val unresolved = batch.filter { evidenceYear(it, f_anio.trim()) == null }
+                        if (unresolved.isNotEmpty()) {
+                            statusMsg = "Falta año para ${unresolved.size} archivos (ej.: ${unresolved.take(3).joinToString { it.name }}). Introduce un año o selecciona carpetas por año."
+                        } else {
+                            val category = f_categoria
+                            val recordType = moduleType
+                            val recordId = f_moduleRecordId
+                            val date = f_fecha
+                            val notes = f_notas
+                            val fallbackYear = f_anio.trim()
+                            val singleTitle = f_titulo.trim()
+                            uploading = true
+                            scope.launch {
+                                var uploaded = 0
+                                var skipped = 0
+                                val failed = mutableListOf<String>()
+                                for ((index, file) in batch.withIndex()) {
+                                    val name = file.name
+                                    val size = file.size.toLong()
+                                    val year = evidenceYear(file, fallbackYear)!!
+                                    statusMsg = "Procesando ${index + 1}/${batch.size}: $name → Normativa/$year. Subidos: $uploaded; omitidos: $skipped; errores: ${failed.size}. No cierres esta pestaña."
+                                    if (file in completedFiles) {
+                                        skipped++
+                                        continue
+                                    }
+                                    if (size <= 0 || size > 500L * 1024 * 1024) {
+                                        failed += "$name (vacío o supera 500 MiB)"
+                                        continue
+                                    }
+                                    try {
+                                        val title = if (batch.size == 1 && singleTitle.isNotBlank()) singleTitle
+                                            else name.substringBeforeLast('.').ifBlank { name }
+                                        val id = uploadEvidenceFile(file, mapOf(
+                                            "categoria" to category, "titulo" to title, "fecha" to date,
+                                            "notas" to notes, "anio" to year.toString(),
+                                            "moduleType" to recordType, "moduleRecordId" to recordId.toString()
                                         ))
+                                        uploaded++
+                                        completedFiles = completedFiles + file
+                                        statusMsg = "Subido $name con ID $id en Normativa/$year ($uploaded/${batch.size})."
+                                    } catch (e: Exception) {
+                                        failed += "$name (${e.message ?: "sin confirmación"})"
                                     }
-                                    if (!response.status.isSuccess()) throw IllegalStateException("HTTP ${response.status.value}")
-                                    val result: Map<String, String> = response.body()
-                                    if (result["status"] != "ok" || result["id"].isNullOrBlank()) {
-                                        throw IllegalStateException("El servidor no confirmo el archivo")
-                                    }
-                                    uploaded++
-                                    completedFiles = completedFiles + file
-                                } catch (e: Exception) {
-                                    failed += "$name (${e.message ?: "sin confirmacion"})"
                                 }
+                                uploading = false
+                                refresh()
+                                statusMsg = "Lote terminado: $uploaded subidos, $skipped ya subidos en esta sesión, ${failed.size} fallidos de ${batch.size}." +
+                                    if (failed.isEmpty()) "" else " Comprueba los fallidos en la lista antes de reintentar: ${failed.joinToString("; ")}"
                             }
-                            uploading = false
-                            refresh()
-                            statusMsg = "Lote terminado: $uploaded subidos, $skipped ya subidos en esta sesion, ${failed.size} fallidos de ${batch.size}." +
-                                if (failed.isEmpty()) "" else " Comprueba los fallidos en la lista antes de reintentar para evitar duplicados: ${failed.joinToString("; ")}"
                         }
                     }
                 }
@@ -1470,10 +1491,12 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     } else {
         Div({ style { overflow("auto"); property("border", "1px solid #e2e8f0"); borderRadius(12.px) } }) {
             Table({ style { width(100.percent); property("border-collapse", "collapse"); fontSize(13.px); backgroundColor(Color.white) } }) {
-                Thead { Tr { listOf("Categoría", "Título", "Fecha doc.", "Archivo", "Subido", "Notas", "").forEach { Th({ style { padding(10.px, 12.px); textAlign("left"); backgroundColor(Color("#f8fafc")); color(Color("#475569")); property("border-bottom", "1px solid #e2e8f0") } }) { Text(it) } } } }
+                Thead { Tr { listOf("ID", "Año", "Categoría", "Título", "Fecha doc.", "Archivo", "Subido", "Notas", "").forEach { Th({ style { padding(10.px, 12.px); textAlign("left"); backgroundColor(Color("#f8fafc")); color(Color("#475569")); property("border-bottom", "1px solid #e2e8f0") } }) { Text(it) } } } }
                 Tbody {
                     items.forEach { doc ->
                         Tr {
+                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.id.toString()) }
+                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(if (doc.anio == 0) "-" else doc.anio.toString()) }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.categoria) }
                             Td({ style { padding(10.px, 12.px); fontWeight("600"); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.titulo) }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.fecha.ifBlank { "-" }) }
