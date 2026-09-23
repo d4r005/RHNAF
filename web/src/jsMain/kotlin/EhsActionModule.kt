@@ -63,7 +63,7 @@ fun EhsActionModule(client: HttpClient, scope: CoroutineScope) {
             Select({ onChange { origin = it.value ?: "manual" }; style { padding(9.px) } }) {
                 listOf("manual" to "Sin registro origen", "matriz_legal" to "Matriz legal", "inspeccion" to "Inspección", "incidente" to "Incidente").forEach { (key, label) -> Option(key) { Text(label) } }
             }
-            if (origin != "manual") Input(InputType.Number) {
+            if (origin != "manual") Input(InputType.Text) {
                 placeholder("ID del origen *"); value(originId); onInput { originId = it.value }; style { padding(9.px) }
             }
             Button({
