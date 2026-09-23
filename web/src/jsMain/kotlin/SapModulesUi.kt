@@ -1317,6 +1317,7 @@ private fun evidenceYear(file: org.w3c.files.File, fallback: String): Int? {
     val path = (file.asDynamic().webkitRelativePath as? String).orEmpty()
     val folderYears = path.split('/').dropLast(1).filter { it.matches(Regex("(19|20)\\d{2}")) }.distinct()
     return if (folderYears.size == 1) folderYears[0].toInt()
+        else if (fallback == "General") -1
         else fallback.toIntOrNull()?.takeIf { it in 1900..2100 }
 }
 
@@ -1351,6 +1352,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     var f_titulo by remember { mutableStateOf("") }
     var f_fecha by remember { mutableStateOf("") }
     var f_anio by remember { mutableStateOf("") }
+    var f_general by remember { mutableStateOf(false) }
     var f_notas by remember { mutableStateOf("") }
     var selectedFiles by remember { mutableStateOf(emptyList<org.w3c.files.File>()) }
     var completedFiles by remember { mutableStateOf(emptySet<org.w3c.files.File>()) }
@@ -1381,7 +1383,16 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             }
             Input(InputType.Text) { placeholder("Título (opcional si es un archivo)"); value(f_titulo); onInput { f_titulo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) } }
             Input(InputType.Text) { placeholder("Fecha (dd/MM/aaaa, opcional)"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-            Input(InputType.Text) { placeholder("Año documental * (si no está en carpeta)"); value(f_anio); onInput { f_anio = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) } }
+            if (!f_general) {
+                Input(InputType.Text) { placeholder("Año para archivos sin carpeta anual"); value(f_anio); onInput { f_anio = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) } }
+            }
+            Select({
+                style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") }
+                onChange { f_general = it.value == "general" }
+            }) {
+                Option("anio") { Text("Sin año: pedir año") }
+                Option("general") { Text("Sin año: Normativa/General") }
+            }
             Input(InputType.Text) { placeholder("Notas"); value(f_notas); onInput { f_notas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
             if (moduleType.isNotBlank()) {
                 Select({
@@ -1394,7 +1405,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             }
         }
         P({ style { fontSize(12.px); color(Color("#475569")) } }) {
-            Text("Selecciona varios archivos a la vez. La categoria, fecha, notas y vinculo se aplican a todo el lote; el titulo de cada archivo se toma de su nombre. Agrupa por categoria o registro cuando sean distintos. Hasta 500 MiB por archivo. Cada archivo recibe un ID y se guarda en Drive/Normativa/AÑO. Para años mezclados, usa carpetas llamadas 2022, 2023, etc.; si no están así, selecciona un año para este lote.")
+            Text("Selecciona varios archivos a la vez. La categoria, fecha, notas y vinculo se aplican a todo el lote; el titulo de cada archivo se toma de su nombre. Agrupa por categoria o registro cuando sean distintos. Hasta 500 MiB por archivo. Cada archivo recibe un ID y se guarda en Drive/Normativa/AÑO. Para años mezclados usa subcarpetas 2022, 2023, etc. Para archivos que realmente no tienen año, selecciona «Sin año: Normativa/General»; los de subcarpetas anuales conservarán su año.")
         }
         fun chooseFiles(id: String) {
             if (uploading) return
@@ -1428,16 +1439,19 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                     } else if (moduleType.isNotBlank() && f_moduleRecordId == 0) {
                         statusMsg = "Selecciona el registro de ${f_categoria.lowercase()} al que pertenecen todos los archivos, o elige otra categoria."
                     } else {
-                        val unresolved = batch.filter { evidenceYear(it, f_anio.trim()) == null }
+                        val fallback = if (f_general) "General" else f_anio.trim()
+                        val unresolved = batch.filter { evidenceYear(it, fallback) == null }
                         if (unresolved.isNotEmpty()) {
                             statusMsg = "Falta año para ${unresolved.size} archivos (ej.: ${unresolved.take(3).joinToString { it.name }}). Introduce un año o selecciona carpetas por año."
+                        } else if (f_general && f_fecha.isNotBlank() && batch.any { evidenceYear(it, fallback) == -1 }) {
+                            statusMsg = "Para archivos General deja la fecha vacía; si conoces su fecha, selecciona el año documental."
                         } else {
                             val category = f_categoria
                             val recordType = moduleType
                             val recordId = f_moduleRecordId
                             val date = f_fecha
                             val notes = f_notas
-                            val fallbackYear = f_anio.trim()
+                            val fallbackYear = fallback
                             val singleTitle = f_titulo.trim()
                             uploading = true
                             scope.launch {
@@ -1448,7 +1462,8 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                                     val name = file.name
                                     val size = file.size.toLong()
                                     val year = evidenceYear(file, fallbackYear)!!
-                                    statusMsg = "Procesando ${index + 1}/${batch.size}: $name → Normativa/$year. Subidos: $uploaded; omitidos: $skipped; errores: ${failed.size}. No cierres esta pestaña."
+                                    val folderName = if (year == -1) "General" else year.toString()
+                                    statusMsg = "Procesando ${index + 1}/${batch.size}: $name → Normativa/$folderName. Subidos: $uploaded; omitidos: $skipped; errores: ${failed.size}. No cierres esta pestaña."
                                     if (file in completedFiles) {
                                         skipped++
                                         continue
@@ -1467,7 +1482,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                                         ))
                                         uploaded++
                                         completedFiles = completedFiles + file
-                                        statusMsg = "Subido $name con ID $id en Normativa/$year ($uploaded/${batch.size})."
+                                        statusMsg = "Subido $name con ID $id en Normativa/$folderName ($uploaded/${batch.size})."
                                     } catch (e: Exception) {
                                         failed += "$name (${e.message ?: "sin confirmación"})"
                                     }
@@ -1496,7 +1511,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                     items.forEach { doc ->
                         Tr {
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.id.toString()) }
-                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(if (doc.anio == 0) "-" else doc.anio.toString()) }
+                            Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(when (doc.anio) { -1 -> "General"; 0 -> "-"; else -> doc.anio.toString() }) }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.categoria) }
                             Td({ style { padding(10.px, 12.px); fontWeight("600"); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.titulo) }
                             Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(doc.fecha.ifBlank { "-" }) }

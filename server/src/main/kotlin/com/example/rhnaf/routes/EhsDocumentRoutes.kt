@@ -84,15 +84,17 @@ fun Route.ehsDocumentRouting() {
 
                 // La ruta JSON antigua también respeta Normativa/año. Si el cliente
                 // no proporciona año ni fecha, rechazamos para no falsear históricos.
-                val documentYear = req.anio.takeIf { it in 1900..2100 }
+                val documentYear = req.anio.takeIf { it == -1 || it in 1900..2100 }
                     ?: runCatching { LocalDate.parse(req.fecha, DateTimeFormatter.ofPattern("dd/MM/uuuu")).year }.getOrNull()
-                if (documentYear == null || documentYear !in 1900..2100) {
+                if (documentYear == null || (documentYear != -1 && documentYear !in 1900..2100) ||
+                    documentYear == -1 && req.fecha.isNotBlank()) {
                     return@safeApiCall call.respond(HttpStatusCode.BadRequest,
                         mapOf("status" to "error", "message" to "Indica el anio documental antes de subir"))
                 }
+                val oldFolderName = if (documentYear == -1) "General" else documentYear.toString()
                 val folderId = GoogleDriveService.normativeYearFolder(documentYear)
                     ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
-                        mapOf("status" to "error", "message" to "No se pudo crear Normativa/$documentYear"))
+                        mapOf("status" to "error", "message" to "No se pudo crear Normativa/$oldFolderName"))
                 val safeFileName = req.fileName.ifBlank { "evidencia" }
                 val mimeType = req.mimeType.ifBlank { "application/octet-stream" }
                 val driveFileId = GoogleDriveService.uploadFile(bytes, safeFileName, mimeType, folderId)
@@ -170,15 +172,16 @@ fun Route.ehsDocumentRouting() {
                     val title = fields["titulo"]?.trim().orEmpty()
                     val date = fields["fecha"].orEmpty()
                     if (invalidFile || fileSize == 0L || filesSeen != 1 || title.isBlank() ||
-                        year == null || year !in 1900..2100 || date.isNotBlank() &&
-                        runCatching { LocalDate.parse(date, DateTimeFormatter.ofPattern("dd/MM/uuuu")) }
-                            .getOrNull()?.year != year) {
+                        year == null || (year != -1 && year !in 1900..2100) || date.isNotBlank() &&
+                        (year == -1 || runCatching { LocalDate.parse(date, DateTimeFormatter.ofPattern("dd/MM/uuuu")) }
+                            .getOrNull()?.year != year)) {
                         return@safeApiCall call.respond(HttpStatusCode.BadRequest,
                             mapOf("status" to "error", "message" to "Archivo (max. 500 MiB), titulo y anio validos obligatorios; la fecha debe coincidir con el anio"))
                     }
+                    val folderName = if (year == -1) "General" else year.toString()
                     val folder = GoogleDriveService.normativeYearFolder(year)
                         ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
-                            mapOf("status" to "error", "message" to "No fue posible encontrar o crear Normativa/$year en Drive"))
+                            mapOf("status" to "error", "message" to "No fue posible encontrar o crear Normativa/$folderName en Drive"))
                     val driveId = GoogleDriveService.uploadLargeFile(temp, fileName, mimeType, folder)
                         ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
                             mapOf("status" to "error", "message" to "Drive no confirmo la subida del archivo"))
@@ -196,7 +199,7 @@ fun Route.ehsDocumentRouting() {
                         val id = insertDocument(req, fileName, mimeType, fileSize.toInt(), uploadedBy,
                             today, "$DRIVE_POINTER_PREFIX$driveId", includeModuleLink = true, year = year)
                         call.respond(mapOf("status" to "ok", "id" to id.toString(),
-                            "anio" to year.toString(), "folder" to "Normativa/$year"))
+                            "anio" to year.toString(), "folder" to "Normativa/$folderName"))
                     } catch (e: Exception) {
                         GoogleDriveService.deleteFile(driveId)
                         throw e

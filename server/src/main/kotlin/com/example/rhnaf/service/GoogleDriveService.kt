@@ -159,16 +159,16 @@ object GoogleDriveService {
         return json["id"]?.jsonPrimitive?.content
     }
 
-    /** Carpeta Normativa/AAAA dentro de la carpeta configurada para evidencias. */
+    /** Carpeta Normativa/AAAA o Normativa/General para archivos sin año. */
     private val yearFolders = ConcurrentHashMap<Int, String>()
 
     suspend fun normativeYearFolder(year: Int): String? {
-        if (year !in 1900..2100) return null
+        if (year != -1 && year !in 1900..2100) return null
         yearFolders[year]?.let { return it }
         val token = getAccessToken() ?: return null
         val root = folderId ?: return null
         val normative = findOrCreateFolder("Normativa", root, token) ?: return null
-        val folder = findOrCreateFolder(year.toString(), normative, token) ?: return null
+        val folder = findOrCreateFolder(if (year == -1) "General" else year.toString(), normative, token) ?: return null
         yearFolders[year] = folder
         return folder
     }
