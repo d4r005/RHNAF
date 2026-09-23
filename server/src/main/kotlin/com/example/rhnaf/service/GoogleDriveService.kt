@@ -159,19 +159,31 @@ object GoogleDriveService {
         return json["id"]?.jsonPrimitive?.content
     }
 
-    /** Carpeta Normativa/AAAA o Normativa/General para archivos sin año. */
-    private val yearFolders = ConcurrentHashMap<Int, String>()
+    /** Carpeta <Categoria>/AAAA o <Categoria>/General para archivos sin año.
+     * Cada categoria (Inspeccion, Simulacro, Capacitacion, Dictamen, etc.) tiene
+     * su propia carpeta de nivel superior en vez de agruparse todo bajo Normativa. */
+    private val categoryYearFolders = ConcurrentHashMap<Pair<String, Int>, String>()
 
-    suspend fun normativeYearFolder(year: Int): String? {
+    private fun sanitizeCategoryFolderName(categoria: String): String {
+        val safe = categoria.trim()
+        return if (safe.isBlank()) "Otro" else safe
+    }
+
+    suspend fun categoryYearFolder(categoria: String, year: Int): String? {
         if (year != -1 && year !in 1900..2100) return null
-        yearFolders[year]?.let { return it }
+        val categoryFolderName = sanitizeCategoryFolderName(categoria)
+        val key = categoryFolderName to year
+        categoryYearFolders[key]?.let { return it }
         val token = getAccessToken() ?: return null
         val root = folderId ?: return null
-        val normative = findOrCreateFolder("Normativa", root, token) ?: return null
-        val folder = findOrCreateFolder(if (year == -1) "General" else year.toString(), normative, token) ?: return null
-        yearFolders[year] = folder
+        val categoryFolder = findOrCreateFolder(categoryFolderName, root, token) ?: return null
+        val folder = findOrCreateFolder(if (year == -1) "General" else year.toString(), categoryFolder, token) ?: return null
+        categoryYearFolders[key] = folder
         return folder
     }
+
+    /** Compatibilidad retro: llamadas antiguas que no pasan categoria van a "Otro". */
+    suspend fun normativeYearFolder(year: Int): String? = categoryYearFolder("Otro", year)
 
     /** Subida reanudable a Drive en fragmentos de 8 MiB, sin duplicar todo el archivo en RAM. */
     suspend fun uploadLargeFile(file: File, fileName: String, mimeType: String, targetFolderId: String): String? {

@@ -1391,7 +1391,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                 onChange { f_general = it.value == "general" }
             }) {
                 Option("anio") { Text("Sin año: pedir año") }
-                Option("general") { Text("Sin año: Normativa/General") }
+                Option("general") { Text("Sin año: Categoria/General") }
             }
             Input(InputType.Text) { placeholder("Notas"); value(f_notas); onInput { f_notas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
             if (moduleType.isNotBlank()) {
@@ -1399,13 +1399,13 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                     style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); minWidth(300.px) }
                     onChange { f_moduleRecordId = it.value?.toIntOrNull() ?: 0 }
                 }) {
-                    Option("0") { Text("Vincular con ${f_categoria.lowercase()} existente...") }
+                    Option("0") { Text("Sin vincular / vincular despues (opcional)") }
                     linkOptions.forEach { (id, label) -> Option(id.toString()) { Text(label) } }
                 }
             }
         }
         P({ style { fontSize(12.px); color(Color("#475569")) } }) {
-            Text("Selecciona varios archivos a la vez. La categoria, fecha, notas y vinculo se aplican a todo el lote; el titulo de cada archivo se toma de su nombre. Agrupa por categoria o registro cuando sean distintos. Hasta 500 MiB por archivo. Cada archivo recibe un ID y se guarda en Drive/Normativa/AÑO. Para años mezclados usa subcarpetas 2022, 2023, etc. Para archivos que realmente no tienen año, selecciona «Sin año: Normativa/General»; los de subcarpetas anuales conservarán su año.")
+            Text("Selecciona varios archivos a la vez. La categoria, fecha, notas y vinculo se aplican a todo el lote; el titulo de cada archivo se toma de su nombre. Vincular con un registro existente es opcional: puedes subir evidencia (p. ej. una inspeccion) aunque el registro todavia no exista en el sistema. Agrupa por categoria o registro cuando sean distintos. Hasta 500 MiB por archivo. Cada archivo recibe un ID y se guarda en Drive/<Categoria>/AÑO (por ejemplo Inspeccion/2026, Simulacro/2026). Para años mezclados usa subcarpetas 2022, 2023, etc. Para archivos que realmente no tienen año, selecciona «Sin año: <Categoria>/General»; los de subcarpetas anuales conservarán su año.")
         }
         fun chooseFiles(id: String) {
             if (uploading) return
@@ -1436,9 +1436,11 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                     val batch = selectedFiles.toList()
                     if (batch.isEmpty()) {
                         statusMsg = "Selecciona archivos o una carpeta primero."
-                    } else if (moduleType.isNotBlank() && f_moduleRecordId == 0) {
-                        statusMsg = "Selecciona el registro de ${f_categoria.lowercase()} al que pertenecen todos los archivos, o elige otra categoria."
                     } else {
+                        // El vinculo con un registro existente (inspeccion, simulacro, capacitacion)
+                        // es opcional: se puede cargar evidencia general de la categoria aunque
+                        // todavia no exista el registro en el sistema. Si mas tarde se crea el
+                        // registro correspondiente, el vinculo se puede añadir editando la evidencia.
                         val fallback = if (f_general) "General" else f_anio.trim()
                         val unresolved = batch.filter { evidenceYear(it, fallback) == null }
                         if (unresolved.isNotEmpty()) {
@@ -1463,7 +1465,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                                     val size = file.size.toLong()
                                     val year = evidenceYear(file, fallbackYear)!!
                                     val folderName = if (year == -1) "General" else year.toString()
-                                    statusMsg = "Procesando ${index + 1}/${batch.size}: $name → Normativa/$folderName. Subidos: $uploaded; omitidos: $skipped; errores: ${failed.size}. No cierres esta pestaña."
+                                    statusMsg = "Procesando ${index + 1}/${batch.size}: $name → ${category}/$folderName. Subidos: $uploaded; omitidos: $skipped; errores: ${failed.size}. No cierres esta pestaña."
                                     if (file in completedFiles) {
                                         skipped++
                                         continue
@@ -1482,7 +1484,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                                         ))
                                         uploaded++
                                         completedFiles = completedFiles + file
-                                        statusMsg = "Subido $name con ID $id en Normativa/$folderName ($uploaded/${batch.size})."
+                                        statusMsg = "Subido $name con ID $id en ${category}/$folderName ($uploaded/${batch.size})."
                                     } catch (e: Exception) {
                                         failed += "$name (${e.message ?: "sin confirmación"})"
                                     }

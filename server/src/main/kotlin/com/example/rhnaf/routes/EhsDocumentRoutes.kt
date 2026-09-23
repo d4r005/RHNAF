@@ -91,10 +91,11 @@ fun Route.ehsDocumentRouting() {
                     return@safeApiCall call.respond(HttpStatusCode.BadRequest,
                         mapOf("status" to "error", "message" to "Indica el anio documental antes de subir"))
                 }
+                val categoriaFolder = req.categoria.ifBlank { "Otro" }
                 val oldFolderName = if (documentYear == -1) "General" else documentYear.toString()
-                val folderId = GoogleDriveService.normativeYearFolder(documentYear)
+                val folderId = GoogleDriveService.categoryYearFolder(categoriaFolder, documentYear)
                     ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
-                        mapOf("status" to "error", "message" to "No se pudo crear Normativa/$oldFolderName"))
+                        mapOf("status" to "error", "message" to "No se pudo crear $categoriaFolder/$oldFolderName"))
                 val safeFileName = req.fileName.ifBlank { "evidencia" }
                 val mimeType = req.mimeType.ifBlank { "application/octet-stream" }
                 val driveFileId = GoogleDriveService.uploadFile(bytes, safeFileName, mimeType, folderId)
@@ -178,10 +179,11 @@ fun Route.ehsDocumentRouting() {
                         return@safeApiCall call.respond(HttpStatusCode.BadRequest,
                             mapOf("status" to "error", "message" to "Archivo (max. 500 MiB), titulo y anio validos obligatorios; la fecha debe coincidir con el anio"))
                     }
+                    val categoriaFolder = fields["categoria"]?.trim().orEmpty().ifBlank { "Otro" }
                     val folderName = if (year == -1) "General" else year.toString()
-                    val folder = GoogleDriveService.normativeYearFolder(year)
+                    val folder = GoogleDriveService.categoryYearFolder(categoriaFolder, year)
                         ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
-                            mapOf("status" to "error", "message" to "No fue posible encontrar o crear Normativa/$folderName en Drive"))
+                            mapOf("status" to "error", "message" to "No fue posible encontrar o crear $categoriaFolder/$folderName en Drive"))
                     val driveId = GoogleDriveService.uploadLargeFile(temp, fileName, mimeType, folder)
                         ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
                             mapOf("status" to "error", "message" to "Drive no confirmo la subida del archivo"))
@@ -199,7 +201,7 @@ fun Route.ehsDocumentRouting() {
                         val id = insertDocument(req, fileName, mimeType, fileSize.toInt(), uploadedBy,
                             today, "$DRIVE_POINTER_PREFIX$driveId", includeModuleLink = true, year = year)
                         call.respond(mapOf("status" to "ok", "id" to id.toString(),
-                            "anio" to year.toString(), "folder" to "Normativa/$folderName"))
+                            "anio" to year.toString(), "folder" to "$categoriaFolder/$folderName"))
                     } catch (e: Exception) {
                         GoogleDriveService.deleteFile(driveId)
                         throw e
