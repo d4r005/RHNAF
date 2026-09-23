@@ -15,7 +15,7 @@ Inspiración funcional: EHSoft, ACM Suite, GeISS/Twind, Prysmex, MassWare y Enke
 - Identificar centro de trabajo, domicilio/estado, giro, actividades y riesgos con confirmación del responsable EHS/legal.
 - Catálogo de NOMs, permisos y fundamento verificable con versión, jurisdicción, fecha de publicación y fuente oficial. Revisiones periódicas y vigencia normativa. El catálogo actual es sólo una lista inicial y puede estar desactualizado.
 - Cuestionario de aplicabilidad versionado con justificación, evidencia y revisión humana; auditorías por requisito; permisos críticos, evidencia y vencimientos.
-- Planes de acción con responsables, prioridad, aprobación, fecha, cierre verificable y notificaciones sin revelar datos sensibles.
+- Planes de acción: creación, vínculo con obligación/inspección/incidente, responsable, prioridad, fecha y cierre con evidencia HTTPS están implementados en la entrega 2 inicial. Falta aprobación, auditoría de cambios y notificaciones de vencimiento sin revelar datos sensibles.
 
 ## Entrega 3: operación y terceros
 - Contratistas y proveedores: expedientes, requisitos por actividad, verificación documental, vigencias, permisos de trabajo, accesos autorizados y trazabilidad por centro.
