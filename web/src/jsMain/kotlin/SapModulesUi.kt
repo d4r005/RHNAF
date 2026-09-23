@@ -448,7 +448,6 @@ fun GtsTradeModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope,
     }
 }
 
-@Composable
 /** División del módulo EHS en pilares, según el dueño: seguridad, salud ocupacional y medio ambiente. */
 enum class EhsPillar(val titulo: String, val descripcion: String) {
     SEGURIDAD("Seguridad", "Inspecciones, incidentes, permisos de trabajo, EPP, capacitaciones, simulacros y matriz de riesgos."),
@@ -466,6 +465,7 @@ private val ehsPillarTabs: Map<EhsPillar, List<Pair<Int, String>>> = mapOf(
     EhsPillar.AMBIENTE to listOf(7 to "Residuos", 8 to "Huella de Carbono", 11 to "Estudios")
 )
 
+@Composable
 fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, t: Translations, role: UserRole, pillar: EhsPillar) {
     var activeTab by remember { mutableStateOf(0) }
     val tabs = ehsPillarTabs.getValue(pillar)

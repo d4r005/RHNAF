@@ -9,6 +9,7 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
+import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.selectAll
 
 private const val DRIVE_POINTER_PREFIX = "gdrive:"
@@ -78,22 +79,22 @@ fun Route.ehsPurgeRouting() {
             // 4) Registros EHS en la plataforma.
             val rows = DatabaseFactory.dbQuery {
                 linkedMapOf(
-                    "documentos" to EhsDocumentTable.deleteAll(),
-                    "inspecciones" to SafetyInspectionTable.deleteAll(),
-                    "incidentes" to SafetyIncidentTable.deleteAll(),
-                    "permisos_trabajo" to WorkPermitTable.deleteAll(),
-                    "entregas_epp" to PpeDeliveryTable.deleteAll(),
-                    "capacitaciones" to SafetyTrainingTable.deleteAll(),
-                    "simulacros" to EmergencyDrillTable.deleteAll(),
-                    "matriz_riesgos" to RiskMatrixTable.deleteAll(),
-                    "residuos" to EnvironmentalWasteTable.deleteAll(),
-                    "salud_ocupacional" to OccupationalHealthTable.deleteAll(),
-                    "quimicos" to ChemicalInventoryTable.deleteAll(),
-                    "matriz_legal" to LegalMatrixTable.deleteAll(),
-                    "planes_accion" to EhsActionTable.deleteAll(),
-                    "contratistas" to EhsContractorTable.deleteAll(),
-                    "tasas" to EhsRatePeriodTable.deleteAll(),
-                    "consumo_gas" to GasConsumoTable.deleteAll()
+                    "documentos" to EhsDocumentTable.deleteWhere { Op.TRUE },
+                    "inspecciones" to SafetyInspectionTable.deleteWhere { Op.TRUE },
+                    "incidentes" to SafetyIncidentTable.deleteWhere { Op.TRUE },
+                    "permisos_trabajo" to WorkPermitTable.deleteWhere { Op.TRUE },
+                    "entregas_epp" to PpeDeliveryTable.deleteWhere { Op.TRUE },
+                    "capacitaciones" to SafetyTrainingTable.deleteWhere { Op.TRUE },
+                    "simulacros" to EmergencyDrillTable.deleteWhere { Op.TRUE },
+                    "matriz_riesgos" to RiskMatrixTable.deleteWhere { Op.TRUE },
+                    "residuos" to EnvironmentalWasteTable.deleteWhere { Op.TRUE },
+                    "salud_ocupacional" to OccupationalHealthTable.deleteWhere { Op.TRUE },
+                    "quimicos" to ChemicalInventoryTable.deleteWhere { Op.TRUE },
+                    "matriz_legal" to LegalMatrixTable.deleteWhere { Op.TRUE },
+                    "planes_accion" to EhsActionTable.deleteWhere { Op.TRUE },
+                    "contratistas" to EhsContractorTable.deleteWhere { Op.TRUE },
+                    "tasas" to EhsRatePeriodTable.deleteWhere { Op.TRUE },
+                    "consumo_gas" to GasConsumoTable.deleteWhere { Op.TRUE }
                 )
             }
             call.respond(EhsPurgeResult(
