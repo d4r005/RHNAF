@@ -325,6 +325,12 @@ object LegalMatrixTable : Table("ehs_legal_matrix") {
     val documentoUrl = varchar("documento_url", 500).default("")
     val responsable = varchar("responsable", 200).default("")
     val notas = varchar("notas", 500).default("")
+    // Permiso critico (licencias ambientales, dictamen PC, etc.): si vence,
+    // hay riesgo real de clausura/multa -> alerta anticipada y visibilidad
+    // prioritaria en calendario, avisos y dashboards.
+    val esCritico = bool("es_critico").default(false)
+    // Biblioteca legal: URL al texto oficial de la norma (DOF, gob.mx, etc.)
+    val urlNorma = varchar("url_norma", 500).default("")
 
     override val primaryKey = PrimaryKey(id)
 }

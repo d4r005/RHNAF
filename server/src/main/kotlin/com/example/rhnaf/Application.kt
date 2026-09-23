@@ -25,6 +25,7 @@ import com.example.rhnaf.routes.extendedRouting
 import com.example.rhnaf.routes.workflowRouting
 import com.example.rhnaf.routes.ehsRateRouting
 import com.example.rhnaf.routes.ehsAlertsRouting
+import com.example.rhnaf.routes.ehsCalendarRouting
 import com.example.rhnaf.routes.ehsContractorRouting
 import com.example.rhnaf.routes.ehsActionRouting
 import com.example.rhnaf.routes.ehsMetricsRouting
@@ -188,6 +189,7 @@ fun Application.module() {
         ehsActionRouting()
         ehsContractorRouting()
         ehsAlertsRouting()
+        ehsCalendarRouting()
         ehsRateRouting()
         // Evitar registrar rutas de documentos cuando esa tabla no se migra.
         if (System.getenv("OMIT_EHS_DOCUMENTS") != "true") {

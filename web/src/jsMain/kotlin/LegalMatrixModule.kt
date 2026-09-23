@@ -2,6 +2,7 @@ import androidx.compose.runtime.*
 import org.jetbrains.compose.web.dom.*
 import org.jetbrains.compose.web.css.*
 import org.jetbrains.compose.web.attributes.*
+import org.jetbrains.compose.web.attributes.ATarget
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
@@ -119,7 +120,7 @@ fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         } else {
             Div({ style { backgroundColor(Color.white); borderRadius(12.px); property("border", "1px solid #e2e8f0"); overflow("auto") } }) {
                 Table({ style { width(100.percent); property("border-collapse", "collapse"); fontSize(13.px) } }) {
-                    Thead { Tr { listOf("Clave", "Obligación", "Categoría", "Aplica", "Estado", "Vigencia", "Responsable", "Evaluar").forEach { Th({ style { padding(12.px); textAlign("left"); backgroundColor(Color("#f8fafc")); color(Color("#475569")); property("border-bottom", "1px solid #e2e8f0") } }) { Text(it) } } } }
+                    Thead { Tr { listOf("Clave", "Obligación", "Categoría", "Aplica", "Estado", "Vigencia", "Responsable", "Crítica", "Norma", "Evaluar").forEach { Th({ style { padding(12.px); textAlign("left"); backgroundColor(Color("#f8fafc")); color(Color("#475569")); property("border-bottom", "1px solid #e2e8f0") } }) { Text(it) } } } }
                     Tbody {
                         items.forEach { item ->
                             Tr {
@@ -130,6 +131,12 @@ fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
                                 Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { LegalStatus(item.estado) }
                                 Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(item.fechaVigencia.ifBlank { "Sin fecha" }) }
                                 Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) { Text(item.responsable.ifBlank { "Sin asignar" }) }
+                                Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
+                                    if (item.esCritico) Span({ style { color(Color("#dc2626")); fontWeight("700") } }) { Text("⚠ Sí") } else Text("—")
+                                }
+                                Td({ style { padding(12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
+                                    if (item.urlNorma.isNotBlank()) A(href = item.urlNorma, attrs = { target(ATarget.Blank); style { color(Color("#2563eb")); textDecoration("underline") } }) { Text("Ver norma") } else Text("—")
+                                }
                                 Td { Button({ onClick { editing = item } }) { Text("Evaluar") } }
                             }
                         }
@@ -163,6 +170,8 @@ private fun LegalApplicabilityEditor(item: LegalMatrixItem, onCancel: () -> Unit
     var owner by remember(item.id) { mutableStateOf(item.responsable) }
     var expiry by remember(item.id) { mutableStateOf(item.fechaVigencia) }
     var url by remember(item.id) { mutableStateOf(item.documentoUrl) }
+    var critico by remember(item.id) { mutableStateOf(if (item.esCritico) "Sí" else "No") }
+    var urlNorma by remember(item.id) { mutableStateOf(item.urlNorma) }
     var problem by remember(item.id) { mutableStateOf("") }
     Div({ style { padding(18.px); marginBottom(18.px); backgroundColor(Color.white); borderRadius(10.px); property("border", "1px solid #e2e8f0") } }) {
         H3 { Text("Evaluar ${item.clave}: ${item.titulo}") }
@@ -174,11 +183,19 @@ private fun LegalApplicabilityEditor(item: LegalMatrixItem, onCancel: () -> Unit
         Input(InputType.Text) { placeholder("Responsable de revisión"); value(owner); onInput { owner = it.value }; style { padding(9.px); marginLeft(8.px) } }
         Input(InputType.Text) { placeholder("Vigencia evidencia AAAA-MM-DD"); value(expiry); onInput { expiry = it.value }; style { padding(9.px); marginTop(8.px) } }
         Input(InputType.Text) { placeholder("URL HTTPS evidencia"); value(url); onInput { url = it.value }; style { padding(9.px); marginLeft(8.px) } }
+        Div({ style { marginTop(10.px); display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(8.px) } }) {
+            Text("Permiso crítico:")
+            Select({ onChange { critico = it.value ?: "No" }; style { padding(9.px) } }) {
+                listOf("No", "Sí").forEach { c -> Option(c, { if (c == critico) selected() }) { Text(c) } }
+            }
+            Span({ style { fontSize(12.px); color(Color("#64748b")) } }) { Text("Marca si su vencimiento implica riesgo de clausura o multa (licencias, dictámenes).") }
+        }
+        Input(InputType.Text) { placeholder("URL al texto oficial de la norma (https://dof.gob.mx/...)"); value(urlNorma); onInput { urlNorma = it.value }; style { padding(9.px); marginTop(8.px); width(100.percent) } }
         if (problem.isNotBlank()) P({ style { color(Color("#b91c1c")) } }) { Text(problem) }
         Div({ style { marginTop(10.px) } }) {
             Button({ onClick {
                 problem = if (applies != "Pendiente" && (reason.isBlank() || owner.isBlank())) "La decisión requiere justificación y responsable." else ""
-                if (problem.isBlank()) onSave(item.copy(aplica = applies, justificacion = reason.trim(), responsable = owner.trim(), fechaVigencia = expiry.trim(), documentoUrl = url.trim()))
+                if (problem.isBlank()) onSave(item.copy(aplica = applies, justificacion = reason.trim(), responsable = owner.trim(), fechaVigencia = expiry.trim(), documentoUrl = url.trim(), esCritico = critico == "Sí", urlNorma = urlNorma.trim()))
             }; style { padding(9.px) } }) { Text("Guardar evaluación") }
             Button({ onClick { onCancel() }; style { padding(9.px); marginLeft(8.px) } }) { Text("Cancelar") }
         }

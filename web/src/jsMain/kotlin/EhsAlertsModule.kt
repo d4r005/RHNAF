@@ -13,7 +13,8 @@ private data class EhsAlertView(
     val titulo: String,
     val fechaLimite: String,
     val diasRestantes: Long,
-    val estado: String
+    val estado: String,
+    val esCritico: Boolean = false
 )
 
 @Composable
@@ -32,9 +33,19 @@ fun EhsAlertsModule(client: HttpClient) {
         if (error.isNotBlank()) P({ style { color(Color("#b91c1c")) } }) { Text(error) }
         if (loading) P { Text("Cargando avisos...") }
         else if (alerts.isEmpty()) P { Text("No hay vencimientos registrados dentro de los próximos 30 días.") }
+        val criticos = alerts.count { it.esCritico }
+        if (criticos > 0) P({ style { padding(12.px); backgroundColor(Color("#fef2f2")); property("border", "1px solid #fecaca"); borderRadius(8.px); color(Color("#b91c1c")); fontWeight("600") } }) {
+            Text("⚠ $criticos permisos críticos requieren atención inmediata (riesgo de clausura o multa).")
+        }
         else alerts.forEach { alert ->
-            Div({ style { padding(15.px); marginBottom(10.px); backgroundColor(Color.white); property("border", "1px solid #e2e8f0"); borderRadius(8.px) } }) {
-                H3 { Text("${alert.tipo} #${alert.origenId}: ${alert.titulo}") }
+            Div({
+                style {
+                    padding(15.px); marginBottom(10.px); backgroundColor(Color.white)
+                    property("border", "1px solid #e2e8f0"); borderRadius(8.px)
+                    property("border-left", if (alert.esCritico) "4px solid #dc2626" else if (alert.estado == "Vencido") "4px solid #f59e0b" else "4px solid #94a3b8")
+                }
+            }) {
+                H3 { Text(if (alert.esCritico) "⚠ ${alert.tipo} #${alert.origenId}: ${alert.titulo} (CRÍTICO)" else "${alert.tipo} #${alert.origenId}: ${alert.titulo}") }
                 P { Text("${alert.estado} | ${alert.fechaLimite} | ${if (alert.diasRestantes < 0) "${-alert.diasRestantes} días vencido" else "${alert.diasRestantes} días restantes"}") }
             }
         }

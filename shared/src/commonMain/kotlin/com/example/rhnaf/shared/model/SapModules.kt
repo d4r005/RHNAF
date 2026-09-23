@@ -327,6 +327,8 @@ data class LegalMatrixItem(
     val documentoUrl: String = "",        // link a la evidencia (PDF de dictamen, estudio, etc.)
     val responsable: String = "",
     val notas: String = "",
+    val esCritico: Boolean = false,        // permiso crítico: riesgo de clausura si vence
+    val urlNorma: String = "",            // URL al texto oficial de la norma (DOF/gob.mx)
     val estado: String = ""               // CALCULADO por el servidor: Vigente, PorVencer, Vencido, NoAplica, Pendiente
 )
 

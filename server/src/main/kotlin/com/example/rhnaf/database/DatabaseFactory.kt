@@ -57,6 +57,11 @@ object DatabaseFactory {
                 runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN device_serial TYPE VARCHAR(150)") }
                 runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN verify_mode TYPE VARCHAR(100)") }
                 runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN employee_id TYPE VARCHAR(100)") }
+                // MIGRACION: columnas nuevas de la matriz legal (permiso critico
+                // y biblioteca legal con URL al texto oficial de la norma).
+                // Idempotente: ADD COLUMN IF NOT EXISTS.
+                runCatching { exec("ALTER TABLE ehs_legal_matrix ADD COLUMN IF NOT EXISTS es_critico BOOLEAN DEFAULT FALSE") }
+                runCatching { exec("ALTER TABLE ehs_legal_matrix ADD COLUMN IF NOT EXISTS url_norma VARCHAR(500) DEFAULT ''") }
             }
 
             // SEGURIDAD: Supabase Advisor marca como CRITICO cualquier tabla en el

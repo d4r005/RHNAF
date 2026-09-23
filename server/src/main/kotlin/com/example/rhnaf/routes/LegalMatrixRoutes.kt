@@ -94,7 +94,9 @@ private fun rowToLegalMatrixItem(row: org.jetbrains.exposed.sql.ResultRow): Lega
     diasAlertaPrevia = row[LegalMatrixTable.diasAlertaPrevia],
     documentoUrl = row[LegalMatrixTable.documentoUrl],
     responsable = row[LegalMatrixTable.responsable],
-    notas = row[LegalMatrixTable.notas]
+    notas = row[LegalMatrixTable.notas],
+    esCritico = row[LegalMatrixTable.esCritico],
+    urlNorma = row[LegalMatrixTable.urlNorma]
 )
 
 fun Route.legalMatrixRouting() {
@@ -237,6 +239,8 @@ fun Route.legalMatrixRouting() {
                         it[documentoUrl] = item.documentoUrl
                         it[responsable] = item.responsable
                         it[notas] = item.notas
+                        it[esCritico] = item.esCritico
+                        it[urlNorma] = item.urlNorma
                     }
                 }
                 call.respond(mapOf("status" to "ok"))
@@ -255,7 +259,8 @@ fun Route.legalMatrixRouting() {
                     item.aplica != "Pendiente" && (item.justificacion.isBlank() || item.responsable.isBlank()) -> "Se requiere justificación y responsable"
                     item.fechaVigencia.isNotBlank() && runCatching { LocalDate.parse(item.fechaVigencia) }.isFailure -> "Fecha de evidencia inválida"
                     item.documentoUrl.isNotBlank() && !item.documentoUrl.startsWith("https://") -> "Evidencia debe ser URL HTTPS"
-                    item.justificacion.length > 500 || item.responsable.length > 200 || item.documentoUrl.length > 500 -> "Campo demasiado largo"
+                    item.urlNorma.isNotBlank() && !item.urlNorma.startsWith("https://") -> "URL de norma debe ser HTTPS"
+                    item.justificacion.length > 500 || item.responsable.length > 200 || item.documentoUrl.length > 500 || item.urlNorma.length > 500 -> "Campo demasiado largo"
                     else -> null
                 }
                 if (problem != null) {
@@ -276,6 +281,8 @@ fun Route.legalMatrixRouting() {
                         it[documentoUrl] = item.documentoUrl
                         it[responsable] = item.responsable
                         it[notas] = item.notas
+                        it[esCritico] = item.esCritico
+                        it[urlNorma] = item.urlNorma
                     }
                 }
                 call.respond(mapOf("status" to "ok"))

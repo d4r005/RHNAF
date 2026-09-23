@@ -19,7 +19,8 @@ data class EhsAlert(
     val titulo: String,
     val fechaLimite: String,
     val diasRestantes: Long,
-    val estado: String
+    val estado: String,
+    val esCritico: Boolean = false
 )
 
 private fun dateForAlert(value: String): LocalDate? = listOf(
@@ -34,16 +35,21 @@ fun Route.ehsAlertsRouting() {
             val today = LocalDate.now(ZoneId.of("America/Mexico_City"))
             val alerts = DatabaseFactory.dbQuery {
                 val all = mutableListOf<EhsAlert>()
-                fun add(type: String, id: Int, title: String, rawDate: String) {
+                fun add(type: String, id: Int, title: String, rawDate: String, critico: Boolean = false) {
                     val date = dateForAlert(rawDate) ?: return
                     val days = ChronoUnit.DAYS.between(today, date)
-                    if (days <= 30) all.add(EhsAlert(
+                    // Los permisos criticos alertan hasta con 90 dias de
+                    // anticipacion: gestionarlos lleva semanas (tramites ante
+                    // autoridades), 30 dias ya es tarde para reaccionar.
+                    val ventana = if (critico) 90L else 30L
+                    if (days <= ventana) all.add(EhsAlert(
                         tipo = type,
                         origenId = id,
                         titulo = title,
                         fechaLimite = date.toString(),
                         diasRestantes = days,
-                        estado = if (days < 0) "Vencido" else "PorVencer"
+                        estado = if (days < 0) "Vencido" else "PorVencer",
+                        esCritico = critico
                     ))
                 }
                 EhsActionTable.selectAll().forEach { row ->
@@ -57,9 +63,11 @@ fun Route.ehsAlertsRouting() {
                     add("capacitacion", row[SafetyTrainingTable.id], row[SafetyTrainingTable.tema], row[SafetyTrainingTable.proximaFecha])
                 }
                 LegalMatrixTable.selectAll().forEach { row ->
-                    if (row[LegalMatrixTable.aplica] == "Si") add("obligacion", row[LegalMatrixTable.id], row[LegalMatrixTable.clave], row[LegalMatrixTable.fechaVigencia])
+                    if (row[LegalMatrixTable.aplica] == "Si")
+                        add("obligacion", row[LegalMatrixTable.id], row[LegalMatrixTable.clave],
+                            row[LegalMatrixTable.fechaVigencia], row[LegalMatrixTable.esCritico])
                 }
-                all.sortedWith(compareBy<EhsAlert> { it.diasRestantes }.thenBy { it.tipo }.thenBy { it.origenId }).take(200)
+                all.sortedWith(compareBy<EhsAlert> { it.esCritico.not() }.thenBy { it.diasRestantes }.thenBy { it.tipo }.thenBy { it.origenId }).take(200)
             }
             call.respond(alerts)
         }
