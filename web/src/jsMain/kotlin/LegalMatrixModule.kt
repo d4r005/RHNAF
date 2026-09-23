@@ -20,7 +20,7 @@ private data class LegalMatrixPage(
 )
 
 @Composable
-fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, fixedCategory: String = "") {
     var items by remember { mutableStateOf(emptyList<LegalMatrixItem>()) }
     var summary by remember { mutableStateOf(LegalMatrixSummary()) }
     var loading by remember { mutableStateOf(true) }
@@ -34,25 +34,26 @@ fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
             error = ""
             try {
                 val params = buildList {
-                    if (category.isNotBlank()) add("categoria=$category")
+                    val selectedCategory = fixedCategory.ifBlank { category }
+                    if (selectedCategory.isNotBlank()) add("categoria=$selectedCategory")
                     if (status.isNotBlank()) add("estado=$status")
                     add("pageSize=100")
                 }.joinToString("&")
                 items = client.get("$BACKEND_URL/api/v1/ehs/matriz-legal?$params").body<LegalMatrixPage>().items
-                summary = client.get("$BACKEND_URL/api/v1/ehs/matriz-legal/dashboard").body()
+                if (fixedCategory.isBlank()) summary = client.get("$BACKEND_URL/api/v1/ehs/matriz-legal/dashboard").body()
             } catch (e: Exception) {
                 error = "No se pudo cargar la matriz legal: ${e.message ?: "error desconocido"}"
             } finally { loading = false }
         }
     }
 
-    LaunchedEffect(category, status) { refresh() }
+    LaunchedEffect(category, status, fixedCategory) { refresh() }
 
     Div {
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(24.px) } }) {
             Div {
-                H1({ style { margin(0.px); fontSize(28.px); color(Color("#0f172a")) } }) { Text("Matriz Legal EHS") }
-                P({ style { marginTop(6.px); color(Color("#64748b")) } }) { Text("Cumplimiento normativo, vigencias y evidencias documentales") }
+                H1({ style { margin(0.px); fontSize(28.px); color(Color("#0f172a")) } }) { Text(if (fixedCategory == "STPS") "Normas STPS" else "Matriz Legal EHS") }
+                P({ style { marginTop(6.px); color(Color("#64748b")) } }) { Text(if (fixedCategory == "STPS") "Seguimiento de obligaciones STPS aplicables. Valida la aplicabilidad y vigencia con el responsable legal." else "Cumplimiento normativo, vigencias y evidencias documentales") }
             }
             Button({
                 style { padding(10.px, 16.px); border(0.px); borderRadius(8.px); backgroundColor(Color("#2563eb")); color(Color.white); cursor("pointer") }
@@ -67,7 +68,7 @@ fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
             }) { Text("Cargar catálogo de NOMs") }
         }
 
-        Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(5, minmax(130px, 1fr))"); gap(14.px); marginBottom(22.px) } }) {
+        if (fixedCategory.isBlank()) Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(5, minmax(130px, 1fr))"); gap(14.px); marginBottom(22.px) } }) {
             LegalStat("Cumplimiento", "${summary.porcentajeCumplimiento.toInt()}%", "#2563eb")
             LegalStat("Vigentes", summary.vigentes.toString(), "#16a34a")
             LegalStat("Por vencer", summary.porVencer.toString(), "#d97706")
@@ -76,7 +77,7 @@ fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         }
 
         Div({ style { display(DisplayStyle.Flex); gap(12.px); marginBottom(18.px) } }) {
-            Select({
+            if (fixedCategory.isBlank()) Select({
                 style { padding(9.px, 12.px); borderRadius(8.px); property("border", "1px solid #cbd5e1") }
                 onChange { category = it.value ?: "" }
             }) {
@@ -97,7 +98,7 @@ fun LegalMatrixModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
             P { Text("Cargando matriz legal...") }
         } else if (items.isEmpty()) {
             Div({ style { padding(38.px); textAlign("center"); backgroundColor(Color.white); borderRadius(12.px); property("border", "1px solid #e2e8f0") } }) {
-                H3 { Text("La matriz legal está vacía") }
+                H3 { Text(if (fixedCategory == "STPS") "No hay obligaciones STPS registradas" else "La matriz legal está vacía") }
                 P({ style { color(Color("#64748b")) } }) { Text("Usa “Cargar catálogo de NOMs” para agregar las obligaciones iniciales.") }
             }
         } else {
