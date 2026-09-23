@@ -20,7 +20,8 @@ fun EhsHomeModule(role: UserRole, onSelect: (Module) -> Unit) {
                 Triple(Module.STPS, "Normas STPS", "Vista enfocada en obligaciones de seguridad y salud laboral."),
                 Triple(Module.EHS_DOCUMENTS, "Evidencia documental", "Cargar, consultar y vincular archivos en Google Drive.")
             ).filter { (module, _, _) -> module != Module.EHS_METRICS || role == UserRole.ADMIN || role == UserRole.SEGURIDAD }.plus(
-                if (role == UserRole.ADMIN || role == UserRole.SEGURIDAD) listOf(Triple(Module.EHS_ACTIONS, "Planes de acción", "Acciones correctivas, responsables, vencimientos y evidencia de cierre.")) else emptyList()
+                if (role == UserRole.ADMIN || role == UserRole.SEGURIDAD) listOf(Triple(Module.EHS_ACTIONS, "Planes de acción", "Acciones correctivas, responsables, vencimientos y evidencia de cierre."),
+                    Triple(Module.EHS_CONTRACTORS, "Contratistas", "Empresas, actividades, expedientes y vigencia documental.")) else emptyList()
             ).forEach { (module, title, description) ->
                 Button({
                     style {

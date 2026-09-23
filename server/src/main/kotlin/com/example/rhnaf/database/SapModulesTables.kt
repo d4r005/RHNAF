@@ -367,3 +367,17 @@ object EhsActionTable : Table("ehs_action_plans") {
     val fechaCierre = varchar("fecha_cierre", 10).default("")
     override val primaryKey = PrimaryKey(id)
 }
+
+// Expediente de proveedor/contratista por centro. El estado informativo NO habilita acceso físico.
+object EhsContractorTable : Table("ehs_contractors") {
+    val id = integer("id").autoIncrement()
+    val empresa = varchar("empresa", 250)
+    val actividad = varchar("actividad", 250)
+    val centroTrabajo = varchar("centro_trabajo", 200)
+    val responsableInterno = varchar("responsable_interno", 200)
+    val documentoUrl = varchar("documento_url", 500).default("")
+    val vigenciaDocumento = varchar("vigencia_documento", 10).default("")
+    val estado = varchar("estado", 20).default("Pendiente")
+    val notas = varchar("notas", 500).default("")
+    override val primaryKey = PrimaryKey(id)
+}

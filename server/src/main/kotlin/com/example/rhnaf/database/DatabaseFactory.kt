@@ -42,7 +42,7 @@ object DatabaseFactory {
         // en vez de crashear.
         try {
         transaction(database) {
-            val managedTables = listOf(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, SafetyIncidentTable, WorkPermitTable, PpeDeliveryTable, SafetyTrainingTable, EmergencyDrillTable, RiskMatrixTable, AccessAuditLogTable, EnvironmentalWasteTable, OccupationalHealthTable, ChemicalInventoryTable, ShiftTable, AttendancePolicyTable, EmployeeShiftTable, JustificationTable, PrePayrollTable, SystemTaskTable, WarehouseLocationTable, WarehouseOutgoingLogTable, WarehouseAuditTable, OrderTable, DeliveryRouteTable, TraceabilityEventTable, FerreteriaTable, RecepcionMPTable, TarimaTable, ContenedorChinaTable, SelloStockTable, GasConsumoTable, PersonalTallaTable, ApprovalWorkflowTable, DocumentLogTable, LegalMatrixTable, EhsActionTable) +
+            val managedTables = listOf(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, SafetyIncidentTable, WorkPermitTable, PpeDeliveryTable, SafetyTrainingTable, EmergencyDrillTable, RiskMatrixTable, AccessAuditLogTable, EnvironmentalWasteTable, OccupationalHealthTable, ChemicalInventoryTable, ShiftTable, AttendancePolicyTable, EmployeeShiftTable, JustificationTable, PrePayrollTable, SystemTaskTable, WarehouseLocationTable, WarehouseOutgoingLogTable, WarehouseAuditTable, OrderTable, DeliveryRouteTable, TraceabilityEventTable, FerreteriaTable, RecepcionMPTable, TarimaTable, ContenedorChinaTable, SelloStockTable, GasConsumoTable, PersonalTallaTable, ApprovalWorkflowTable, DocumentLogTable, LegalMatrixTable, EhsActionTable, EhsContractorTable) +
                 if (System.getenv("OMIT_EHS_DOCUMENTS") == "true") emptyList() else listOf(EhsDocumentTable)
             SchemaUtils.createMissingTablesAndColumns(*managedTables.toTypedArray())
 
@@ -71,7 +71,7 @@ object DatabaseFactory {
             if (!rawDatabaseUrl.isNullOrBlank()) {
                 val publicTablesRequiringRls = listOf(
                     "attendance_logs", "co_cost_centers", "contenedor_china", "debug_logs",
-                    "ehs_action_plans", "ehs_chemical_inventory", "ehs_documents", "ehs_emergency_drills",
+                    "ehs_action_plans", "ehs_contractors", "ehs_chemical_inventory", "ehs_documents", "ehs_emergency_drills",
                     "ehs_environmental_waste", "ehs_legal_matrix", "ehs_occupational_health",
                     "ehs_ppe_deliveries", "ehs_risk_matrix", "ehs_safety_incidents",
                     "ehs_safety_inspections", "ehs_safety_trainings", "ehs_work_permits",
