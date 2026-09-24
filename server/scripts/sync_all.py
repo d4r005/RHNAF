@@ -641,6 +641,25 @@ def fetch_events(start_time: str, end_time: str, position: int = 0):
     return resp.json()
 
 
+# La lectora manda su propio calculo de Check-in/Check-out por evento en
+# "attendanceStatus" cuando tiene una regla de asistencia configurada (mismo
+# valor que se ve en su reporte web). Se reenvia tal cual; si viene vacio o
+# "undefined", el backend decide el fallback (no se inventa aqui).
+ATTENDANCE_STATUS_MAP = {
+    "checkin": "Check-in",
+    "checkout": "Check-out",
+    "breakin": "Break-in",
+    "breakout": "Break-out",
+    "overtimein": "Overtime-in",
+    "overtimeout": "Overtime-out",
+}
+
+
+def raw_attendance_status(event: dict) -> str:
+    raw = str(event.get("attendanceStatus") or "").strip().lower()
+    return ATTENDANCE_STATUS_MAP.get(raw, "")
+
+
 def push_attendance_to_cloud(event: dict) -> bool:
     employee_no = event.get("employeeNoString") or event.get("cardNo") or ""
     if not employee_no:
@@ -652,6 +671,7 @@ def push_attendance_to_cloud(event: dict) -> bool:
         "AccessControllerEvent": {
             "employeeNoString": employee_no,
             "currentVerifyMode": event.get("currentVerifyMode", "unknown"),
+            "attendanceStatus": raw_attendance_status(event),
         },
     }
 

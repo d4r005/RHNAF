@@ -109,6 +109,33 @@ def fetch_events(start_time: str, end_time: str, position: int = 0, major: int =
     return resp.json()
 
 
+# La lectora, cuando tiene configurada una regla de asistencia (Time &
+# Attendance) en el dispositivo, manda su PROPIO calculo de Check-in/Check-out
+# por evento en el campo "attendanceStatus" del AcsEvent crudo (es el mismo
+# valor que se ve en el reporte "Attendance Status" del panel web de la
+# lectora). Antes este script lo ignoraba por completo y mandaba el evento
+# sin ese dato, forzando al backend a inventar el estado por orden
+# cronologico (1a checada = Check-in, 2a = Check-out...), lo cual queda mal
+# cuando alguien checa 3 veces de entrada por reintentos de reconocimiento
+# facial. Ahora se reenvia tal cual viene de la lectora.
+ATTENDANCE_STATUS_MAP = {
+    "checkin": "Check-in",
+    "checkout": "Check-out",
+    "breakin": "Break-in",
+    "breakout": "Break-out",
+    "overtimein": "Overtime-in",
+    "overtimeout": "Overtime-out",
+    # "undefined" o vacio: la lectora no tiene regla de asistencia para este
+    # evento. No se inventa nada aqui; se manda vacio y el backend decide
+    # el fallback (nombre del checkpoint o, en ultimo caso, orden cronologico).
+}
+
+
+def raw_attendance_status(event: dict) -> str:
+    raw = str(event.get("attendanceStatus") or "").strip().lower()
+    return ATTENDANCE_STATUS_MAP.get(raw, "")
+
+
 def push_to_cloud(event: dict, skip_reasons: dict, skip_samples: dict) -> bool:
     """Manda un evento al servidor en la nube en el formato que ya espera."""
     employee_no = event.get("employeeNoString") or event.get("cardNo") or ""
@@ -128,6 +155,7 @@ def push_to_cloud(event: dict, skip_reasons: dict, skip_samples: dict) -> bool:
         "AccessControllerEvent": {
             "employeeNoString": employee_no,
             "currentVerifyMode": event.get("currentVerifyMode", "unknown"),
+            "attendanceStatus": raw_attendance_status(event),
         },
     }
 

@@ -107,12 +107,17 @@ class AttendanceUseCase {
     }
 
     /**
-     * Corrige registros historicos que quedaron con attendanceStatus vacio
-     * (checadas que llegaron antes de existir inferCheckInOutByOrder, o de un
-     * dispositivo que no manda el estado explicito). Recalcula por ORDEN
-     * cronologico real dentro de cada dia por empleado -- no inventa horarios,
-     * solo etiqueta 1a=Check-in, 2a=Check-out, 3a=Check-in... con los timestamps
-     * reales ya guardados.
+     * Rellena SOLO los registros historicos que quedaron con attendanceStatus
+     * realmente vacio (checadas que llegaron antes de que el script de sync
+     * reenviara el attendanceStatus real de la lectora, o de un dispositivo sin
+     * regla de asistencia configurada). Nunca toca un registro que ya tiene un
+     * estado (venga de la lectora o de un checkpoint con nombre Entrance/Exit):
+     * sobrescribir eso violaria la regla de "tomar la info tal cual llega" y es
+     * lo que causaba que checadas reales (ej. 3 entradas seguidas) se
+     * etiquetaran alternando Check-in/Check-out/Check-in por orden en vez de
+     * respetar lo que la lectora ya habia decidido.
+     * Solo para los que quedan vacios se infiere por ORDEN cronologico real
+     * dentro de cada dia por empleado, como ultimo recurso.
      */
     suspend fun recomputeCheckInOutStatus(): Int {
         return DatabaseFactory.dbQuery {
@@ -128,18 +133,16 @@ class AttendanceUseCase {
             val countPerEmployeeDay = HashMap<String, Int>()
             for ((info, currentStatus) in rows) {
                 val (id, empId, ts) = info
-                if (currentStatus.equals("Duplicate", ignoreCase = true)) continue
                 val day = ts.take(10)
                 val key = "$empId|$day"
                 val position = countPerEmployeeDay.getOrDefault(key, 0)
                 countPerEmployeeDay[key] = position + 1
+                if (currentStatus.isNotBlank()) continue // ya tiene un estado real; no se toca
                 val newStatus = if (position % 2 == 0) "Check-in" else "Check-out"
-                if (currentStatus != newStatus) {
-                    AttendanceLogTable.update({ AttendanceLogTable.id eq id }) {
-                        it[AttendanceLogTable.attendanceStatus] = newStatus
-                    }
-                    updated++
+                AttendanceLogTable.update({ AttendanceLogTable.id eq id }) {
+                    it[AttendanceLogTable.attendanceStatus] = newStatus
                 }
+                updated++
             }
             updated
         }

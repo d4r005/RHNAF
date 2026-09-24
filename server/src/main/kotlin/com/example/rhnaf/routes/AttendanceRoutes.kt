@@ -327,19 +327,22 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             )
         }
 
-        // Limpieza retroactiva: aplica la regla de 1 Check-in + 1 Check-out por dia
-        // a los datos que ya estaban guardados antes de que existiera esta regla.
+        // Limpieza retroactiva: elimina SOLO duplicados exactos (mismo empleado +
+        // mismo timestamp, ej. de un re-corrido del sync). Nunca borra checadas
+        // reales aunque se repitan varias veces en el dia (esas son datos reales
+        // de la lectora, no basura).
         post("/normalize") {
             val deleted = attendanceUseCase.normalizeDailyLimits()
-            call.respond(mapOf("registros_eliminados" to deleted.toString(), "mensaje" to "Se dejaron solo 1 Check-in y 1 Check-out por empleado por dia."))
+            call.respond(mapOf("registros_eliminados" to deleted.toString(), "mensaje" to "Se eliminaron duplicados exactos (mismo empleado y mismo timestamp)."))
         }
 
-        // Corrige el Check-in/Check-out de TODAS las checadas ya guardadas (historico),
-        // etiquetando por orden cronologico real dentro de cada dia por empleado.
-        // Seguro de correr varias veces (es idempotente).
+        // Rellena SOLO los registros que quedaron con attendanceStatus vacio
+        // (ej. checadas subidas antes de que el sync reenviara el estado real de
+        // la lectora). Nunca sobrescribe un estado que ya vino de la lectora o
+        // del checkpoint; para esos, se respeta tal cual. Seguro de correr varias veces.
         post("/recompute-status") {
             val updated = attendanceUseCase.recomputeCheckInOutStatus()
-            call.respond(mapOf("registros_actualizados" to updated.toString(), "mensaje" to "Se recalcularon Check-in/Check-out por orden cronologico real."))
+            call.respond(mapOf("registros_actualizados" to updated.toString(), "mensaje" to "Se completaron por orden cronologico solo los registros que no tenian estado."))
         }
 
         // Repara registros historicos con Name/Department/Attendance Status vacios
