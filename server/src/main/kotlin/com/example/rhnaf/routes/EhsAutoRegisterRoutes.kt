@@ -162,6 +162,27 @@ fun Route.ehsAutoRegisterRouting() {
                     } get RiskMatrixTable.id
                 }
             },
+            // La sección "Inspecciones" se muestra en la interfaz como "Auditoría
+            // Interna", pero el catálogo de evidencia documental sigue ofreciendo
+            // "Auditoria" como categoría separada (motivo del reporte: el usuario
+            // sube evidencia con categoría "Auditoria" esperando verla en Auditoría
+            // Interna, y esa categoría no tenía spec, así que nunca se procesaba).
+            // Se mapea al mismo destino que "Inspeccion" para que ambas etiquetas
+            // generen el registro correspondiente.
+            "Auditoria" to CategorySpec("inspection", SafetyInspectionTable, true) { fecha, titulo, campos ->
+                DatabaseFactory.dbQuery {
+                    SafetyInspectionTable.insert {
+                        it[SafetyInspectionTable.fecha] = fecha
+                        it[SafetyInspectionTable.tipoInspeccion] = campos["tipoInspeccion"] ?: titulo
+                        it[SafetyInspectionTable.area] = campos["area"] ?: ""
+                        it[SafetyInspectionTable.inspector] = campos["inspector"] ?: ""
+                        it[SafetyInspectionTable.hallazgos] = campos["hallazgos"] ?: ""
+                        it[SafetyInspectionTable.riesgo] = campos["riesgo"] ?: ""
+                        it[SafetyInspectionTable.accionesCorrectivas] = campos["accionesCorrectivas"] ?: ""
+                        it[SafetyInspectionTable.estado] = campos["estado"] ?: "Pendiente de revision"
+                    } get SafetyInspectionTable.id
+                }
+            },
         )
 
         val categoriasAProcesar = if (soloCategoria.isNullOrBlank()) specs.keys.toList() else listOf(soloCategoria)
