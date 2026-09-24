@@ -243,7 +243,7 @@ fun Route.ehsChecklistRouting() {
                         mapOf("error" to "Responsable y fecha límite son obligatorios"))
                 }
                 val accionId = DatabaseFactory.dbQuery {
-                    EhsActionTable.insert {
+                    val stmt = EhsActionTable.insert {
                         it[titulo] = "Hallazgo de auditoría: " + existing[EhsChecklistItemTable.punto].take(200)
                         it[descripcion] = existing[EhsChecklistItemTable.hallazgo]
                         it[origenTipo] = "checklist"
@@ -252,9 +252,12 @@ fun Route.ehsChecklistRouting() {
                         it[fechaLimite] = body.fechaCompromiso.trim()
                         it[prioridad] = "Alta"
                         it[estado] = "Abierta"
-                    } get EhsActionTable.id
+                    }
+                    stmt get EhsActionTable.id
+                }
+                DatabaseFactory.dbQuery {
                     EhsChecklistItemTable.update({ EhsChecklistItemTable.id eq itemId }) {
-                        it[accionId] = accionId
+                        it[EhsChecklistItemTable.accionId] = accionId
                     }
                 }
                 call.respond(HttpStatusCode.Created, mapOf("accionId" to accionId))
