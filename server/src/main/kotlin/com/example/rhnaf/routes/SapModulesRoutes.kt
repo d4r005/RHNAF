@@ -32,6 +32,7 @@ import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.selectAll
 
 // ============================================================
@@ -461,6 +462,35 @@ fun Route.sapModulesRouting() {
             }
             call.respond(HttpStatusCode.Created, mapOf("status" to "ok"))
         }
+        // Completa/corrige una auditoria ya creada (area, hallazgos, riesgo,
+        // acciones correctivas, fecha de cierre y estado). Muchas auditorias se
+        // registran primero solo con fecha/tipo/auditor (antes de terminarla) y
+        // se completan despues; sin este endpoint no habia forma de editarlas.
+        put("/{id}") {
+            requireRoleOr403(call, Roles.EHS_WRITE) ?: return@put
+            val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest)
+            val item = call.receive<SafetyInspection>()
+            if (item.area.length > 200 || item.inspector.length > 200 || item.hallazgos.length > 400 ||
+                item.riesgo.length > 50 || item.accionesCorrectivas.length > 500 ||
+                item.fechaCierre.length > 50 || item.estado.length > 50) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Campo demasiado largo"))
+                return@put
+            }
+            val changed = DatabaseFactory.dbQuery {
+                SafetyInspectionTable.update({ SafetyInspectionTable.id eq id }) {
+                    it[area] = item.area
+                    it[inspector] = item.inspector
+                    it[hallazgos] = item.hallazgos
+                    it[riesgo] = item.riesgo
+                    it[accionesCorrectivas] = item.accionesCorrectivas
+                    it[fechaCierre] = item.fechaCierre
+                    it[estado] = item.estado
+                }
+            }
+            if (changed == 0) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Auditoria inexistente"))
+            else call.respond(mapOf("status" to "ok"))
+        }
+
         delete("/{id}") {
             requireRoleOr403(call, Roles.EHS_WRITE) ?: return@delete
             val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)

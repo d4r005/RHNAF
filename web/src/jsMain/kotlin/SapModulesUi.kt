@@ -793,13 +793,10 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         Div({ style { display(DisplayStyle.Flex); gap(8.px); flexWrap(FlexWrap.Wrap); marginBottom(10.px) } }) {
             FechaInput(fecha, { fecha = it }, width = 130)
             Input(InputType.Text) { placeholder("Tipo de auditoría"); value(tipo); onInput { tipo = it.value } }
-            Input(InputType.Text) { placeholder("Área"); value(area); onInput { area = it.value } }
             Input(InputType.Text) { placeholder("Auditor"); value(inspector); onInput { inspector = it.value } }
-            Input(InputType.Text) { placeholder("Hallazgos"); value(hallazgos); onInput { hallazgos = it.value } }
-            Input(InputType.Text) { placeholder("Riesgo"); value(riesgo); onInput { riesgo = it.value } }
-            Input(InputType.Text) { placeholder("Acciones correctivas"); value(acciones); onInput { acciones = it.value } }
-            FechaInput(cierre, { cierre = it }, width = 130)
-            Input(InputType.Text) { placeholder("Estado"); value(estado); onInput { estado = it.value } }
+        }
+        P({ style { fontSize(12.px); color(Color("#64748b")); marginTop(-4.px) } }) {
+            Text("Área, hallazgos, riesgo, acciones correctivas, fecha de cierre y estado se completan despues con el boton \"Editar\" de cada fila, una vez realizada la auditoria.")
         }
         Button({ onClick {
             if (busy) return@onClick
@@ -809,15 +806,13 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
                 try {
                     val response = client.post("$BACKEND_URL/api/v1/sap/ehs/inspecciones") {
                         contentType(ContentType.Application.Json)
-                        setBody(SafetyInspection(fecha = fecha, tipoInspeccion = tipo, area = area,
-                            inspector = inspector, hallazgos = hallazgos, riesgo = riesgo,
-                            accionesCorrectivas = acciones, fechaCierre = cierre, estado = estado))
+                        setBody(SafetyInspection(fecha = fecha, tipoInspeccion = tipo, inspector = inspector,
+                            estado = "Pendiente de revision"))
                     }
                     if (response.status != HttpStatusCode.Created) error = "No se pudo guardar: HTTP ${response.status}"
                     else {
-                        fecha = ""; tipo = ""; area = ""; inspector = ""; hallazgos = "";
-                        riesgo = ""; acciones = ""; cierre = ""; estado = ""
-                        error = "Inspección guardada."; refresh()
+                        fecha = ""; tipo = ""; inspector = ""
+                        error = "Auditoria guardada. Completa el resto con \"Editar\" cuando termines de realizarla."; refresh()
                     }
                 } catch (e: Exception) { error = e.message ?: "No se pudo guardar la inspección" }
                 finally { busy = false }
@@ -860,11 +855,82 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
             if (previewRows.size > 50) P { Text("Mostrando las primeras 50 filas; el archivo puede contener más.") }
         }
     }
+    var editingId by remember { mutableStateOf(0) }
+    var e_area by remember { mutableStateOf("") }
+    var e_hallazgos by remember { mutableStateOf("") }
+    var e_riesgo by remember { mutableStateOf("") }
+    var e_acciones by remember { mutableStateOf("") }
+    var e_cierre by remember { mutableStateOf("") }
+    var e_estado by remember { mutableStateOf("Pendiente de revision") }
+    var e_busy by remember { mutableStateOf(false) }
+    fun startEdit(row: SafetyInspection) {
+        editingId = row.id
+        e_area = row.area; e_hallazgos = row.hallazgos; e_riesgo = row.riesgo
+        e_acciones = row.accionesCorrectivas; e_cierre = row.fechaCierre
+        e_estado = row.estado.ifBlank { "Pendiente de revision" }
+    }
+    fun saveEdit(row: SafetyInspection) {
+        if (e_busy) return
+        e_busy = true
+        scope.launch {
+            try {
+                val resp = client.put("$BACKEND_URL/api/v1/sap/ehs/inspecciones/${row.id}") {
+                    contentType(ContentType.Application.Json)
+                    setBody(row.copy(area = e_area, hallazgos = e_hallazgos, riesgo = e_riesgo,
+                        accionesCorrectivas = e_acciones, fechaCierre = e_cierre, estado = e_estado))
+                }
+                if (resp.status.value in 200..299) { editingId = 0; refresh() }
+                else error = "No se pudo guardar la edicion: HTTP ${resp.status}"
+            } catch (ex: Exception) { error = ex.message ?: "No se pudo guardar la edicion" }
+            finally { e_busy = false }
+        }
+    }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
             Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Area") }; Th { Text("Inspector") }; Th { Text("Hallazgos") }; Th { Text("Riesgo") }; Th { Text("Acciones") }; Th { Text("F.Cierre") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
             Tbody {
-                items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipoInspeccion) }; Td { Text(row.area) }; Td { Text(row.inspector) }; Td { Text(row.hallazgos) }; Td { Text(row.riesgo) }; Td { Text(row.accionesCorrectivas) }; Td { Text(row.fechaCierre) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/inspecciones/${row.id}"); refresh() } } }) { Text("X") } } } }
+                items.forEach { row ->
+                    if (editingId == row.id) {
+                        Tr({ style { backgroundColor(Color("#eff6ff")) } }) {
+                            Td { Text(row.fecha) }
+                            Td { Text(row.tipoInspeccion) }
+                            Td { Input(InputType.Text) { placeholder("Área"); value(e_area); onInput { e_area = it.value }; style { width(100.percent); padding(4.px) } } }
+                            Td { Text(row.inspector) }
+                            Td { Input(InputType.Text) { placeholder("Hallazgos"); value(e_hallazgos); onInput { e_hallazgos = it.value }; style { width(100.percent); padding(4.px) } } }
+                            Td { Input(InputType.Text) { placeholder("Riesgo"); value(e_riesgo); onInput { e_riesgo = it.value }; style { width(100.percent); padding(4.px) } } }
+                            Td { Input(InputType.Text) { placeholder("Acciones correctivas"); value(e_acciones); onInput { e_acciones = it.value }; style { width(100.percent); padding(4.px) } } }
+                            Td { FechaInput(e_cierre, { e_cierre = it }, width = 110) }
+                            Td {
+                                Select({
+                                    style { padding(4.px); borderRadius(4.px); property("border", "1px solid #cbd5e1") }
+                                    onChange { e_estado = it.value ?: "Pendiente de revision" }
+                                }) {
+                                    listOf("Pendiente de revision", "Abierto", "Cerrado").forEach { opt ->
+                                        Option(opt, { if (opt == e_estado) selected() }) { Text(opt) }
+                                    }
+                                }
+                            }
+                            Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }
+                            Td {
+                                Div({ style { display(DisplayStyle.Flex); gap(4.px) } }) {
+                                    Button({ style { backgroundColor(Color("#059669")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 8.px); cursor("pointer"); fontSize(11.px) }; onClick { saveEdit(row) } }) { Text(if (e_busy) "..." else "Guardar") }
+                                    Button({ style { backgroundColor(Color("#64748b")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 8.px); cursor("pointer"); fontSize(11.px) }; onClick { editingId = 0 } }) { Text("Cancelar") }
+                                }
+                            }
+                        }
+                    } else {
+                        Tr {
+                            Td { Text(row.fecha) }; Td { Text(row.tipoInspeccion) }; Td { Text(row.area) }; Td { Text(row.inspector) }; Td { Text(row.hallazgos) }; Td { Text(row.riesgo) }; Td { Text(row.accionesCorrectivas) }; Td { Text(row.fechaCierre) }; Td { Text(row.estado) }
+                            Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }
+                            Td {
+                                Div({ style { display(DisplayStyle.Flex); gap(4.px) } }) {
+                                    Button({ style { backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 8.px); cursor("pointer"); fontSize(11.px) }; onClick { startEdit(row) } }) { Text("Editar") }
+                                    Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/inspecciones/${row.id}"); refresh() } } }) { Text("X") }
+                                }
+                            }
+                        }
+                    }
+                }
                 EhsPendingEvidenceRows(evidence, colSpan = 11, moduleType = "inspection", linkTargets = items.map { it.id to "${it.tipoInspeccion} · ${it.area} · ${it.fecha}" }, client = client, scope = scope, onLinked = { refresh() })
             }
         }
@@ -1060,32 +1126,66 @@ fun EhsDc3Tab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     // El responsable por defecto es quien está capturando (el dueño lo definió así).
-    var f_trabajadorId by remember { mutableStateOf("") }
+    // Varios trabajadores a la vez: algunos PDF de DC-3 traen la constancia de
+    // VARIAS personas en un mismo documento (un solo curso grupal). Antes solo
+    // se podia elegir un trabajador por vez, asi que un PDF grupal obligaba a
+    // repetir la carga N veces sin forma de compartir el mismo enlace. Ahora se
+    // eligen varios trabajadores con checkboxes y se crea una constancia por
+    // cada uno, todas con el mismo tema/fecha/horas/responsable/evidencia.
+    var f_trabajadorIds by remember { mutableStateOf(emptySet<String>()) }
+    var f_buscarTrabajador by remember { mutableStateOf("") }
     var f_tema by remember { mutableStateOf("") }
     var f_fecha by remember { mutableStateOf("") }
     var f_horas by remember { mutableStateOf("") }
     var f_responsable by remember { mutableStateOf(window.localStorage.getItem("naf_user_name") ?: "") }
     var f_evidencia by remember { mutableStateOf("") }
+    var f_busy by remember { mutableStateOf(false) }
     Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} constancias DC-3 registradas") }
     P({ style { margin(0.px, 0.px, 12.px, 0.px); color(Color("#64748b")); fontSize(13.px) } }) {
-        Text("Constancia oficial de habilidades laborales (DC-3). El responsable se registra en cada constancia; la evidencia firmada se enlaza por URL HTTPS de Drive o se vincula desde la categoría DC3 de Evidencia Documental.")
+        Text("Constancia oficial de habilidades laborales (DC-3). El responsable se registra en cada constancia; la evidencia firmada se enlaza por URL HTTPS de Drive o se vincula desde la categoría DC3 de Evidencia Documental. Si el PDF trae varias personas en un mismo documento (curso grupal), marca a todos los trabajadores de la lista de abajo: se crea una constancia por cada uno con el mismo tema/fecha/enlace.")
     }
-    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-        Select({
-            style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) }
-            onChange { f_trabajadorId = it.value ?: "" }
-        }) {
-            Option("") { Text("Selecciona trabajador *") }
-            employees.forEach { e -> Option(e.id) { Text("${e.id} · ${e.firstName} ${e.lastName}".trim()) } }
-        }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(10.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
         Input(InputType.Text) { placeholder("Tema / curso *"); value(f_tema); onInput { f_tema = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
         FechaInput(f_fecha, { f_fecha = it }, width = 130)
         Input(InputType.Text) { placeholder("Horas"); value(f_horas); onInput { f_horas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(80.px) } }
         Input(InputType.Text) { placeholder("Responsable"); value(f_responsable); onInput { f_responsable = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
-        Input(InputType.Text) { placeholder("Enlace evidencia (https)"); value(f_evidencia); onInput { f_evidencia = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Enlace evidencia (https, mismo PDF para todos)"); value(f_evidencia); onInput { f_evidencia = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) } }
+    }
+    Div({ style { marginBottom(8.px) } }) {
+        Input(InputType.Text) { placeholder("Buscar trabajador por nombre o No. empleado..."); value(f_buscarTrabajador); onInput { f_buscarTrabajador = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(320.px) } }
+        Span({ style { marginLeft(10.px); fontSize(12.px); color(Color.gray) } }) { Text("${f_trabajadorIds.size} seleccionados") }
+        if (f_trabajadorIds.isNotEmpty()) Button({ style { marginLeft(8.px); padding(3.px, 8.px); fontSize(11.px); backgroundColor(Color("#e2e8f0")); property("border", "none"); borderRadius(4.px); cursor("pointer") }; onClick { f_trabajadorIds = emptySet() } }) { Text("Limpiar seleccion") }
+    }
+    Div({ style { maxHeight(180.px); overflow("auto"); property("border", "1px solid #e2e8f0"); borderRadius(6.px); padding(8.px); marginBottom(12.px); display(DisplayStyle.Flex); flexWrap(FlexWrap.Wrap); gap(6.px) } }) {
+        val filtro = f_buscarTrabajador.trim().lowercase()
+        employees.filter { e -> filtro.isBlank() || "${e.id} ${e.firstName} ${e.lastName}".lowercase().contains(filtro) }.forEach { e ->
+            Label(attrs = { style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(4.px); fontSize(12.px); padding(3.px, 6.px); backgroundColor(if (f_trabajadorIds.contains(e.id)) Color("#dbeafe") else Color("#f8fafc")); borderRadius(4.px); cursor("pointer") } }) {
+                Input(InputType.Checkbox) {
+                    checked(f_trabajadorIds.contains(e.id))
+                    onInput { f_trabajadorIds = if (f_trabajadorIds.contains(e.id)) f_trabajadorIds - e.id else f_trabajadorIds + e.id }
+                }
+                Text("${e.id} · ${e.firstName} ${e.lastName}".trim())
+            }
+        }
+    }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); alignItems(AlignItems.Center) } }) {
         Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick {
-            val trabajadorNombre = employees.firstOrNull { it.id == f_trabajadorId }?.let { "${it.firstName} ${it.lastName}".trim() } ?: ""
-            if (trabajadorNombre.isNotBlank() && f_tema.isNotBlank() && f_fecha.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/ehs/dc3") { contentType(ContentType.Application.Json); setBody(Dc3Constancia(trabajador = trabajadorNombre, tema = f_tema, fecha = f_fecha, horas = f_horas, responsable = f_responsable, evidenciaUrl = f_evidencia)) }; f_trabajadorId = ""; f_tema = ""; f_fecha = ""; f_horas = ""; f_evidencia = ""; refresh() } } else { window.alert("Trabajador, tema y fecha son obligatorios.") } } }) { Text("+ Agregar") }
+            if (f_busy) return@onClick
+            if (f_trabajadorIds.isEmpty() || f_tema.isBlank() || f_fecha.isBlank()) { window.alert("Selecciona al menos un trabajador, y captura tema y fecha."); return@onClick }
+            f_busy = true
+            scope.launch {
+                try {
+                    for (idSel in f_trabajadorIds) {
+                        val trabajadorNombre = employees.firstOrNull { it.id == idSel }?.let { "${it.firstName} ${it.lastName}".trim() } ?: continue
+                        client.post("$BACKEND_URL/api/v1/ehs/dc3") {
+                            contentType(ContentType.Application.Json)
+                            setBody(Dc3Constancia(trabajador = trabajadorNombre, tema = f_tema, fecha = f_fecha, horas = f_horas, responsable = f_responsable, evidenciaUrl = f_evidencia))
+                        }
+                    }
+                    f_trabajadorIds = emptySet(); f_tema = ""; f_fecha = ""; f_horas = ""; f_evidencia = ""; refresh()
+                } finally { f_busy = false }
+            }
+        } }) { Text(if (f_busy) "Guardando..." else "+ Agregar (${f_trabajadorIds.size.coerceAtLeast(1)} constancia${if (f_trabajadorIds.size == 1) "" else "s"})") }
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
