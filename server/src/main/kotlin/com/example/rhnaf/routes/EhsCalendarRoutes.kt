@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
 import com.example.rhnaf.shared.model.EhsCustomEvent
 import io.ktor.http.*
 import io.ktor.server.request.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
