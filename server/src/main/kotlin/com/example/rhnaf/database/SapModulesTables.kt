@@ -283,6 +283,30 @@ object OccupationalHealthTable : Table("ehs_occupational_health") {
 }
 
 // EHS-Quimicos. Inventario MSDS
+object Dc3ConstanciaTable : Table("ehs_dc3_constancias") {
+    val id = integer("id").autoIncrement()
+    val trabajador = varchar("trabajador", 200).default("")
+    val tema = varchar("tema", 300).default("")
+    val fecha = varchar("fecha", 50)
+    val horas = varchar("horas", 20).default("")
+    val responsable = varchar("responsable", 200).default("")
+    val evidenciaUrl = varchar("evidencia_url", 500).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+object EhsCustomEventTable : Table("ehs_custom_events") {
+    val id = integer("id").autoIncrement()
+    val fecha = varchar("fecha", 50)
+    val tipo = varchar("tipo", 50).default("evento")
+    val titulo = varchar("titulo", 300).default("")
+    val detalle = varchar("detalle", 500).default("")
+    val responsable = varchar("responsable", 200).default("")
+    val estado = varchar("estado", 50).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
 object ChemicalInventoryTable : Table("ehs_chemical_inventory") {
     val id = integer("id").autoIncrement()
     val nombre = varchar("nombre", 200)

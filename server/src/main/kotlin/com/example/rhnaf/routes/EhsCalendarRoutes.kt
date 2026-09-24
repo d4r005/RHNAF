@@ -7,6 +7,11 @@ import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
+import com.example.rhnaf.shared.model.EhsCustomEvent
+import io.ktor.http.*
+import io.ktor.server.request.*
+import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import java.time.LocalDate
 import java.time.YearMonth
@@ -52,6 +57,41 @@ private fun fechaCal(value: String): LocalDate? = FORMATOS.firstNotNullOfOrNull 
 }
 
 fun Route.ehsCalendarRouting() {
+    val calendarWrite = setOf(Roles.ADMIN, Roles.SEGURIDAD, Roles.RH)
+
+    // Eventos propios capturados desde el calendario (clic en un día).
+    route("/api/v1/ehs/calendario/eventos") {
+        post {
+            safeApiCall(call) {
+                requireRoleOr403(call, calendarWrite) ?: return@safeApiCall
+                val ev = call.receive<EhsCustomEvent>()
+                if (ev.fecha.isBlank() || ev.titulo.isBlank()) {
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Fecha y título son obligatorios"))
+                }
+                DatabaseFactory.dbQuery {
+                    EhsCustomEventTable.insert {
+                        it[fecha] = ev.fecha
+                        it[tipo] = "evento"
+                        it[titulo] = ev.titulo
+                        it[detalle] = ev.detalle
+                        it[responsable] = ev.responsable
+                        it[estado] = ev.estado
+                    }
+                }
+                call.respond(HttpStatusCode.Created, mapOf("status" to "ok"))
+            }
+        }
+        delete("/{id}") {
+            safeApiCall(call) {
+                requireRoleOr403(call, calendarWrite) ?: return@safeApiCall
+                val id = call.parameters["id"]?.toIntOrNull()
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("error" to "ID inválido"))
+                DatabaseFactory.dbQuery { EhsCustomEventTable.deleteWhere { EhsCustomEventTable.id eq id } }
+                call.respond(mapOf("status" to "ok"))
+            }
+        }
+    }
+
     get("/api/v1/ehs/calendario") {
         safeApiCall(call) {
             requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
@@ -110,6 +150,13 @@ fun Route.ehsCalendarRouting() {
                     if (row[EhsContractorTable.estado] != "Suspendido")
                         add(fechaCal(row[EhsContractorTable.vigenciaDocumento]), "contratista", row[EhsContractorTable.id],
                             row[EhsContractorTable.empresa], "Vigencia documental", "Contratista", false, "")
+                }
+                // Eventos propios capturados en el calendario
+                EhsCustomEventTable.selectAll().forEach { row ->
+                    val detalle = listOf(row[EhsCustomEventTable.responsable], row[EhsCustomEventTable.detalle])
+                        .filter { it.isNotBlank() }.joinToString(" · ")
+                    add(fechaCal(row[EhsCustomEventTable.fecha]), "evento", row[EhsCustomEventTable.id],
+                        row[EhsCustomEventTable.titulo], detalle, "Evento", false, row[EhsCustomEventTable.estado])
                 }
                 all.sortedWith(compareBy<EhsCalendarEvent> { it.fecha }.thenBy { it.esCritico }.thenBy { it.tipo })
             }

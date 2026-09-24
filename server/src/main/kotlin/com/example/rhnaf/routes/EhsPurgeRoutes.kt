@@ -102,7 +102,9 @@ fun Route.ehsPurgeRouting() {
                     "planes_accion" to EhsActionTable.deleteWhere { Op.TRUE },
                     "contratistas" to EhsContractorTable.deleteWhere { Op.TRUE },
                     "tasas" to EhsRatePeriodTable.deleteWhere { Op.TRUE },
-                    "consumo_gas" to GasConsumoTable.deleteWhere { Op.TRUE }
+                    "consumo_gas" to GasConsumoTable.deleteWhere { Op.TRUE },
+                    "dc3_constancias" to Dc3ConstanciaTable.deleteWhere { Op.TRUE },
+                    "eventos_calendario" to EhsCustomEventTable.deleteWhere { Op.TRUE }
                 )
             }
             call.respond(EhsPurgeResult(

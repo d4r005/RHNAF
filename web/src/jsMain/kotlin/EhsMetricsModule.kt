@@ -56,7 +56,7 @@ fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope) {
                 listOf(
                     "Incidentes registrados" to m.incidentes,
                     "Días perdidos declarados" to m.diasPerdidosRegistrados,
-                    "Inspecciones sin cierre" to m.inspeccionesAbiertas,
+                    "Auditorías sin cierre" to m.inspeccionesAbiertas,
                     "Capacitaciones vencidas" to m.capacitacionesVencidas,
                     "Capacitaciones por vencer (30 días)" to m.capacitacionesPorVencer30Dias
                 ).forEach { (label, value) ->

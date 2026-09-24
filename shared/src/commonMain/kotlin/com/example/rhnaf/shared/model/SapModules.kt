@@ -191,6 +191,30 @@ data class SafetyTraining(
     val estado: String = ""
 )
 
+// 5b. Constancias DC-3 (capacitación interna)
+@Serializable
+data class Dc3Constancia(
+    val id: Int = 0,
+    val trabajador: String = "",
+    val tema: String = "",
+    val fecha: String = "",
+    val horas: String = "",
+    val responsable: String = "",
+    val evidenciaUrl: String = ""
+)
+
+// 5c. Eventos propios del calendario EHS (capturados al dar clic en un día)
+@Serializable
+data class EhsCustomEvent(
+    val id: Int = 0,
+    val fecha: String,
+    val tipo: String = "evento",
+    val titulo: String = "",
+    val detalle: String = "",
+    val responsable: String = "",
+    val estado: String = ""
+)
+
 // 6. Simulacros de Emergencia
 @Serializable
 data class EmergencyDrill(

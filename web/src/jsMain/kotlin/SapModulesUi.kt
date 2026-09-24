@@ -311,7 +311,7 @@ fun QualityModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, 
         Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
             Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) } }
             Input(InputType.Text) { placeholder("Lote / Producto"); value(f_loteProducto); onInput { f_loteProducto = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
-            Input(InputType.Text) { placeholder("Inspector"); value(f_inspector); onInput { f_inspector = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+            Input(InputType.Text) { placeholder("Auditor"); value(f_inspector); onInput { f_inspector = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
             Input(InputType.Text) { placeholder("Resultado (Aprobado/Rechazado)"); value(f_resultado); onInput { f_resultado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
             Input(InputType.Text) { placeholder("Observaciones"); value(f_observaciones); onInput { f_observaciones = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
             Button({
@@ -450,18 +450,18 @@ fun GtsTradeModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope,
 
 /** División del módulo EHS en pilares, según el dueño: seguridad, salud ocupacional y medio ambiente. */
 enum class EhsPillar(val titulo: String, val descripcion: String) {
-    SEGURIDAD("Seguridad", "Inspecciones, incidentes, permisos de trabajo, EPP, capacitaciones, simulacros y matriz de riesgos."),
-    SALUD("Salud Ocupacional", "Registros de salud ocupacional e inventario químico con hojas de seguridad."),
+    SEGURIDAD("Seguridad", "Auditorías internas, incidentes, permisos de trabajo, EPP, capacitación interna, simulacros, matriz de riesgos, químicos, DC-3, dictámenes y normativa."),
+    SALUD("Salud Ocupacional", "Registros de salud ocupacional (acceso restringido a Seguridad)."),
     AMBIENTE("Medio Ambiente", "Residuos, huella de carbono y estudios ambientales.")
 }
 
 private val ehsPillarTabs: Map<EhsPillar, List<Pair<Int, String>>> = mapOf(
     EhsPillar.SEGURIDAD to listOf(
-        0 to "Inspecciones", 1 to "Incidentes", 2 to "Permisos Trabajo", 3 to "EPP",
-        4 to "Capacitaciones", 5 to "Simulacros", 6 to "Matriz Riesgos",
-        12 to "Dictámenes", 13 to "Normativa"
+        0 to "Auditoría Interna", 1 to "Incidentes", 2 to "Permisos Trabajo", 3 to "EPP",
+        4 to "Capacitación Interna", 5 to "Simulacros", 6 to "Matriz Riesgos",
+        10 to "Químicos", 14 to "DC-3", 12 to "Dictámenes", 13 to "Normativa"
     ),
-    EhsPillar.SALUD to listOf(9 to "Salud Ocupacional", 10 to "Químicos"),
+    EhsPillar.SALUD to listOf(9 to "Salud Ocupacional"),
     EhsPillar.AMBIENTE to listOf(7 to "Residuos", 8 to "Huella de Carbono", 11 to "Estudios")
 )
 
@@ -505,6 +505,7 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             11 -> EhsCategoryEvidence(client, "Estudio")
             12 -> EhsCategoryEvidence(client, "Dictamen")
             13 -> EhsCategoryEvidence(client, "Normativa")
+            14 -> EhsDc3Tab(client, scope)
             else -> P { Text("Sección no disponible.") }
         }
     }
@@ -686,7 +687,7 @@ fun EhsChemicalsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     }
 }
 
-// EHS-1. Inspecciones de Seguridad
+// EHS-1. Auditoría Interna (antes Inspecciones)
 // Lee un PDF, Word o Excel sin almacenarlo; devuelve filas para revisión humana.
 private suspend fun previewDocument(file: org.w3c.files.File): List<List<String>> =
     suspendCoroutine { continuation ->
@@ -740,7 +741,7 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         try {
             items = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body()
             evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Inspeccion").body()
-        } catch (e: Exception) { error = e.message ?: "Error cargando inspecciones" } finally { isLoading = false }
+        } catch (e: Exception) { error = e.message ?: "Error cargando auditorías" } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
     fun fillFromRow(row: List<String>) {
@@ -768,13 +769,13 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
     }
     Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} registros") }
     Div({ style { marginBottom(16.px) } }) {
-        H4 { Text("Nueva inspección") }
+        H4 { Text("Nueva auditoría interna") }
         P { Text("Captura manualmente o carga un PDF, Word (.docx) o Excel (.xlsx/.xls) para revisar sus datos. El archivo no se guarda al analizarlo; las evidencias se suben por separado en Evidencia Documental.") }
         Div({ style { display(DisplayStyle.Flex); gap(8.px); flexWrap(FlexWrap.Wrap); marginBottom(10.px) } }) {
             Input(InputType.Text) { placeholder("Fecha *"); value(fecha); onInput { fecha = it.value } }
-            Input(InputType.Text) { placeholder("Tipo de inspección"); value(tipo); onInput { tipo = it.value } }
+            Input(InputType.Text) { placeholder("Tipo de auditoría"); value(tipo); onInput { tipo = it.value } }
             Input(InputType.Text) { placeholder("Área"); value(area); onInput { area = it.value } }
-            Input(InputType.Text) { placeholder("Inspector"); value(inspector); onInput { inspector = it.value } }
+            Input(InputType.Text) { placeholder("Auditor"); value(inspector); onInput { inspector = it.value } }
             Input(InputType.Text) { placeholder("Hallazgos"); value(hallazgos); onInput { hallazgos = it.value } }
             Input(InputType.Text) { placeholder("Riesgo"); value(riesgo); onInput { riesgo = it.value } }
             Input(InputType.Text) { placeholder("Acciones correctivas"); value(acciones); onInput { acciones = it.value } }
@@ -1018,6 +1019,50 @@ fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             Tbody {
                 items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tema) }; Td { Text(row.instructor) }; Td { Text(row.asistentes) }; Td { Text(row.vigenciaMeses) }; Td { Text(row.proximaFecha) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/capacitaciones/${row.id}"); refresh() } } }) { Text("X") } } } }
                 EhsPendingEvidenceRows(evidence, colSpan = 9)
+            }
+        }
+    }
+}
+
+// EHS-5b. Constancias DC-3 de la capacitación interna
+@Composable
+fun EhsDc3Tab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var items by remember { mutableStateOf(emptyList<Dc3Constancia>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshKey by remember { mutableStateOf(0) }
+    LaunchedEffect(refreshKey) { isLoading = true; try {
+        items = client.get("$BACKEND_URL/api/v1/ehs/dc3").body()
+    } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
+    fun refresh() { refreshKey++ }
+    // El responsable por defecto es quien está capturando (el dueño lo definió así).
+    var f_trabajador by remember { mutableStateOf("") }
+    var f_tema by remember { mutableStateOf("") }
+    var f_fecha by remember { mutableStateOf("") }
+    var f_horas by remember { mutableStateOf("") }
+    var f_responsable by remember { mutableStateOf(window.localStorage.getItem("naf_user_name") ?: "") }
+    var f_evidencia by remember { mutableStateOf("") }
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} constancias DC-3 registradas") }
+    P({ style { margin(0.px, 0.px, 12.px, 0.px); color(Color("#64748b")); fontSize(13.px) } }) {
+        Text("Constancia oficial de habilidades laborales (DC-3). El responsable se registra en cada constancia; la evidencia firmada se enlaza por URL HTTPS de Drive.")
+    }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("Trabajador *"); value(f_trabajador); onInput { f_trabajador = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
+        Input(InputType.Text) { placeholder("Tema / curso *"); value(f_tema); onInput { f_tema = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Horas"); value(f_horas); onInput { f_horas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(80.px) } }
+        Input(InputType.Text) { placeholder("Responsable"); value(f_responsable); onInput { f_responsable = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        Input(InputType.Text) { placeholder("Enlace evidencia (https)"); value(f_evidencia); onInput { f_evidencia = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick { if (f_trabajador.isNotBlank() && f_tema.isNotBlank() && f_fecha.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/ehs/dc3") { contentType(ContentType.Application.Json); setBody(Dc3Constancia(trabajador = f_trabajador, tema = f_tema, fecha = f_fecha, horas = f_horas, responsable = f_responsable, evidenciaUrl = f_evidencia)) }; f_trabajador = ""; f_tema = ""; f_fecha = ""; f_horas = ""; f_evidencia = ""; refresh() } } else { window.alert("Trabajador, tema y fecha son obligatorios.") } } }) { Text("+ Agregar") }
+    }
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Trabajador") }; Th { Text("Tema") }; Th { Text("Fecha") }; Th { Text("Horas") }; Th { Text("Responsable") }; Th { Text("Evidencia") }; Th { Text("") } } }
+            Tbody {
+                items.forEach { row -> Tr {
+                    Td { Text(row.trabajador) }; Td { Text(row.tema) }; Td { Text(row.fecha) }; Td { Text(row.horas) }; Td { Text(row.responsable) }
+                    Td { if (row.evidenciaUrl.startsWith("http")) A(href = row.evidenciaUrl, attrs = { target(ATarget.Blank); style { color(Color("#2563eb")); textDecoration("underline") } }) { Text("Ver constancia") } else Text("—") }
+                    Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/ehs/dc3/${row.id}"); refresh() } } }) { Text("X") } }
+                } }
             }
         }
     }
