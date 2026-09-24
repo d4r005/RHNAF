@@ -406,6 +406,90 @@ fun Route.ehsDocumentRouting() {
             }
         }
 
+        // Reanaliza una evidencia ya almacenada, sin alterar el archivo ni crear
+        // registros. Útil para revisar los documentos históricos gradualmente.
+        get("/{id}/extraer") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.EHS_WRITE) ?: return@safeApiCall
+                val id = call.parameters["id"]?.toIntOrNull()
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("message" to "ID inválido"))
+                val row = DatabaseFactory.dbQuery {
+                    EhsDocumentTable.selectAll().where { EhsDocumentTable.id eq id }.singleOrNull()
+                } ?: return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("message" to "Archivo no encontrado"))
+                val category = row[EhsDocumentTable.categoria]
+                if (category !in com.example.rhnaf.service.OperationalDocumentReader.supportedCategories()) {
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest,
+                        mapOf("message" to "Esta categoría no tiene un esquema operativo; clasifica el documento primero"))
+                }
+                if (row[EhsDocumentTable.fileSize] > 25 * 1024 * 1024) {
+                    return@safeApiCall call.respond(HttpStatusCode.PayloadTooLarge,
+                        mapOf("message" to "El lector admite archivos de hasta 25 MiB"))
+                }
+                val stored = row[EhsDocumentTable.contentBase64]
+                val bytes = if (stored.startsWith(DRIVE_POINTER_PREFIX))
+                    GoogleDriveService.downloadFile(stored.removePrefix(DRIVE_POINTER_PREFIX))
+                    else runCatching { Base64.getDecoder().decode(stored) }.getOrNull()
+                if (bytes == null) return@safeApiCall call.respond(HttpStatusCode.BadGateway,
+                    mapOf("message" to "No se pudo recuperar el archivo"))
+                if (bytes.size > 25 * 1024 * 1024) return@safeApiCall call.respond(HttpStatusCode.PayloadTooLarge,
+                    mapOf("message" to "El lector admite archivos de hasta 25 MiB"))
+                val tmp = File.createTempFile("rhnaf-read-", ".tmp")
+                try {
+                    tmp.writeBytes(bytes)
+                    val result = com.example.rhnaf.service.OperationalDocumentReader.read(
+                        tmp, row[EhsDocumentTable.fileName], category)
+                    call.respond(com.example.rhnaf.shared.model.OperationalDocumentReadResult(
+                        result.categoria, result.campos, result.filas, result.advertencias))
+                } finally { tmp.delete() }
+            }
+        }
+
+        // Sugerencias desde un archivo nuevo antes de subirlo a Drive.
+        post("/extraer") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.EHS_WRITE) ?: return@safeApiCall
+                val tmp = File.createTempFile("rhnaf-read-", ".tmp")
+                try {
+                    var name = ""
+                    var category = ""
+                    var size = 0L
+                    var count = 0
+                    call.receiveMultipart(formFieldLimit = 25L * 1024 * 1024).forEachPart { part ->
+                        try {
+                            when (part) {
+                                is PartData.FormItem -> if (part.name == "categoria") category = part.value
+                                is PartData.FileItem -> {
+                                    count++
+                                    name = part.originalFileName.orEmpty().substringAfterLast('/').substringAfterLast('\\')
+                                    part.streamProvider().use { input ->
+                                        FileOutputStream(tmp).use { output ->
+                                            val buffer = ByteArray(65536)
+                                            while (true) {
+                                                val n = input.read(buffer)
+                                                if (n < 0) break
+                                                size += n
+                                                if (size > 25L * 1024 * 1024) break
+                                                output.write(buffer, 0, n)
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> Unit
+                            }
+                        } finally { part.dispose() }
+                    }
+                    if (count != 1 || size == 0L || size > 25L * 1024 * 1024 ||
+                        category !in com.example.rhnaf.service.OperationalDocumentReader.supportedCategories()) {
+                        return@safeApiCall call.respond(HttpStatusCode.BadRequest,
+                            mapOf("message" to "Selecciona una sección operativa y un único documento de hasta 25 MiB"))
+                    }
+                    val result = com.example.rhnaf.service.OperationalDocumentReader.read(tmp, name, category)
+                    call.respond(com.example.rhnaf.shared.model.OperationalDocumentReadResult(
+                        result.categoria, result.campos, result.filas, result.advertencias))
+                } finally { tmp.delete() }
+            }
+        }
+
         get("/{id}/descargar") {
             val role = requireAuthOr401(call) ?: return@get
             val id = call.parameters["id"]?.toIntOrNull()

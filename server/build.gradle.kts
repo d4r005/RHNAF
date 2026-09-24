@@ -38,9 +38,10 @@ dependencies {
 
     // Lector de documentos: extrae texto/tablas de PDF, Word (.docx) y Excel (.xlsx/.xls)
     // para poblar formularios de alta en lote en toda la plataforma (EHS y modulos SAP).
-    implementation("org.apache.pdfbox:pdfbox:2.0.29")
+    implementation("org.apache.pdfbox:pdfbox:2.0.30")
     implementation("org.apache.poi:poi:5.2.5")
     implementation("org.apache.poi:poi-ooxml:5.2.5")
+    testImplementation(kotlin("test"))
 }
 
 application {

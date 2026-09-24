@@ -16,6 +16,9 @@ import kotlinx.browser.document
 import org.w3c.dom.HTMLInputElement
 import org.w3c.files.FileReader
 import org.w3c.files.get
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 // Modulos estilo SAP integrados a RHNAF: CO, MM (Compras), PP, QM, EWM, GTS, EHS (Auditorias), SAP Security/GRC
 // Sigue el mismo patron que los modulos existentes en Main.kt (Warehouse/Attendance): HttpClient + LaunchedEffect + formulario inline.
@@ -1813,6 +1816,46 @@ suspend fun uploadEvidenceFile(file: org.w3c.files.File, fields: Map<String, Str
         )
     }
 
+// Vista previa transversal: el archivo se analiza, no se almacena ni crea registros.
+private suspend fun analyzeOperationalFile(file: org.w3c.files.File, category: String): OperationalDocumentReadResult =
+    suspendCoroutine { continuation ->
+        val form = js("new FormData()")
+        form.append("categoria", category)
+        form.append("file", file, file.name)
+        val options = js("({})")
+        options.method = "POST"
+        options.headers = js("({})")
+        options.headers.Authorization = "Bearer $apiAuthToken"
+        options.body = form
+        window.asDynamic().fetch("$BACKEND_URL/api/v1/ehs/documentos/extraer", options).then(
+            { response: dynamic ->
+                response.text().then(
+                    { body: dynamic ->
+                        try {
+                            if (!response.ok) throw IllegalStateException("HTTP ${response.status}: $body")
+                            continuation.resume(Json.decodeFromString<OperationalDocumentReadResult>(body as String))
+                        } catch (e: Exception) { continuation.resumeWithException(e) }
+                    },
+                    { _: dynamic -> continuation.resumeWithException(IllegalStateException("Respuesta ilegible")) }
+                )
+            },
+            { _: dynamic -> continuation.resumeWithException(IllegalStateException("No se pudo subir para análisis")) }
+        )
+    }
+
+private val operationalRoutes = mapOf(
+    "Inspeccion" to "inspecciones", "Incidente" to "incidentes", "PermisoTrabajo" to "permisos-trabajo",
+    "EPP" to "entregas-epp", "Capacitacion" to "capacitaciones", "Simulacro" to "simulacros",
+    "Riesgos" to "matriz-riesgos", "Residuos" to "residuos", "Quimicos" to "quimicos",
+    "ExamenMedico" to "salud"
+)
+private val requiredOperationalFields = mapOf(
+    "Inspeccion" to listOf("fecha"), "Incidente" to listOf("fecha"),
+    "EPP" to listOf("fecha"), "Capacitacion" to listOf("fecha"), "Simulacro" to listOf("fecha"),
+    "Residuos" to listOf("fecha", "residuo"), "Quimicos" to listOf("nombre"),
+    "ExamenMedico" to listOf("empleadoId", "fecha")
+)
+
 // Un año solo se deduce de una carpeta llamada exactamente AAAA, no del
 // nombre de una NOM (p. ej. NOM-035-2018 no demuestra el año del documento).
 private fun evidenceYear(file: org.w3c.files.File, fallback: String): Int? {
@@ -1961,6 +2004,87 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     var selectedFiles by remember { mutableStateOf(emptyList<org.w3c.files.File>()) }
     var completedFiles by remember { mutableStateOf(emptySet<org.w3c.files.File>()) }
     var f_moduleRecordId by remember { mutableStateOf(0) }
+    var extraction by remember { mutableStateOf<OperationalDocumentReadResult?>(null) }
+    var draftRows by remember { mutableStateOf(emptyList<Map<String, String>>()) }
+    var analyzing by remember { mutableStateOf(false) }
+    var savingRow by remember { mutableStateOf(false) }
+    var analysisFile by remember { mutableStateOf<org.w3c.files.File?>(null) }
+
+    // Los documentos históricos se pueden revisar por ID desde la tabla inferior.
+    // Los nuevos se pueden analizar antes de decidir si guardarlos como evidencia.
+    Div({ style { marginBottom(16.px); padding(14.px); property("border", "1px solid #cbd5e1"); borderRadius(8.px) } }) {
+        H4 { Text("Extraer datos operativos para revisar") }
+        P { Text("Elige la sección correcta. La extracción no crea registros ni modifica el documento; revisa cada campo y posibles duplicados antes de guardar.") }
+        Select({ onChange { f_categoria = it.value ?: "Inspeccion"; extraction = null; draftRows = emptyList() } }) {
+            operationalRoutes.keys.forEach { Option(it) { Text(it) } }
+        }
+        Input(InputType.File) {
+            id("operational-analyze-file")
+            attr("accept", ".pdf,.docx,.xls,.xlsx")
+            onChange { analysisFile = (document.getElementById("operational-analyze-file") as? HTMLInputElement)?.files?.item(0) }
+        }
+        Button({ onClick {
+            val file = analysisFile
+            if (file == null) statusMsg = "Selecciona un archivo para analizar."
+            else if (file.size.toLong() > 25L * 1024 * 1024) statusMsg = "El lector admite hasta 25 MiB."
+            else if (!analyzing) {
+                analyzing = true
+                scope.launch {
+                    try {
+                        val result = analyzeOperationalFile(file, f_categoria)
+                        extraction = result; draftRows = result.filas
+                        statusMsg = "${result.filas.size} fila(s) sugeridas. ${result.advertencias.joinToString(" ")}"
+                    } catch (e: Exception) { statusMsg = "No se pudo analizar: ${e.message}" }
+                    finally { analyzing = false }
+                }
+            }
+        } }) { Text(if (analyzing) "Analizando..." else "Analizar archivo") }
+        extraction?.let { result ->
+            P { Text("Sección: ${result.categoria}. ${result.advertencias.joinToString(" ")}") }
+            draftRows.forEachIndexed { index, row ->
+                Div({ style { marginBottom(12.px); padding(10.px); property("border", "1px solid #e2e8f0") } }) {
+                    P { Text("Fila ${index + 1}: compara con el archivo y con los registros existentes") }
+                    result.campos.forEach { field ->
+                        Div {
+                            Span { Text("$field: ") }
+                            Input(InputType.Text) {
+                                value(row[field].orEmpty())
+                                onInput { event ->
+                                    draftRows = draftRows.toMutableList().also { list ->
+                                        list[index] = list[index] + (field to event.value)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Button({ onClick {
+                        if (savingRow) return@onClick
+                        val current = draftRows.getOrNull(index) ?: return@onClick
+                        val required = requiredOperationalFields[result.categoria].orEmpty()
+                        if (required.any { current[it].isNullOrBlank() }) {
+                            statusMsg = "Completa los campos obligatorios: ${required.joinToString()}"
+                        } else {
+                            val route = operationalRoutes[result.categoria] ?: return@onClick
+                            savingRow = true
+                            scope.launch {
+                                try {
+                                    client.post("$BACKEND_URL/api/v1/sap/ehs/$route") {
+                                        contentType(ContentType.Application.Json)
+                                        setBody(JsonObject(current.mapValues { JsonPrimitive(it.value) }))
+                                    }
+                                    draftRows = draftRows.toMutableList().also { it.removeAt(index) }
+                                    statusMsg = "Fila guardada en ${result.categoria}. Vincula la evidencia al registro desde la sección documental si corresponde."
+                                    refresh()
+                                } catch (e: Exception) { statusMsg = "No se guardó la fila: ${e.message}" }
+                                finally { savingRow = false }
+                            }
+                        }
+                    } }) { Text("Guardar esta fila revisada") }
+                    Button({ onClick { draftRows = draftRows.toMutableList().also { it.removeAt(index) } } }) { Text("Descartar fila") }
+                }
+            }
+        }
+    }
 
     val categorias = listOf("Inspeccion", "Capacitacion", "Simulacro", "Estudio", "Dictamen", "ExamenMedico", "Incidente", "PermisoTrabajo", "EPP", "Residuos", "Riesgos", "Quimicos", "Auditoria", "DC3", "Normativa", "Otro")
     val moduleType = when (f_categoria) {
@@ -2227,6 +2351,23 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                                         }
                                     }
                                 }) { Text("Eliminar") }
+                                if (doc.categoria in operationalRoutes) {
+                                    Button({ onClick {
+                                        if (!analyzing) {
+                                            analyzing = true
+                                            scope.launch {
+                                                try {
+                                                    val result: OperationalDocumentReadResult = client.get(
+                                                        "$BACKEND_URL/api/v1/ehs/documentos/${doc.id}/extraer").body()
+                                                    extraction = result; draftRows = result.filas
+                                                    statusMsg = "Evidencia #${doc.id}: ${result.filas.size} fila(s) sugeridas. ${result.advertencias.joinToString(" ")} Revisa la vista previa arriba."
+                                                    window.scrollTo(0.0, 0.0)
+                                                } catch (e: Exception) { statusMsg = "No se pudo reanalizar #${doc.id}: ${e.message}" }
+                                                finally { analyzing = false }
+                                            }
+                                        }
+                                    } }) { Text("Extraer datos") }
+                                }
                             }
                         }
                     }

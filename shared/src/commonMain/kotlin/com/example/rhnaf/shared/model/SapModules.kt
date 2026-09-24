@@ -134,6 +134,14 @@ data class SafetyInspection(
     val estado: String = ""
 )
 
+@Serializable
+data class OperationalDocumentReadResult(
+    val categoria: String = "",
+    val campos: List<String> = emptyList(),
+    val filas: List<Map<String, String>> = emptyList(),
+    val advertencias: List<String> = emptyList()
+)
+
 // 2. Incidentes y Accidentes
 @Serializable
 data class SafetyIncident(
