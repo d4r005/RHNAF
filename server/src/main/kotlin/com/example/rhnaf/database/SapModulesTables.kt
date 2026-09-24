@@ -387,7 +387,7 @@ object EhsDocumentTable : Table("ehs_documents") {
 // Auditorías con checklist: verificación por criterio con hallazgos
 // de no conformidad y vínculo a planes de acción.
 object EhsChecklistTable : Table("ehs_checklists") {
-    val id = integer("id").autoincrement()
+    val id = integer("id").autoIncrement()
     val titulo = varchar("titulo", 300)
     val area = varchar("area", 200).default("")
     val fecha = varchar("fecha", 50)
@@ -399,7 +399,7 @@ object EhsChecklistTable : Table("ehs_checklists") {
 }
 
 object EhsChecklistItemTable : Table("ehs_checklist_items") {
-    val id = integer("id").autoincrement()
+    val id = integer("id").autoIncrement()
     val checklistId = integer("checklist_id")
     val punto = varchar("punto", 500)
     val resultado = varchar("resultado", 20).default("Pendiente")   // Pendiente / Conforme / NoConforme / NoAplica
