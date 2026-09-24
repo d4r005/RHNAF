@@ -761,6 +761,57 @@ def repair_attendance():
     call_cloud_endpoint(CLOUD_NORMALIZE_URL, "Normalize limites diarios")
 
 
+# -------------------- MIGRACION: historial mal etiquetado --------------------
+# Los eventos subidos antes de esta version llegaron SIN el attendanceStatus
+# real de la lectora, y el backend los etiqueto alternando Check-in/Check-out
+# por orden de llegada. Eso queda mal cuando alguien checa varias veces
+# seguidas (ej. 3 entradas por reintentos de la facial). Esta migracion corre
+# UNA SOLA VEZ al arrancar esta version del script:
+#   1) Verifica que la lectora responda (si no, NO borra nada y reintenta luego)
+#   2) Borra el historial de asistencia en la nube
+#   3) Lo vuelve a subir tal cual desde el 2026-01-01, ahora con el
+#      attendanceStatus real (checkIn/checkOut) de cada evento crudo
+MIGRATION_KEY = "attendance_status_resync_v2"
+
+
+def migrate_attendance_status():
+    state = load_state()
+    if state.get(MIGRATION_KEY) == "done":
+        return
+    log("=== MIGRACION: re-etiquetar asistencia con el estado real de la lectora ===")
+
+    # 1) La lectora debe estar accesible ANTES de borrar nada en la nube
+    try:
+        probe_from = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
+        probe_to = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        fetch_events(probe_from, probe_to, position=0)
+    except requests.RequestException as e:
+        log(f"  [MIGRACION] lectora inaccesible ({e}); NO se borro nada. Se reintentara en el proximo ciclo.")
+        return
+
+    # 2) Borrar el historial mal etiquetado en la nube (requiere cloud_token)
+    if not CLOUD_TOKEN:
+        log("  [MIGRACION] config.json no tiene 'cloud_token' (tu correo de login).")
+        log("  [MIGRACION] Agregalo y reinicia el sincronizador; la migracion correra sola.")
+        return
+    try:
+        resp = requests.delete(f"{CLOUD_BASE}/api/v1/asistencia/all", headers=CLOUD_HEADERS, timeout=30)
+        resp.raise_for_status()
+        log(f"  [MIGRACION] historial borrado en la nube: {resp.json()}")
+    except requests.RequestException as e:
+        log(f"  [MIGRACION] no se pudo borrar el historial en la nube ({e}); se reintentara en el proximo ciclo.")
+        return
+
+    # 3) Re-subir todo desde el 1 de enero con el estado real de cada evento
+    state[MIGRATION_KEY] = "in_progress"
+    save_state(state)
+    run_cycle(sin_fotos=True, force_since="2026-01-01T00:00:00")
+    state = load_state()
+    state[MIGRATION_KEY] = "done"
+    save_state(state)
+    log("=== MIGRACION COMPLETADA: la nube ya refleja las checadas tal cual la lectora ===")
+
+
 # -------------------- CICLO PRINCIPAL --------------------
 
 def poll_and_run_remote_task():
@@ -967,6 +1018,7 @@ def main():
         sys.exit(0)
     if args.loop:
         log(f"Modo continuo: cada {args.interval}s. Ctrl+C para detener.")
+        migrate_attendance_status()
         first = True
         while True:
             try:
@@ -990,7 +1042,8 @@ def main():
             first = False
             time.sleep(args.interval)
     else:
-        # Corrida unica: primero revisar tarea remota, luego ciclo normal
+        # Corrida unica: primero la migracion (si pendiente), luego tarea remota
+        migrate_attendance_status()
         if not poll_and_run_remote_task():
             run_cycle(
                 sin_fotos=args.sin_fotos,
