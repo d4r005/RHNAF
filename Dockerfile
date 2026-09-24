@@ -41,7 +41,7 @@ RUN SKIP_ANDROID=true ./gradlew :web:compileDevelopmentExecutableKotlinJs \
 
 # Paso 1b: empaquetar con webpack (proceso Node) — la JVM del paso anterior
 # ya terminó y liberó su memoria por completo antes de que arranque Node.
-RUN SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentWebpack \
+RUN SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentExecutableDistribution \
     --no-daemon \
     --build-cache \
     --max-workers=1 \
