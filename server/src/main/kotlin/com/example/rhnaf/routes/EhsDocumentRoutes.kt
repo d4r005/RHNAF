@@ -5,6 +5,16 @@ import com.example.rhnaf.auth.requireAuthOr401
 import com.example.rhnaf.auth.requireRoleOr403
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.EhsDocumentTable
+import com.example.rhnaf.database.SafetyInspectionTable
+import com.example.rhnaf.database.SafetyIncidentTable
+import com.example.rhnaf.database.WorkPermitTable
+import com.example.rhnaf.database.PpeDeliveryTable
+import com.example.rhnaf.database.SafetyTrainingTable
+import com.example.rhnaf.database.EmergencyDrillTable
+import com.example.rhnaf.database.RiskMatrixTable
+import com.example.rhnaf.database.EnvironmentalWasteTable
+import com.example.rhnaf.database.OccupationalHealthTable
+import com.example.rhnaf.database.ChemicalInventoryTable
 import com.example.rhnaf.service.GoogleDriveService
 import com.example.rhnaf.shared.model.EhsDocument
 import com.example.rhnaf.shared.model.EhsDocumentUpload
@@ -461,6 +471,58 @@ fun Route.ehsDocumentRouting() {
                     val driveDeleted = GoogleDriveService.deleteFile(storedContent.removePrefix(DRIVE_POINTER_PREFIX))
                     if (!driveDeleted) println("[EhsDocumentRoutes] Aviso: no se pudo borrar el archivo de Drive para evidencia $id")
                 }
+                call.respond(mapOf("status" to "ok"))
+            }
+        }
+
+        // Vincular manualmente cualquier evidencia (con o sin registro previo)
+        // a cualquier registro EHS existente. Antes solo se creaba el vinculo
+        // automaticamente al generar el registro desde Drive; el usuario debe
+        // poder corregirlo o completarlo a mano en cualquier momento.
+        post("/{id}/vincular") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.EHS_WRITE) ?: return@safeApiCall
+                val id = call.parameters["id"]?.toIntOrNull()
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "ID invalido"))
+                val req = call.receive<com.example.rhnaf.shared.model.EhsDocumentLinkRequest>()
+
+                if (req.moduleRecordId == 0) {
+                    val updated = DatabaseFactory.dbQuery {
+                        EhsDocumentTable.update({ EhsDocumentTable.id eq id }) {
+                            it[EhsDocumentTable.moduleType] = ""
+                            it[EhsDocumentTable.moduleRecordId] = 0
+                        }
+                    }
+                    if (updated == 0) return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("status" to "error", "message" to "Evidencia no encontrada"))
+                    return@safeApiCall call.respond(mapOf("status" to "ok"))
+                }
+
+                val existeDestino = DatabaseFactory.dbQuery {
+                    when (req.moduleType) {
+                        "inspection" -> SafetyInspectionTable.selectAll().where { SafetyInspectionTable.id eq req.moduleRecordId }.limit(1).any()
+                        "incident" -> SafetyIncidentTable.selectAll().where { SafetyIncidentTable.id eq req.moduleRecordId }.limit(1).any()
+                        "permit" -> WorkPermitTable.selectAll().where { WorkPermitTable.id eq req.moduleRecordId }.limit(1).any()
+                        "ppe" -> PpeDeliveryTable.selectAll().where { PpeDeliveryTable.id eq req.moduleRecordId }.limit(1).any()
+                        "training" -> SafetyTrainingTable.selectAll().where { SafetyTrainingTable.id eq req.moduleRecordId }.limit(1).any()
+                        "drill" -> EmergencyDrillTable.selectAll().where { EmergencyDrillTable.id eq req.moduleRecordId }.limit(1).any()
+                        "risk" -> RiskMatrixTable.selectAll().where { RiskMatrixTable.id eq req.moduleRecordId }.limit(1).any()
+                        "waste" -> EnvironmentalWasteTable.selectAll().where { EnvironmentalWasteTable.id eq req.moduleRecordId }.limit(1).any()
+                        "health" -> OccupationalHealthTable.selectAll().where { OccupationalHealthTable.id eq req.moduleRecordId }.limit(1).any()
+                        "chemical" -> ChemicalInventoryTable.selectAll().where { ChemicalInventoryTable.id eq req.moduleRecordId }.limit(1).any()
+                        else -> false
+                    }
+                }
+                if (!existeDestino) {
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "El registro destino no existe"))
+                }
+
+                val updated = DatabaseFactory.dbQuery {
+                    EhsDocumentTable.update({ EhsDocumentTable.id eq id }) {
+                        it[EhsDocumentTable.moduleType] = req.moduleType
+                        it[EhsDocumentTable.moduleRecordId] = req.moduleRecordId
+                    }
+                }
+                if (updated == 0) return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("status" to "error", "message" to "Evidencia no encontrada"))
                 call.respond(mapOf("status" to "ok"))
             }
         }

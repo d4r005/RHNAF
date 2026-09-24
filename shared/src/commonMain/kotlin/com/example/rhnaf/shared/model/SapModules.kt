@@ -425,6 +425,14 @@ data class EhsDocument(
     val moduleRecordId: Int = 0             // ID del registro concreto asociado
 )
 
+// Vincular manualmente una evidencia ya subida con cualquier registro EHS
+// existente (o des-vincularla con moduleRecordId = 0).
+@Serializable
+data class EhsDocumentLinkRequest(
+    val moduleType: String,
+    val moduleRecordId: Int
+)
+
 @Serializable
 data class EhsDocumentUpload(
     val categoria: String = "Otro",

@@ -565,7 +565,7 @@ fun EhsEnvironmentTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
             Thead { Tr { Th { Text("Fecha") }; Th { Text("Residuo") }; Th { Text("Tipo") }; Th { Text("Cant") }; Th { Text("Transportista") }; Th { Text("Destino") }; Th { Text("Manifiesto") }; Th { Text("Evidencias") }; Th { Text("") } } }
             Tbody {
                 items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.residuo) }; Td { Text(row.tipo) }; Td { Text(row.cantidad) }; Td { Text(row.transportista) }; Td { Text(row.destinoFinal) }; Td { Text(row.numeroManifiesto) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/residuos/${row.id}"); refresh() } } }) { Text("X") } } } }
-                EhsPendingEvidenceRows(evidence, colSpan = 9)
+                EhsPendingEvidenceRows(evidence, colSpan = 9, moduleType = "waste", client = client, scope = scope, onLinked = { refresh() })
             }
         }
     }
@@ -622,7 +622,7 @@ fun EhsOccupationalHealthTab(client: HttpClient, scope: kotlinx.coroutines.Corou
             Thead { Tr { Th { Text("ID Emp") }; Th { Text("Nombre") }; Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Resultado") }; Th { Text("Prox. Cita") }; Th { Text("Evidencias") }; Th { Text("") } } }
             Tbody {
                 items.forEach { row -> Tr { Td { Text(row.empleadoId) }; Td { Text(row.nombreEmpleado) }; Td { Text(row.fecha) }; Td { Text(row.tipoExamen) }; Td { Text(row.resultado) }; Td { Text(row.proximaCita) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/salud/${row.id}"); refresh() } } }) { Text("X") } } } }
-                EhsPendingEvidenceRows(evidence, colSpan = 8)
+                EhsPendingEvidenceRows(evidence, colSpan = 8, moduleType = "health", client = client, scope = scope, onLinked = { refresh() })
             }
         }
     }
@@ -682,7 +682,7 @@ fun EhsChemicalsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                     else if (row.hojaSeguridadUrl.isNotEmpty()) A(href = row.hojaSeguridadUrl) { Text("Ver PDF") }
                     else Text("-")
                 }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/quimicos/${row.id}"); refresh() } } }) { Text("X") } } } }
-                EhsPendingEvidenceRows(evidence, colSpan = 6)
+                EhsPendingEvidenceRows(evidence, colSpan = 6, moduleType = "chemical", client = client, scope = scope, onLinked = { refresh() })
             }
         }
     }
@@ -847,7 +847,7 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
             Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Area") }; Th { Text("Inspector") }; Th { Text("Hallazgos") }; Th { Text("Riesgo") }; Th { Text("Acciones") }; Th { Text("F.Cierre") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
             Tbody {
                 items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipoInspeccion) }; Td { Text(row.area) }; Td { Text(row.inspector) }; Td { Text(row.hallazgos) }; Td { Text(row.riesgo) }; Td { Text(row.accionesCorrectivas) }; Td { Text(row.fechaCierre) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/inspecciones/${row.id}"); refresh() } } }) { Text("X") } } } }
-                EhsPendingEvidenceRows(evidence, colSpan = 11)
+                EhsPendingEvidenceRows(evidence, colSpan = 11, moduleType = "inspection", client = client, scope = scope, onLinked = { refresh() })
             }
         }
     }
@@ -894,7 +894,7 @@ fun EhsIncidentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Severidad") }; Th { Text("Persona") }; Th { Text("Depto") }; Th { Text("Cuerpo") }; Th { Text("Dias") }; Th { Text("Descripcion") }; Th { Text("Causa") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
             Tbody {
                 items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipo) }; Td { Text(row.severidad) }; Td { Text(row.personaAfectada) }; Td { Text(row.departamento) }; Td { Text(row.parteCuerpo) }; Td { Text(row.diasPerdidos) }; Td { Text(row.descripcion) }; Td { Text(row.causaRaiz) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/incidentes/${row.id}"); refresh() } } }) { Text("X") } } } }
-                EhsPendingEvidenceRows(evidence, colSpan = 12)
+                EhsPendingEvidenceRows(evidence, colSpan = 12, moduleType = "incident", client = client, scope = scope, onLinked = { refresh() })
             }
         }
     }
@@ -939,7 +939,7 @@ fun EhsWorkPermitsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
             Thead { Tr { Th { Text("Tipo") }; Th { Text("Solicitante") }; Th { Text("Autorizado") }; Th { Text("F.Inicio") }; Th { Text("F.Fin") }; Th { Text("Area") }; Th { Text("Riesgos") }; Th { Text("EPP") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
             Tbody {
                 items.forEach { row -> Tr { Td { Text(row.tipo) }; Td { Text(row.solicitante) }; Td { Text(row.autorizadoPor) }; Td { Text(row.fechaInicio) }; Td { Text(row.fechaFin) }; Td { Text(row.area) }; Td { Text(row.riesgosIdentificados) }; Td { Text(row.eppRequerido) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/permisos-trabajo/${row.id}"); refresh() } } }) { Text("X") } } } }
-                EhsPendingEvidenceRows(evidence, colSpan = 11)
+                EhsPendingEvidenceRows(evidence, colSpan = 11, moduleType = "permit", client = client, scope = scope, onLinked = { refresh() })
             }
         }
     }
@@ -978,7 +978,7 @@ fun EhsPpeTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
             Thead { Tr { Th { Text("Fecha") }; Th { Text("Empleado") }; Th { Text("Tipo EPP") }; Th { Text("Talla") }; Th { Text("Prox. Reposicion") }; Th { Text("Firma") }; Th { Text("Evidencias") }; Th { Text("") } } }
             Tbody {
                 items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.empleado) }; Td { Text(row.tipoEpp) }; Td { Text(row.talla) }; Td { Text(row.proximaReposicion) }; Td { Text(row.firma) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/entregas-epp/${row.id}"); refresh() } } }) { Text("X") } } } }
-                EhsPendingEvidenceRows(evidence, colSpan = 8)
+                EhsPendingEvidenceRows(evidence, colSpan = 8, moduleType = "ppe", client = client, scope = scope, onLinked = { refresh() })
             }
         }
     }
@@ -1019,7 +1019,7 @@ fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             Thead { Tr { Th { Text("Fecha") }; Th { Text("Tema") }; Th { Text("Instructor") }; Th { Text("Asist.") }; Th { Text("Vigencia") }; Th { Text("Prox.Fecha") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
             Tbody {
                 items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tema) }; Td { Text(row.instructor) }; Td { Text(row.asistentes) }; Td { Text(row.vigenciaMeses) }; Td { Text(row.proximaFecha) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/capacitaciones/${row.id}"); refresh() } } }) { Text("X") } } } }
-                EhsPendingEvidenceRows(evidence, colSpan = 9)
+                EhsPendingEvidenceRows(evidence, colSpan = 9, moduleType = "training", client = client, scope = scope, onLinked = { refresh() })
             }
         }
     }
@@ -1104,7 +1104,7 @@ fun EhsDrillsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
             Thead { Tr { Th { Text("Fecha") }; Th { Text("Tipo") }; Th { Text("Particip.") }; Th { Text("T.Evacuac.") }; Th { Text("Resultado") }; Th { Text("Observaciones") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
             Tbody {
                 items.forEach { row -> Tr { Td { Text(row.fecha) }; Td { Text(row.tipo) }; Td { Text(row.participantes) }; Td { Text(row.tiempoEvacuacion) }; Td { Text(row.resultado) }; Td { Text(row.observaciones) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/simulacros/${row.id}"); refresh() } } }) { Text("X") } } } }
-                EhsPendingEvidenceRows(evidence, colSpan = 9)
+                EhsPendingEvidenceRows(evidence, colSpan = 9, moduleType = "drill", client = client, scope = scope, onLinked = { refresh() })
             }
         }
     }
@@ -1149,7 +1149,7 @@ fun EhsRiskMatrixTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
             Thead { Tr { Th { Text("Area") }; Th { Text("Proceso") }; Th { Text("Riesgo") }; Th { Text("Prob.") }; Th { Text("Sev.") }; Th { Text("Nivel") }; Th { Text("Controles") }; Th { Text("Responsable") }; Th { Text("Estado") }; Th { Text("Evidencias") }; Th { Text("") } } }
             Tbody {
                 items.forEach { row -> Tr { Td { Text(row.area) }; Td { Text(row.proceso) }; Td { Text(row.riesgoIdentificado) }; Td { Text(row.probabilidad) }; Td { Text(row.severidad) }; Td { Text(row.nivelRiesgo) }; Td { Text(row.controles) }; Td { Text(row.responsable) }; Td { Text(row.estado) }; Td { EhsEvidenceButtons(evidence.filter { it.moduleRecordId == row.id }) }; Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/sap/ehs/matriz-riesgos/${row.id}"); refresh() } } }) { Text("X") } } } }
-                EhsPendingEvidenceRows(evidence, colSpan = 11)
+                EhsPendingEvidenceRows(evidence, colSpan = 11, moduleType = "risk", client = client, scope = scope, onLinked = { refresh() })
             }
         }
     }
@@ -1533,8 +1533,17 @@ fun EhsCategoryEvidence(client: HttpClient, categoria: String) {
 // se listaban todos juntos arriba del modulo; ahora aparecen dentro de la
 // misma tabla, ocupando el ancho completo, hasta que se les cree su registro.
 @Composable
-fun EhsPendingEvidenceRows(evidence: List<EhsDocument>, colSpan: Int) {
+fun EhsPendingEvidenceRows(
+    evidence: List<EhsDocument>,
+    colSpan: Int,
+    moduleType: String,
+    client: HttpClient,
+    scope: kotlinx.coroutines.CoroutineScope,
+    onLinked: () -> Unit
+) {
     evidence.filter { it.moduleRecordId == 0 }.forEach { doc ->
+        var targetId by remember(doc.id) { mutableStateOf("") }
+        var linkMsg by remember(doc.id) { mutableStateOf("") }
         Tr({ style { backgroundColor(Color("#fffbeb")) } }) {
             Td({
                 attr("colspan", colSpan.toString())
@@ -1543,6 +1552,32 @@ fun EhsPendingEvidenceRows(evidence: List<EhsDocument>, colSpan: Int) {
                 Span({ style { color(Color("#92400e")); marginRight(8.px) } }) { Text("Evidencia sin registro vinculado ·") }
                 Span({ style { fontWeight("600"); marginRight(8.px) } }) { Text(doc.titulo) }
                 EhsEvidenceButtons(listOf(doc))
+                Span({ style { marginLeft(10.px); color(Color.gray); fontSize(12.px) } }) { Text("Vincular a ID de registro:") }
+                Input(InputType.Text) {
+                    value(targetId); onInput { targetId = it.value; linkMsg = "" }
+                    style { width(60.px); marginLeft(4.px); padding(3.px); borderRadius(4.px); property("border", "1px solid #cbd5e1") }
+                }
+                Button({
+                    style { marginLeft(4.px); padding(3.px, 8.px); backgroundColor(Color("#059669")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(11.px) }
+                    onClick {
+                        val recId = targetId.toIntOrNull()
+                        if (recId == null || recId <= 0) {
+                            linkMsg = "ID inválido"
+                        } else {
+                            scope.launch {
+                                try {
+                                    val resp = client.post("$BACKEND_URL/api/v1/ehs/documentos/${doc.id}/vincular") {
+                                        contentType(ContentType.Application.Json)
+                                        setBody(EhsDocumentLinkRequest(moduleType = moduleType, moduleRecordId = recId))
+                                    }
+                                    if (resp.status.value in 200..299) onLinked()
+                                    else linkMsg = "No se pudo vincular: revisa que el registro #$recId exista"
+                                } catch (e: Exception) { linkMsg = "Error: ${e.message}" }
+                            }
+                        }
+                    }
+                }) { Text("Vincular") }
+                if (linkMsg.isNotBlank()) Span({ style { marginLeft(8.px); color(Color("#dc2626")); fontSize(11.px) } }) { Text(linkMsg) }
             }
         }
     }
