@@ -677,12 +677,14 @@ def sync_attendance(force_since: str | None = None):
     total_seen = 0
     position = 0
     latest_time_seen = start_time
+    device_error = None
 
     for page in range(MAX_PAGES_ATTENDANCE):
         try:
             data = fetch_events(start_time, end_time, position)
         except requests.RequestException as e:
-            log(f"  [ATT] no se pudo consultar la lectora: {e}")
+            device_error = str(e)
+            log(f"  [ATT] no se pudo consultar la lectora ({DEVICE_IP}): {e}")
             break
 
         acs = data.get("AcsEvent", {})
@@ -713,7 +715,7 @@ def sync_attendance(force_since: str | None = None):
         state.setdefault("last_synced_time", start_time)
     save_state(state)
 
-    return total_seen, total_pushed
+    return total_seen, total_pushed, device_error
 
 
 # -------------------- PARTE 3: REPARACION --------------------
@@ -755,15 +757,28 @@ def poll_and_run_remote_task():
         requests.post(CLOUD_UPDATE_TASK_URL, json={"id": task_id, "status": "IN_PROGRESS"}, headers=CLOUD_HEADERS, timeout=10)
 
         # Ejecutar sincronizacion completa
-        result = run_cycle(force_since="2026-01-01T00:00:00")
+        summary = run_cycle(force_since="2026-01-01T00:00:00")
 
-        # Marcar como DONE
+        if summary.get("device_error"):
+            result_msg = (
+                f"No se pudo conectar con la lectora ({DEVICE_IP}): {summary['device_error']}. "
+                f"Revisa que la PC de planta tenga red hacia el dispositivo."
+            )
+            final_status = "ERROR"
+        else:
+            result_msg = (
+                f"Checadas vistas: {summary['checadas_vistas']} | subidas: {summary['checadas_subidas']}. "
+                f"Empleados nuevos: {summary['empleados_nuevos']} | actualizados: {summary['empleados_actualizados']}."
+            )
+            final_status = "DONE"
+
+        # Marcar como DONE/ERROR con el resultado real (no un mensaje generico)
         requests.post(CLOUD_UPDATE_TASK_URL, json={
             "id": task_id,
-            "status": "DONE",
-            "result": "Sincronizacion completada desde la lectora local"
+            "status": final_status,
+            "result": result_msg
         }, headers=CLOUD_HEADERS, timeout=10)
-        log(f"  [TASK] Tarea #{task_id} completada")
+        log(f"  [TASK] Tarea #{task_id} completada: {result_msg}")
         return True
     except Exception as e:
         log(f"  [TASK] Error procesando tarea remota: {e}")
@@ -784,10 +799,17 @@ def run_cycle(sin_fotos: bool = False, debug: bool = False, force_since: str | N
     if not CLOUD_TOKEN:
         log("[AVISO] config.json no tiene 'cloud_token' (tu correo de login de la web).")
         log("[AVISO] Las checadas SI se subiran, pero empleados/repaciones seran rechazadas (401).")
-    sync_employees(sin_fotos=sin_fotos, debug=debug)
-    sync_attendance(force_since=force_since)
+    creados, actualizados, fotos_guardadas = sync_employees(sin_fotos=sin_fotos, debug=debug)
+    total_seen, total_pushed, device_error = sync_attendance(force_since=force_since)
     repair_attendance()
     log("------ CICLO COMPLETADO ------")
+    return {
+        "empleados_nuevos": creados,
+        "empleados_actualizados": actualizados,
+        "checadas_vistas": total_seen,
+        "checadas_subidas": total_pushed,
+        "device_error": device_error,
+    }
 
 
 

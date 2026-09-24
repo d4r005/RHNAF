@@ -68,7 +68,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                     taskStatus = body["status"]
                     if (taskStatus == "DONE") {
                         refreshKey++
-                        window.alert("Sincronizacion completada. Datos actualizados desde la lectora.")
+                        window.alert("Sincronizacion completada.\n" + (body["result"] ?: ""))
                         activeTaskId = null
                     } else if (taskStatus == "ERROR") {
                         window.alert("Error en la sincronizacion: ${body["result"]}")
