@@ -31,7 +31,6 @@ private data class CalEvento(
 )
 
 @Serializable
-@Serializable
 private data class CalEventoPost(
     val fecha: String,
     val tipo: String = "evento",
