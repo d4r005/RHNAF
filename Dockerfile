@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # Etapa 1: Construcción
 FROM eclipse-temurin:21-jdk-jammy AS build
 WORKDIR /app
@@ -24,13 +23,17 @@ RUN chmod +x gradlew
 # terminar, evitando que las compilaciones (Kotlin/JS, webpack y Kotlin/JVM)
 # acumulen memoria dentro del mismo proceso — esto fue lo que causó el
 # OOMKilled (exit 137) al combinarlas.
-# El cache mount persiste ~/.gradle (dependencias Gradle/Node/Yarn + build
-# cache) ENTRE builds de Hugging Face aunque el COPY de código fuente invalide
-# las capas de Docker, acelerando despliegues subsecuentes.
+# NOTA (2026-09-24): se quito el pragma "syntax=docker/dockerfile:1" y los
+# --mount=type=cache de estos RUN. Ese pragma obliga a BuildKit a resolver una
+# imagen externa (docker.io/docker/dockerfile:1) antes de construir; cuando
+# Docker Hub tiene problemas (como ocurrio hoy, afectando muchos Spaces por
+# igual segun el status de Hugging Face), el build falla ahi mismo sin llegar
+# siquiera a compilar. Sin el pragma, BuildKit usa su frontend interno (no
+# depende de Docker Hub) al costo de recompilar Gradle/Node desde cero en cada
+# build -- mas lento, pero no bloqueado por un tercero.
 
 # Paso 1a: compilar Kotlin/JS a JS puro (proceso JVM, sin Node todavía).
-RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
-    SKIP_ANDROID=true ./gradlew :web:compileDevelopmentExecutableKotlinJs \
+RUN SKIP_ANDROID=true ./gradlew :web:compileDevelopmentExecutableKotlinJs \
     --no-daemon \
     --build-cache \
     --max-workers=1 \
@@ -38,8 +41,7 @@ RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
 
 # Paso 1b: empaquetar con webpack (proceso Node) — la JVM del paso anterior
 # ya terminó y liberó su memoria por completo antes de que arranque Node.
-RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
-    SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentWebpack \
+RUN SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentWebpack \
     --no-daemon \
     --build-cache \
     --max-workers=1 \
@@ -47,8 +49,7 @@ RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
     -Dnode.options="--max-old-space-size=768"
 
 # Paso 2: Servidor (Kotlin/JVM) — proceso limpio, sin Node de por medio.
-RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
-    SKIP_ANDROID=true ./gradlew :server:installDist \
+RUN SKIP_ANDROID=true ./gradlew :server:installDist \
     --no-daemon \
     --build-cache \
     --max-workers=1 \
