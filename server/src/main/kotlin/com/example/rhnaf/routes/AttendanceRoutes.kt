@@ -334,6 +334,14 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             call.respond(mapOf("registros_eliminados" to deleted.toString(), "mensaje" to "Se dejaron solo 1 Check-in y 1 Check-out por empleado por dia."))
         }
 
+        // Corrige el Check-in/Check-out de TODAS las checadas ya guardadas (historico),
+        // etiquetando por orden cronologico real dentro de cada dia por empleado.
+        // Seguro de correr varias veces (es idempotente).
+        post("/recompute-status") {
+            val updated = attendanceUseCase.recomputeCheckInOutStatus()
+            call.respond(mapOf("registros_actualizados" to updated.toString(), "mensaje" to "Se recalcularon Check-in/Check-out por orden cronologico real."))
+        }
+
         // Repara registros historicos con Name/Department/Attendance Status vacios
         // (llegaron antes de que existieran estas columnas, o la lectora no manda el nombre).
         // Seguro de correr varias veces.

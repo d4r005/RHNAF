@@ -28,12 +28,35 @@ class AttendanceUseCase {
     }
 
     /**
+     * Determina si una checada es Check-in o Check-out por ORDEN CRONOLOGICO real
+     * dentro del dia para ese empleado (no se inventa nada, solo se cuenta):
+     * 1a checada del dia = Check-in, 2a = Check-out, 3a = Check-in, 4a = Check-out...
+     * Esto aplica porque en esta planta no hay checada de comida, solo entrada y
+     * salida de jornada, pero el personal a veces checa varias veces (ej. reintentos
+     * de la lectora facial) y todas esas checadas se guardan igual, alternando.
+     */
+    private fun inferCheckInOutByOrder(employeeId: String, timestamp: String): String {
+        val day = timestamp.take(10) // "YYYY-MM-DD", valido con o sin offset de zona
+        val countBefore = AttendanceLogTable
+            .selectAll()
+            .where {
+                (AttendanceLogTable.employeeId eq employeeId) and
+                    (AttendanceLogTable.timestamp like "$day%") and
+                    (AttendanceLogTable.timestamp less timestamp)
+            }
+            .count()
+        return if (countBefore % 2 == 0L) "Check-in" else "Check-out"
+    }
+
+    /**
      * Registra una checada. Guarda EXACTAMENTE lo que manda la lectora.
      *
      * - Si el employeeNo es invalido (none, null, 0, vacio): se descarta.
      * - Si ya existe un registro con el mismo employeeId + timestamp: no duplica (para cuando el sync re-corre).
-     * - El attendanceStatus se guarda tal cual viene de la lectora (inferido del checkpoint en AttendanceRoutes).
-     *   Si viene vacio, se guarda vacio. No se inventa nada.
+     * - El attendanceStatus: si la lectora/checkpoint ya lo manda explicito (inferido del
+     *   nombre del checkpoint en AttendanceRoutes), se respeta tal cual. Si viene vacio
+     *   (caso real de esta planta: un solo dispositivo "HIKVISIONWEB" que no distingue
+     *   entrada/salida), se infiere por orden cronologico real via inferCheckInOutByOrder.
      */
     suspend fun registerCheckIn(
         employeeId: String,
@@ -67,17 +90,58 @@ class AttendanceUseCase {
                 (name.ifBlank { empName }) to (department.ifBlank { empDept })
             } else name to department
 
+            val resolvedStatus = attendanceStatus.ifBlank { inferCheckInOutByOrder(employeeId, timestamp) }
+
             AttendanceLogTable.insert {
                 it[AttendanceLogTable.employeeId] = employeeId.take(100)
                 it[AttendanceLogTable.timestamp] = timestamp
                 it[AttendanceLogTable.deviceSerial] = deviceSerial.take(150)
                 it[AttendanceLogTable.verifyMode] = verifyMode.take(100)
-                it[AttendanceLogTable.attendanceStatus] = attendanceStatus
+                it[AttendanceLogTable.attendanceStatus] = resolvedStatus
                 it[AttendanceLogTable.name] = resolvedName.take(200)
                 it[AttendanceLogTable.department] = resolvedDept.take(150)
                 it[AttendanceLogTable.customName] = customName.take(200)
             }
             true
+        }
+    }
+
+    /**
+     * Corrige registros historicos que quedaron con attendanceStatus vacio
+     * (checadas que llegaron antes de existir inferCheckInOutByOrder, o de un
+     * dispositivo que no manda el estado explicito). Recalcula por ORDEN
+     * cronologico real dentro de cada dia por empleado -- no inventa horarios,
+     * solo etiqueta 1a=Check-in, 2a=Check-out, 3a=Check-in... con los timestamps
+     * reales ya guardados.
+     */
+    suspend fun recomputeCheckInOutStatus(): Int {
+        return DatabaseFactory.dbQuery {
+            val rows = AttendanceLogTable
+                .select(AttendanceLogTable.id, AttendanceLogTable.employeeId, AttendanceLogTable.timestamp, AttendanceLogTable.attendanceStatus)
+                .orderBy(AttendanceLogTable.employeeId, SortOrder.ASC)
+                .orderBy(AttendanceLogTable.timestamp, SortOrder.ASC)
+                .map {
+                    Triple(it[AttendanceLogTable.id], it[AttendanceLogTable.employeeId], it[AttendanceLogTable.timestamp]) to it[AttendanceLogTable.attendanceStatus]
+                }
+
+            var updated = 0
+            val countPerEmployeeDay = HashMap<String, Int>()
+            for ((info, currentStatus) in rows) {
+                val (id, empId, ts) = info
+                if (currentStatus.equals("Duplicate", ignoreCase = true)) continue
+                val day = ts.take(10)
+                val key = "$empId|$day"
+                val position = countPerEmployeeDay.getOrDefault(key, 0)
+                countPerEmployeeDay[key] = position + 1
+                val newStatus = if (position % 2 == 0) "Check-in" else "Check-out"
+                if (currentStatus != newStatus) {
+                    AttendanceLogTable.update({ AttendanceLogTable.id eq id }) {
+                        it[AttendanceLogTable.attendanceStatus] = newStatus
+                    }
+                    updated++
+                }
+            }
+            updated
         }
     }
 
