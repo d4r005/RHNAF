@@ -1629,7 +1629,7 @@ fun EhsEvidenceButtons(documents: List<EhsDocument>) {
 }
 
 // El navegador envia el File directamente como multipart, sin convertirlo a base64.
-private suspend fun uploadEvidenceFile(file: org.w3c.files.File, fields: Map<String, String>): String =
+suspend fun uploadEvidenceFile(file: org.w3c.files.File, fields: Map<String, String>): String =
     suspendCoroutine { continuation ->
         val form = js("new FormData()")
         fields.forEach { (key, value) -> form.append(key, value) }

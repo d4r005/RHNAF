@@ -378,6 +378,12 @@ data class LegalMatrixItem(
     val notas: String = "",
     val esCritico: Boolean = false,        // permiso crítico: riesgo de clausura si vence
     val urlNorma: String = "",            // URL al texto oficial de la norma (DOF/gob.mx)
+    // --- Extensiones estilo EHSoft ---
+    val subCategoria: String = "",        // grupo interno: Seguridad, Salud ocupacional, Ambiental...
+    val tipoObligacion: String = "",     // Permiso, Registro, Dictamen, Manifiesto, Informe, Programa, Cumplimiento continuo
+    val autoridad: String = "",           // STPS, SEMARNAT, PROFEPA, Protección Civil estatal/municipal...
+    val responsableEmail: String = "",   // correo para recordatorios de vencimiento
+    val nDocumentos: Int = 0,             // CALCULADO: número de documentos de cumplimiento adjuntos
     val estado: String = ""               // CALCULADO por el servidor: Vigente, PorVencer, Vencido, NoAplica, Pendiente
 )
 
@@ -400,7 +406,75 @@ data class CategoryCompliance(
     val categoria: String,
     val aplicables: Int = 0,
     val vigentes: Int = 0,
+    val porcentaje: Double = 0.0,
+    val subCategorias: List<SubCategoryCompliance> = emptyList()
+)
+
+@Serializable
+data class SubCategoryCompliance(
+    val subCategoria: String,
+    val aplicables: Int = 0,
+    val vigentes: Int = 0,
     val porcentaje: Double = 0.0
+)
+
+// Marco legal por artículo/fundamento: cada obligación puede citar varias leyes
+// (federal, estatal, municipal) con su referencia exacta y enlace oficial.
+@Serializable
+data class LegalMatrixRef(
+    val id: Int = 0,
+    val matrizId: Int = 0,
+    val nivel: String = "Federal",       // Federal, Estatal, Municipal
+    val referencia: String = "",          // "Art. 37 Fracc. II", "Reglamento 102 ..."
+    val nombreLey: String = "",
+    val url: String = "",
+    val creadoPor: String = ""
+)
+
+// Documento de cumplimiento por obligación (soporta varios archivos con
+// histórico: cada uno con su propia fecha de expedición/vigencia y recordatorio).
+@Serializable
+data class LegalMatrixDoc(
+    val id: Int = 0,
+    val matrizId: Int = 0,
+    val documentId: Int = 0,             // FK a ehs_documents (archivo en Drive)
+    val nombre: String = "",
+    val tipoDocumento: String = "",      // Dictamen, Permiso, Estudio, Registro, Manifiesto, Otro
+    val fechaExpedicion: String = "",    // yyyy-MM-dd
+    val fechaVigencia: String = "",     // yyyy-MM-dd (vencimiento del documento)
+    val recordatorioDias: Int = 30,       // días antes del vencimiento para enviar recordatorio
+    val comentario: String = "",
+    val subidoPor: String = "",
+    val subidoFecha: String = ""
+)
+
+// Detalle completo de una obligación para el panel de ficha (estilo EHSoft).
+@Serializable
+data class LegalMatrixDetalle(
+    val obligacion: LegalMatrixItem,
+    val referencias: List<LegalMatrixRef> = emptyList(),
+    val documentos: List<LegalMatrixDoc> = emptyList(),
+    val tareas: List<LegalMatrixTarea> = emptyList()
+)
+
+@Serializable
+data class LegalMatrixTarea(
+    val id: Int = 0,
+    val titulo: String = "",
+    val responsable: String = "",
+    val fechaLimite: String = "",
+    val prioridad: String = "Media",
+    val estado: String = "Abierta"
+)
+
+// Resultado del envío de recordatorios por correo.
+@Serializable
+data class EhsReminderSummary(
+    val smtpConfigurado: Boolean = false,
+    val enviados: Int = 0,
+    val destinatarios: List<String> = emptyList(),
+    val avisosDetectados: Int = 0,
+    val mensaje: String = ""
 )
 
 // ============================================================

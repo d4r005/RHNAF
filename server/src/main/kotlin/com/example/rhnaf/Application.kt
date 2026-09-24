@@ -30,6 +30,8 @@ import com.example.rhnaf.routes.ehsIdMaintenanceRouting
 import com.example.rhnaf.routes.ehsRateRouting
 import com.example.rhnaf.routes.ehsAlertsRouting
 import com.example.rhnaf.routes.ehsCalendarRouting
+import com.example.rhnaf.routes.ehsReminderRouting
+import com.example.rhnaf.routes.recordatoriosJob
 import com.example.rhnaf.routes.ehsContractorRouting
 import com.example.rhnaf.routes.ehsActionRouting
 import com.example.rhnaf.routes.ehsMetricsRouting
@@ -76,6 +78,8 @@ private val PUBLIC_PATHS = setOf(
 
 fun Application.module() {
     DatabaseFactory.init()
+    // Job diario: recordatorios de vencimiento por correo (06:30 del servidor).
+    recordatoriosJob()
     
     val hfApiKey = environment.config.propertyOrNull("huggingface.api_key")?.getString() ?: ""
     val hfService = HuggingFaceService(hfApiKey)
@@ -195,6 +199,7 @@ fun Application.module() {
         ehsAlertsRouting()
         ehsCalendarRouting()
         ehsRateRouting()
+        ehsReminderRouting()
         ehsPurgeRouting()
         dc3Routing()
         ehsChecklistRouting()

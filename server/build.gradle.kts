@@ -17,6 +17,9 @@ dependencies {
     implementation("io.ktor:ktor-server-status-pages:3.0.3")
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.0.3")
     implementation("ch.qos.logback:logback-classic:1.4.11")
+    // Correo electronico (recordatorios de vencimiento EHS). angus-mail es
+    // la implementacion de referencia de jakarta.mail: SMTP + STARTTLS.
+    implementation("org.eclipse.angus:angus-mail:2.0.3")
     
     // Ktor Client (for Hugging Face)
     implementation("io.ktor:ktor-client-core")

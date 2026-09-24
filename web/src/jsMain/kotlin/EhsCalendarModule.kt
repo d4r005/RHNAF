@@ -7,6 +7,7 @@ import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import kotlinx.browser.window
+import kotlinx.browser.document
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -27,7 +28,8 @@ private data class CalEvento(
     val detalle: String = "",
     val categoria: String = "",
     val esCritico: Boolean = false,
-    val estado: String = ""
+    val estado: String = "",
+    val tareasAbiertas: Int = 0
 )
 
 @Serializable
@@ -74,6 +76,7 @@ private fun nombreMes(mes: String): String {
 
 private fun colorEvento(e: CalEvento): String = when {
     e.esCritico || e.estado == "Vencido" -> "#dc2626"
+    e.tipo == "documento" -> "#a16207"
     e.tipo == "obligacion" -> if (e.estado == "PorVencer") "#d97706" else "#2563eb"
     e.tipo == "capacitacion" -> "#0d9488"
     e.tipo == "simulacro" -> "#7c3aed"
@@ -86,6 +89,7 @@ private fun colorEvento(e: CalEvento): String = when {
 
 private fun etiquetaTipo(tipo: String): String = when (tipo) {
     "obligacion" -> "Obligación"
+    "documento" -> "Documento de cumplimiento"
     "capacitacion" -> "Capacitación"
     "simulacro" -> "Simulacro"
     "accion" -> "Acción"
@@ -150,6 +154,28 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
                     style { padding(8.px, 14.px); borderRadius(8.px); border(0.px); backgroundColor(Color("#2563eb")); color(Color.white); cursor("pointer") }
                     onClick { refresh("") }
                 }) { Text("Hoy") }
+                Button({
+                    style { padding(8.px, 14.px); borderRadius(8.px); border(0.px); backgroundColor(Color("#64748b")); color(Color.white); cursor("pointer") }
+                    onClick {
+                        val url = "$BACKEND_URL/api/v1/ehs/calendario/ics"
+                        val options = js("({})")
+                        options.method = "GET"
+                        options.headers = js("({})")
+                        options.headers.Authorization = "Bearer $apiAuthToken"
+                        window.asDynamic().fetch(url, options)
+                            .then { response: dynamic -> if (!response.ok) throw Exception("HTTP " + response.status) else response.blob() }
+                            .then { blob: dynamic ->
+                                val blobUrl = window.asDynamic().URL.createObjectURL(blob)
+                                val a = document.createElement("a")
+                                a.asDynamic().href = blobUrl
+                                a.asDynamic().download = "rhnaf-ehs-vencimientos.ics"
+                                document.body!!.appendChild(a)
+                                a.asDynamic().click()
+                                window.setTimeout({ window.asDynamic().URL.revokeObjectURL(blobUrl) }, 60000)
+                            }
+                            .`catch` { err: dynamic -> window.alert("No se pudo exportar: " + (err.message ?: "error")) }
+                    }
+                }) { Text("⤓ Outlook (.ics)") }
             }
         }
 
@@ -165,6 +191,7 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
                     "Permiso crítico / Vencido" to "#dc2626",
                     "Por vencer" to "#d97706",
                     "Obligación legal" to "#2563eb",
+                    "Documento" to "#a16207",
                     "Capacitación" to "#0d9488",
                     "Simulacro" to "#7c3aed",
                     "Acción" to "#ea580c",
@@ -237,10 +264,25 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
                     if (delDia.isNotEmpty()) {
                         Div({ style { marginTop(8.px) } }) {
                             delDia.forEach { ev ->
-                                Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(8.px); marginTop(4.px); fontSize(13.px) } }) {
+                                Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(8.px); marginTop(4.px); fontSize(13.px); flexWrap(FlexWrap.Wrap) } }) {
                                     Div({ style { width(8.px); height(8.px); borderRadius(50.percent); backgroundColor(Color(colorEvento(ev))) } })
                                     Text("${etiquetaTipo(ev.tipo)}: ${ev.titulo}")
+                                    if (ev.tipo == "obligacion" && ev.tareasAbiertas > 0) Span({ style { backgroundColor(Color("#ffedd5")); color(Color("#9a3412")); padding(1.px, 7.px); borderRadius(10.px); fontSize(11.px) } }) { Text("${ev.tareasAbiertas} tarea(s)") }
                                     if (ev.detalle.isNotBlank()) Span({ style { color(Color("#64748b")) } }) { Text(" — ${ev.detalle}") }
+                                    Button({
+                                        style { padding(1.px, 7.px); fontSize(11.px); backgroundColor(Color.white); color(Color("#1d4ed8")); property("border", "1px solid #bfdbfe"); borderRadius(4.px); cursor("pointer") }
+                                        onClick {
+                                            val fechaIni = ev.fecha.replace("-", "")
+                                            val p = ev.fecha.split("-").map { it.toInt() }
+                                            val cal = kotlin.js.Date(p[0], p[1] - 1, p[2] + 1)
+                                            val fechaFin = cal.getFullYear().toString() +
+                                                (cal.getMonth() + 1).toString().padStart(2, '0') +
+                                                cal.getDate().toString().padStart(2, '0')
+                                            val texto = js("encodeURIComponent")("${etiquetaTipo(ev.tipo)}: ${ev.titulo} - RH-NAF EHS")
+                                            val detalles = js("encodeURIComponent")("${ev.detalle} - RH-NAF Matriz Legal EHS")
+                                            window.open("https://calendar.google.com/calendar/render?action=TEMPLATE&text=$texto&dates=$fechaIni/$fechaFin&details=$detalles", "_blank")
+                                        }
+                                    }) { Text("Google Calendar") }
                                     if (ev.tipo == "evento") Button({
                                         style { padding(2.px, 8.px); borderRadius(4.px); border(0.px); backgroundColor(Color("#ef4444")); color(Color.white); cursor("pointer"); fontSize(11.px) }
                                         onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/ehs/calendario/eventos/${ev.id}"); refresh(mes) } }

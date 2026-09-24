@@ -355,7 +355,56 @@ object LegalMatrixTable : Table("ehs_legal_matrix") {
     val esCritico = bool("es_critico").default(false)
     // Biblioteca legal: URL al texto oficial de la norma (DOF, gob.mx, etc.)
     val urlNorma = varchar("url_norma", 500).default("")
+    // --- Extensiones estilo EHSoft ---
+    val subCategoria = varchar("sub_categoria", 100).default("")
+    val tipoObligacion = varchar("tipo_obligacion", 60).default("")
+    val autoridad = varchar("autoridad", 200).default("")
+    val responsableEmail = varchar("responsable_email", 200).default("")
 
+    override val primaryKey = PrimaryKey(id)
+}
+
+// Marco legal por obligación: referencias a artículos de leyes federales,
+// estatales y municipales con enlace al texto oficial.
+object LegalMatrixRefTable : Table("ehs_matrix_refs") {
+    val id = integer("id").autoIncrement()
+    val matrizId = integer("matriz_id")
+    val nivel = varchar("nivel", 20).default("Federal")      // Federal, Estatal, Municipal
+    val referencia = varchar("referencia", 200).default("")  // "Art. 37 Fracc. II"
+    val nombreLey = varchar("nombre_ley", 300)
+    val url = varchar("url", 500).default("")
+    val creadoPor = varchar("creado_por", 200).default("")
+    override val primaryKey = PrimaryKey(id)
+}
+
+// Documentos de cumplimiento por obligación: varios archivos con histórico,
+// cada uno con su propia expedición/vigencia y recordatorio configurable.
+// El archivo físico vive en ehs_documents (Google Drive); aquí solo el vínculo
+// y los metadatos normativos.
+object LegalMatrixDocTable : Table("ehs_matrix_docs") {
+    val id = integer("id").autoIncrement()
+    val matrizId = integer("matriz_id")
+    val documentId = integer("document_id").default(0)
+    val nombre = varchar("nombre", 300).default("")
+    val tipoDocumento = varchar("tipo_documento", 60).default("")
+    val fechaExpedicion = varchar("fecha_expedicion", 10).default("")
+    val fechaVigencia = varchar("fecha_vigencia", 10).default("")
+    val recordatorioDias = integer("recordatorio_dias").default(30)
+    val comentario = varchar("comentario", 500).default("")
+    val subidoPor = varchar("subido_por", 200).default("")
+    val subidoFecha = varchar("subido_fecha", 10).default("")
+    override val primaryKey = PrimaryKey(id)
+}
+
+// Bitácora de recordatorios enviados: evita duplicar correos el mismo día
+// para el mismo documento u obligación.
+object EhsReminderLogTable : Table("ehs_reminder_log") {
+    val id = integer("id").autoIncrement()
+    val tipo = varchar("tipo", 20)          // "doc" | "obligacion"
+    val refId = integer("ref_id")           // id en ehs_matrix_docs o ehs_legal_matrix
+    val diasRestantes = integer("dias_restantes").default(0)
+    val destinatario = varchar("destinatario", 200)
+    val enviado = varchar("enviado", 10)    // yyyy-MM-dd
     override val primaryKey = PrimaryKey(id)
 }
 

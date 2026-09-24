@@ -36,7 +36,8 @@ data class EhsCalendarEvent(
     val detalle: String = "",
     val categoria: String = "",
     val esCritico: Boolean = false,
-    val estado: String = ""     // Vigente/PorVencer/Vencido para obligaciones
+    val estado: String = "",    // Vigente/PorVencer/Vencido para obligaciones
+    val tareasAbiertas: Int = 0 // acciones correctivas abiertas vinculadas
 )
 
 @Serializable
@@ -55,6 +56,19 @@ private val FORMATOS = listOf(
 
 private fun fechaCal(value: String): LocalDate? = FORMATOS.firstNotNullOfOrNull { f ->
     runCatching { LocalDate.parse(value.trim(), f) }.getOrNull()
+}
+
+/** Etiqueta legible del tipo de evento para el ICS. */
+private fun etiquetaTipo(tipo: String): String = when (tipo) {
+    "obligacion" -> "Obligación legal"
+    "documento" -> "Documento de cumplimiento"
+    "capacitacion" -> "Capacitación"
+    "simulacro" -> "Simulacro"
+    "accion" -> "Acción correctiva"
+    "inspeccion" -> "Inspección"
+    "contratista" -> "Contratista"
+    "evento" -> "Evento"
+    else -> tipo
 }
 
 fun Route.ehsCalendarRouting() {
@@ -108,11 +122,19 @@ fun Route.ehsCalendarRouting() {
             val eventos = DatabaseFactory.dbQuery {
                 val all = mutableListOf<EhsCalendarEvent>()
 
-                fun add(fecha: LocalDate?, tipo: String, id: Int, titulo: String, detalle: String, categoria: String, esCritico: Boolean, estado: String) {
+                fun add(fecha: LocalDate?, tipo: String, id: Int, titulo: String, detalle: String, categoria: String, esCritico: Boolean, estado: String, tareasAbiertas: Int = 0) {
                     if (fecha == null || fecha.isBefore(ini) || fecha.isAfter(fin)) return
-                    all.add(EhsCalendarEvent(fecha.toString(), tipo, id, titulo, detalle, categoria, esCritico, estado))
+                    all.add(EhsCalendarEvent(fecha.toString(), tipo, id, titulo, detalle, categoria, esCritico, estado, tareasAbiertas))
                 }
 
+                // Tareas abiertas por obligación (acciones correctivas vinculadas)
+                val tareasPorObligacion = EhsActionTable.selectAll()
+                    .filter { it[EhsActionTable.origenTipo] == "matriz_legal" && it[EhsActionTable.estado] != "Cerrada" }
+                    .groupingBy { it[EhsActionTable.origenId] }.eachCount()
+                // Documentos de cumplimiento con su propia vigencia y recordatorio
+                val docsPorObligacion = LegalMatrixDocTable.selectAll()
+                    .filter { fechaCal(it[LegalMatrixDocTable.fechaVigencia]) != null }
+                    .groupBy { it[LegalMatrixDocTable.matrizId] }
                 // Obligaciones de la matriz legal aplicables
                 LegalMatrixTable.selectAll().forEach { row ->
                     val aplica = row[LegalMatrixTable.aplica]
@@ -127,7 +149,20 @@ fun Route.ehsCalendarRouting() {
                         }
                         add(v, "obligacion", row[LegalMatrixTable.id], row[LegalMatrixTable.clave],
                             row[LegalMatrixTable.titulo], row[LegalMatrixTable.categoria],
-                            row[LegalMatrixTable.esCritico], estado)
+                            row[LegalMatrixTable.esCritico], estado, tareasPorObligacion[row[LegalMatrixTable.id]] ?: 0)
+                        // Cada documento de cumplimiento aparece como evento propio
+                        docsPorObligacion[row[LegalMatrixTable.id]]?.forEach { drow ->
+                            val dv = fechaCal(drow[LegalMatrixDocTable.fechaVigencia])!!
+                            val dEstado = when {
+                                dv.isBefore(hoy) -> "Vencido"
+                                !dv.isAfter(hoy.plusDays(drow[LegalMatrixDocTable.recordatorioDias].toLong())) -> "PorVencer"
+                                else -> "Vigente"
+                            }
+                            add(dv, "documento", drow[LegalMatrixDocTable.id],
+                                drow[LegalMatrixDocTable.nombre].ifBlank { "Documento" },
+                                drow[LegalMatrixDocTable.tipoDocumento],
+                                row[LegalMatrixTable.categoria], row[LegalMatrixTable.esCritico], dEstado)
+                        }
                     }
                 }
                 SafetyTrainingTable.selectAll().forEach { row ->
@@ -162,6 +197,95 @@ fun Route.ehsCalendarRouting() {
                 all.sortedWith(compareBy<EhsCalendarEvent> { it.fecha }.thenBy { it.esCritico }.thenBy { it.tipo })
             }
             call.respond(EhsCalendarResponse(mes.toString(), mes.lengthOfMonth(), mes.atDay(1).dayOfWeek.value % 7, hoy.toString(), eventos))
+        }
+
+        // EXPORTAR a Outlook/Apple Calendar (.ics) y Google Calendar (estilo EHSoft).
+        // Devuelve todos los eventos de los proximos 12 meses con alarma segun el
+        // plazo de recordatorio de cada obligacion/documento.
+        get("/ics") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                val hoy = LocalDate.now()
+                val fin = hoy.plusDays(365)
+                val eventos = DatabaseFactory.dbQuery {
+                    val all = mutableListOf<EhsCalendarEvent>()
+                    fun add(fecha: LocalDate?, tipo: String, id: Int, titulo: String, detalle: String, categoria: String, esCritico: Boolean, estado: String, alertaDias: Int) {
+                        if (fecha == null || fecha.isBefore(hoy) || fecha.isAfter(fin)) return
+                        // Reutilizamos tareasAbiertas como canal del plazo de alarma del evento.
+                        all.add(EhsCalendarEvent(fecha.toString(), tipo, id, titulo, detalle, categoria, esCritico, estado, alertaDias))
+                    }
+                    LegalMatrixTable.selectAll().forEach { row ->
+                        if (row[LegalMatrixTable.aplica] == "Si") {
+                            add(fechaCal(row[LegalMatrixTable.fechaVigencia]), "obligacion", row[LegalMatrixTable.id],
+                                row[LegalMatrixTable.clave], row[LegalMatrixTable.titulo], row[LegalMatrixTable.categoria],
+                                row[LegalMatrixTable.esCritico], "", row[LegalMatrixTable.diasAlertaPrevia])
+                        }
+                    }
+                    LegalMatrixDocTable.selectAll().forEach { row ->
+                        add(fechaCal(row[LegalMatrixDocTable.fechaVigencia]), "documento", row[LegalMatrixDocTable.id],
+                            row[LegalMatrixDocTable.nombre].ifBlank { "Documento" },
+                            row[LegalMatrixDocTable.tipoDocumento], "Cumplimiento", false, "",
+                            row[LegalMatrixDocTable.recordatorioDias])
+                    }
+                    SafetyTrainingTable.selectAll().forEach { row ->
+                        add(fechaCal(row[SafetyTrainingTable.proximaFecha]), "capacitacion", row[SafetyTrainingTable.id],
+                            row[SafetyTrainingTable.tema], row[SafetyTrainingTable.instructor], "Capacitacion", false, "", 7)
+                    }
+                    EmergencyDrillTable.selectAll().forEach { row ->
+                        add(fechaCal(row[EmergencyDrillTable.fecha]), "simulacro", row[EmergencyDrillTable.id],
+                            row[EmergencyDrillTable.tipo], row[EmergencyDrillTable.resultado], "Simulacro", false, "", 7)
+                    }
+                    EhsActionTable.selectAll().forEach { row ->
+                        if (row[EhsActionTable.estado] != "Cerrada")
+                            add(fechaCal(row[EhsActionTable.fechaLimite]), "accion", row[EhsActionTable.id],
+                                row[EhsActionTable.titulo], row[EhsActionTable.estado], "Accion", false, "", 3)
+                    }
+                    EhsContractorTable.selectAll().forEach { row ->
+                        if (row[EhsContractorTable.estado] != "Suspendido")
+                            add(fechaCal(row[EhsContractorTable.vigenciaDocumento]), "contratista", row[EhsContractorTable.id],
+                                row[EhsContractorTable.empresa], "Vigencia documental", "Contratista", false, "", 15)
+                    }
+                    EhsCustomEventTable.selectAll().forEach { row ->
+                        add(fechaCal(row[EhsCustomEventTable.fecha]), "evento", row[EhsCustomEventTable.id],
+                            row[EhsCustomEventTable.titulo], row[EhsCustomEventTable.detalle], "Evento", false, "", 7)
+                    }
+                    all.sortedWith(compareBy<EhsCalendarEvent> { it.fecha }.thenBy { it.tipo }.thenBy { it.id })
+                }
+
+                fun esc(t: String) = t.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;").replace("\n", "\\n").replace("\r", "")
+                val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss"))
+
+                val ics = StringBuilder()
+                ics.append("BEGIN:VCALENDAR\r\n")
+                ics.append("VERSION:2.0\r\n")
+                ics.append("PRODID:-//RHNAF//Matriz Legal EHS//ES\r\n")
+                ics.append("CALSCALE:GREGORIAN\r\n")
+                ics.append("METHOD:PUBLISH\r\n")
+                ics.append("X-WR-CALNAME:RH-NAF - Vencimientos EHS\r\n")
+                eventos.forEach { ev ->
+                    val dIni = ev.fecha.replace("-", "")
+                    val dFin = LocalDate.parse(ev.fecha).plusDays(1).toString().replace("-", "")
+                    val titulo = if (ev.esCritico) "⚠ " + ev.titulo else ev.titulo
+                    ics.append("BEGIN:VEVENT\r\n")
+                    ics.append("UID:rhnaf-${ev.tipo}-${ev.id}-$dIni@rhnaf\r\n")
+                    ics.append("DTSTAMP:$stamp\r\n")
+                    ics.append("DTSTART;VALUE=DATE:$dIni\r\n")
+                    ics.append("DTEND;VALUE=DATE:$dFin\r\n")
+                    ics.append("SUMMARY:${esc(titulo)}\r\n")
+                    val desc = buildString { append("Tipo: ").append(etiquetaTipo(ev.tipo)); if (ev.detalle.isNotBlank()) append(" | ").append(ev.detalle); append(" | RH-NAF Matriz Legal EHS") }
+                    ics.append("DESCRIPTION:${esc(desc)}\r\n")
+                    ics.append("BEGIN:VALARM\r\n")
+                    ics.append("TRIGGER:-P${ev.tareasAbiertas.coerceAtLeast(1)}D\r\n")
+                    ics.append("ACTION:DISPLAY\r\n")
+                    ics.append("DESCRIPTION:${esc(titulo)}\r\n")
+                    ics.append("END:VALARM\r\n")
+                    ics.append("END:VEVENT\r\n")
+                }
+                ics.append("END:VCALENDAR\r\n")
+
+                call.response.header("Content-Disposition", "attachment; filename=\"rhnaf-ehs-vencimientos.ics\"")
+                call.respondText(ics.toString(), contentType = ContentType("text", "calendar"))
+            }
         }
     }
 }
