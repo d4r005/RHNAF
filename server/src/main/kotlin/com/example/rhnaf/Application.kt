@@ -72,6 +72,12 @@ private val PUBLIC_PATHS = setOf(
     "/api/login",
     "/api/v1/asistencia/hikvision",
     "/api/v1/asistencia/sync",
+    // Puente planta-nube (script sync_all.py en la PC local): no tiene usuario de login
+    "/api/v1/asistencia/poll-task",
+    "/api/v1/asistencia/update-task",
+    "/api/v1/asistencia/backfill-metadata",
+    "/api/v1/asistencia/normalize",
+    "/api/v1/empleados/sync-device",
     "/api/v1/google-drive/auth-url",
     "/api/v1/google-drive/callback"
 )
