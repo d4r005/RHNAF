@@ -243,6 +243,31 @@ data class RiskMatrix(
     val estado: String = ""
 )
 
+// Auditorías con checklist (estilo ACM/Prysmex): puntos de verificación,
+// hallazgos de no conformidad y vínculo con planes de acción.
+@Serializable
+data class EhsChecklist(
+    val id: Int = 0,
+    val titulo: String = "",
+    val area: String = "",
+    val fecha: String = "",
+    val auditor: String = "",
+    val estado: String = "Abierta",
+    val observaciones: String = ""
+)
+
+@Serializable
+data class EhsChecklistItem(
+    val id: Int = 0,
+    val checklistId: Int = 0,
+    val punto: String = "",
+    val resultado: String = "Pendiente",
+    val hallazgo: String = "",
+    val responsable: String = "",
+    val fechaCompromiso: String = "",
+    val accionId: Int = 0
+)
+
 // GRC - SAP Security / GRC (Gobierno, Riesgo y Cumplimiento)
 @Serializable
 data class AccessAuditLog(

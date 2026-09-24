@@ -49,7 +49,7 @@ private fun validateAction(action: EhsAction): String? = when {
     runCatching { LocalDate.parse(action.fechaLimite) }.isFailure -> "Fecha límite inválida (AAAA-MM-DD)"
     action.prioridad !in setOf("Alta", "Media", "Baja") -> "Prioridad inválida"
     action.estado !in setOf("Abierta", "EnProgreso", "Cerrada") -> "Estado inválido"
-    action.origenTipo !in setOf("manual", "matriz_legal", "inspeccion", "incidente") -> "Origen inválido"
+    action.origenTipo !in setOf("manual", "matriz_legal", "inspeccion", "incidente", "checklist") -> "Origen inválido"
     action.origenTipo == "manual" && action.origenId != 0 -> "Origen manual no admite identificador"
     action.origenTipo != "manual" && action.origenId <= 0 -> "Se requiere ID del registro de origen"
     action.evidenciaUrl.length > 500 -> "URL de evidencia demasiado larga"
@@ -63,6 +63,7 @@ private fun sourceExists(action: EhsAction): Boolean = when (action.origenTipo) 
     "matriz_legal" -> LegalMatrixTable.selectAll().where { LegalMatrixTable.id eq action.origenId }.limit(1).any()
     "inspeccion" -> SafetyInspectionTable.selectAll().where { SafetyInspectionTable.id eq action.origenId }.limit(1).any()
     "incidente" -> SafetyIncidentTable.selectAll().where { SafetyIncidentTable.id eq action.origenId }.limit(1).any()
+    "checklist" -> EhsChecklistItemTable.selectAll().where { EhsChecklistItemTable.id eq action.origenId }.limit(1).any()
     else -> false
 }
 

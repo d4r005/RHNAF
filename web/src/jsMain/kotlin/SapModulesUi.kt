@@ -459,7 +459,7 @@ private val ehsPillarTabs: Map<EhsPillar, List<Pair<Int, String>>> = mapOf(
     EhsPillar.SEGURIDAD to listOf(
         0 to "Auditoría Interna", 1 to "Incidentes", 2 to "Permisos Trabajo", 3 to "EPP",
         4 to "Capacitación Interna", 5 to "Simulacros", 6 to "Matriz Riesgos",
-        10 to "Químicos", 14 to "DC-3", 12 to "Dictámenes", 13 to "Normativa"
+        10 to "Químicos", 14 to "DC-3", 15 to "Checklists", 12 to "Dictámenes", 13 to "Normativa"
     ),
     EhsPillar.SALUD to listOf(9 to "Salud Ocupacional"),
     EhsPillar.AMBIENTE to listOf(7 to "Residuos", 8 to "Huella de Carbono", 11 to "Estudios")
@@ -506,6 +506,7 @@ fun EhsAuditsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             12 -> EhsCategoryEvidence(client, "Dictamen")
             13 -> EhsCategoryEvidence(client, "Normativa")
             14 -> EhsDc3Tab(client, scope)
+            15 -> EhsChecklistsTab(client, scope)
             else -> P { Text("Sección no disponible.") }
         }
     }
@@ -1619,6 +1620,103 @@ private fun evidenceYear(file: org.w3c.files.File, fallback: String): Int? {
     return if (folderYears.size == 1) folderYears[0].toInt()
         else if (fallback == "General") -1
         else fallback.toIntOrNull()?.takeIf { it in 1900..2100 }
+}
+
+// EHS-15. Auditorías con checklist y hallazgos vinculados a planes de acción
+@Composable
+fun EhsChecklistsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
+    var lists by remember { mutableStateOf(emptyList<EhsChecklist>()) }
+    var selectedId by remember { mutableStateOf(0) }
+    var items by remember { mutableStateOf(emptyList<EhsChecklistItem>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var notice by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    var refreshKey by remember { mutableStateOf(0) }
+    LaunchedEffect(refreshKey) { isLoading = true; try {
+        lists = client.get("$BACKEND_URL/api/v1/ehs/checklists").body()
+        items = if (selectedId > 0) client.get("$BACKEND_URL/api/v1/ehs/checklists/$selectedId/items").body() else emptyList()
+    } catch (e: Exception) { error = e.message ?: "Error cargando auditorías" } finally { isLoading = false } }
+    fun refresh(keepSelection: Boolean = true) { if (!keepSelection) selectedId = 0; refreshKey++ }
+
+    // Alta de auditoría
+    var f_titulo by remember { mutableStateOf("") }
+    var f_area by remember { mutableStateOf("") }
+    var f_fecha by remember { mutableStateOf("") }
+    var f_auditor by remember { mutableStateOf("") }
+    Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${lists.size} auditorías registradas") }
+    P({ style { margin(0.px, 0.px, 12.px, 0.px); color(Color("#64748b")); fontSize(13.px) } }) {
+        Text("Lista de verificación por criterio. Los puntos No conforme generan hallazgos que se convierten en planes de acción trazables.")
+    }
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
+        Input(InputType.Text) { placeholder("Título *"); value(f_titulo); onInput { f_titulo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+        Input(InputType.Text) { placeholder("Área"); value(f_area); onInput { f_area = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Input(InputType.Text) { placeholder("Auditor"); value(f_auditor); onInput { f_auditor = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick { if (f_titulo.isNotBlank() && f_fecha.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/ehs/checklists") { contentType(ContentType.Application.Json); setBody(EhsChecklist(titulo = f_titulo, area = f_area, fecha = f_fecha, auditor = f_auditor)) }; f_titulo = ""; f_area = ""; f_fecha = ""; f_auditor = ""; notice = "Auditoría creada."; refresh() } } else { window.alert("Título y fecha son obligatorios.") } } }) { Text("+ Nueva auditoría") }
+    }
+    if (notice.isNotBlank()) P({ style { color(Color("#059669")); fontSize(13.px); margin(0.px, 0.px, 10.px, 0.px) } }) { Text(notice) }
+    if (error.isNotBlank()) P({ style { color(Color("#dc2626")); fontSize(13.px); margin(0.px, 0.px, 10.px, 0.px) } }) { Text(error) }
+
+    if (isLoading) { P { Text("Cargando...") } } else {
+        Table({ style { width(100.percent) } }) {
+            Thead { Tr { Th { Text("Título") }; Th { Text("Área") }; Th { Text("Fecha") }; Th { Text("Auditor") }; Th { Text("Estado") }; Th { Text("") } } }
+            Tbody {
+                lists.forEach { row -> Tr {
+                    Td { Text(row.titulo) }; Td { Text(row.area) }; Td { Text(row.fecha) }; Td { Text(row.auditor) }
+                    Td { Span({ style { fontWeight(if (row.estado == "Cerrada") "600" else "500"); color(if (row.estado == "Cerrada") Color("#059669") else Color("#d97706")) } }) { Text(row.estado) } }
+                    Td { Div({ style { display(DisplayStyle.Flex); gap(4.px) } }) {
+                        Button({ style { padding(4.px, 10.px); border(0.px); borderRadius(4.px); cursor("pointer"); backgroundColor(Color("#2563eb")); color(Color.white) }; onClick { selectedId = row.id; refreshKey++ } }) { Text(if (selectedId == row.id) "Viendo" else "Ver") }
+                        if (row.estado == "Abierta") Button({ style { padding(4.px, 10.px); border(0.px); borderRadius(4.px); cursor("pointer"); backgroundColor(Color("#059669")); color(Color.white) }; onClick { scope.launch { val resp = client.post("$BACKEND_URL/api/v1/ehs/checklists/${row.id}/cerrar"); if (resp.status.value == 409) { error = "No se puede cerrar: hay puntos sin evaluar."; notice = "" } else { error = ""; notice = "Auditoría cerrada." }; refreshKey++ } } }) { Text("Cerrar") }
+                        Button({ style { padding(4.px, 10.px); border(0.px); borderRadius(4.px); cursor("pointer"); backgroundColor(Color("#ef4444")); color(Color.white) }; onClick { scope.launch { val resp = client.delete("$BACKEND_URL/api/v1/ehs/checklists/${row.id}"); if (resp.status.value == 409) { error = "Tiene hallazgos con acciones; no se puede borrar."; notice = "" } else { error = ""; notice = "Auditoría eliminada." }; refresh(false) } } }) { Text("X") }
+                    } }
+                } }
+            }
+        }
+
+        // Detalle de la auditoría seleccionada
+        if (selectedId > 0) {
+            val checklist = lists.firstOrNull { it.id == selectedId }
+            Div({ style { marginTop(20.px); padding(14.px); borderRadius(10.px); property("border", "1px solid #e2e8f0"); backgroundColor(Color("#f8fafc")) } }) {
+                H4({ style { margin(0.px, 0.px, 4.px, 0.px) } }) { Text("Checklist: ${checklist?.titulo ?: ""}") }
+                P({ style { margin(0.px, 0.px, 10.px, 0.px); fontSize(12.px); color(Color("#64748b")) } }) { Text("${items.size} puntos · ${items.count { it.resultado == "NoConforme" }} no conformes · ${items.count { it.resultado == "Conforme" }} conformes") }
+
+                // Agregar punto
+                var p_punto by remember { mutableStateOf("") }
+                var p_resultado by remember { mutableStateOf("Pendiente") }
+                var p_hallazgo by remember { mutableStateOf("") }
+                var p_resp by remember { mutableStateOf("") }
+                var p_fechaComp by remember { mutableStateOf("") }
+                Div({ style { display(DisplayStyle.Flex); gap(8.px); flexWrap(FlexWrap.Wrap); marginBottom(12.px); alignItems(AlignItems.Center) } }) {
+                    Input(InputType.Text) { placeholder("Punto de verificación *"); value(p_punto); onInput { p_punto = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) } }
+                    Select({ onChange { p_resultado = it.value ?: "Pendiente" }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") } }) {
+                        listOf("Pendiente", "Conforme", "NoConforme", "NoAplica").forEach { Option(it) { Text(it) } }
+                    }
+                    Input(InputType.Text) { placeholder("Hallazgo (oblig. si No conforme)"); value(p_hallazgo); onInput { p_hallazgo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+                    Input(InputType.Text) { placeholder("Responsable"); value(p_resp); onInput { p_resp = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+                    Input(InputType.Text) { placeholder("Fecha compromiso"); value(p_fechaComp); onInput { p_fechaComp = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) } }
+                    Button({ style { padding(8.px, 16.px); border(0.px); borderRadius(6.px); cursor("pointer"); backgroundColor(SidebarActiveColor); color(Color.white) }; onClick { if (p_punto.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/ehs/checklists/$selectedId/items") { contentType(ContentType.Application.Json); setBody(EhsChecklistItem(checklistId = selectedId, punto = p_punto, resultado = p_resultado, hallazgo = p_hallazgo, responsable = p_resp, fechaCompromiso = p_fechaComp)) }; p_punto = ""; p_hallazgo = ""; p_resp = ""; p_fechaComp = ""; p_resultado = "Pendiente"; refreshKey++ } } else { window.alert("El punto de verificación es obligatorio.") } } }) { Text("+ Punto") }
+                }
+
+                Table({ style { width(100.percent); backgroundColor(Color.white); borderRadius(8.px) } }) {
+                    Thead { Tr { Th { Text("Punto") }; Th { Text("Resultado") }; Th { Text("Hallazgo") }; Th { Text("Responsable") }; Th { Text("Compromiso") }; Th { Text("Acción") }; Th { Text("") } } }
+                    Tbody {
+                        items.forEach { item -> Tr {
+                            Td { Text(item.punto) }
+                            Td { Span({ style { fontWeight("600"); color(when (item.resultado) { "Conforme" -> Color("#059669"); "NoConforme" -> Color("#dc2626"); "NoAplica" -> Color("#64748b"); else -> Color("#d97706") }) } }) { Text(item.resultado) } }
+                            Td { Text(item.hallazgo) }
+                            Td { Text(item.responsable) }
+                            Td { Text(item.fechaCompromiso) }
+                            Td { if (item.accionId > 0) Text("Acción #${item.accionId}") else if (item.resultado == "NoConforme") Button({ style { padding(4.px, 10.px); border(0.px); borderRadius(4.px); cursor("pointer"); backgroundColor(Color("#ea580c")); color(Color.white) }; onClick { scope.launch { if (item.responsable.isNotBlank() && item.fechaCompromiso.isNotBlank()) { client.post("$BACKEND_URL/api/v1/ehs/checklists/items/${item.id}/accion") { contentType(ContentType.Application.Json); setBody(item) }; notice = "Plan de acción creado desde el hallazgo."; error = ""; refreshKey++ } else { window.alert("Captura responsable y fecha compromiso en el punto (edítalo con el botón E) para generar la acción.") } } } }) { Text("Crear acción") } else Text("—") }
+                            Td { Div({ style { display(DisplayStyle.Flex); gap(4.px) } }) {
+                                Button({ style { padding(4.px, 10.px); border(0.px); borderRadius(4.px); cursor("pointer"); backgroundColor(Color("#e2e8f0")) }; onClick { scope.launch { val nuevo = item.copy(resultado = if (item.resultado == "NoConforme") "Conforme" else "NoConforme", hallazgo = if (item.resultado != "NoConforme") (if (item.hallazgo.isBlank()) "Sin conformidad detectada" else item.hallazgo) else item.hallazgo); client.put("$BACKEND_URL/api/v1/ehs/checklists/items/${item.id}") { contentType(ContentType.Application.Json); setBody(nuevo) }; refreshKey++ } } }) { Text("E") }
+                                if (item.accionId == 0) Button({ style { padding(4.px, 10.px); border(0.px); borderRadius(4.px); cursor("pointer"); backgroundColor(Color("#ef4444")); color(Color.white) }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/ehs/checklists/items/${item.id}"); refreshKey++ } } }) { Text("X") }
+                            } }
+                        } }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // EHS-12. Evidencia Documental: subir archivos (PDF/imagen) que respaldan

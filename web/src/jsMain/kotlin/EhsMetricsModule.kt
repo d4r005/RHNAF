@@ -20,6 +20,7 @@ private data class EhsMetricsView(
     val diasPerdidosRegistrados: Int = 0,
     val incidentesSinDiasValidos: Int = 0,
     val inspeccionesAbiertas: Int = 0,
+    val hallazgosAuditoriaAbiertos: Int = 0,
     val capacitacionesVencidas: Int = 0,
     val capacitacionesPorVencer30Dias: Int = 0,
     val capacitacionesSinFechaValida: Int = 0,
@@ -57,6 +58,7 @@ fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope) {
                     "Incidentes registrados" to m.incidentes,
                     "Días perdidos declarados" to m.diasPerdidosRegistrados,
                     "Auditorías sin cierre" to m.inspeccionesAbiertas,
+                    "Hallazgos de auditoría abiertos" to m.hallazgosAuditoriaAbiertos,
                     "Capacitaciones vencidas" to m.capacitacionesVencidas,
                     "Capacitaciones por vencer (30 días)" to m.capacitacionesPorVencer30Dias
                 ).forEach { (label, value) ->

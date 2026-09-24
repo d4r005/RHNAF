@@ -384,6 +384,33 @@ object EhsDocumentTable : Table("ehs_documents") {
 
 // EHS - Acciones correctivas vinculadas con hallazgos, incidentes y obligaciones.
 // Conservamos el histórico; no habilitamos borrado desde la API.
+// Auditorías con checklist: verificación por criterio con hallazgos
+// de no conformidad y vínculo a planes de acción.
+object EhsChecklistTable : Table("ehs_checklists") {
+    val id = integer("id").autoincrement()
+    val titulo = varchar("titulo", 300)
+    val area = varchar("area", 200).default("")
+    val fecha = varchar("fecha", 50)
+    val auditor = varchar("auditor", 200).default("")
+    val estado = varchar("estado", 20).default("Abierta")   // Abierta / Cerrada
+    val observaciones = varchar("observaciones", 1000).default("")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+object EhsChecklistItemTable : Table("ehs_checklist_items") {
+    val id = integer("id").autoincrement()
+    val checklistId = integer("checklist_id")
+    val punto = varchar("punto", 500)
+    val resultado = varchar("resultado", 20).default("Pendiente")   // Pendiente / Conforme / NoConforme / NoAplica
+    val hallazgo = varchar("hallazgo", 1000).default("")
+    val responsable = varchar("responsable", 200).default("")
+    val fechaCompromiso = varchar("fecha_compromiso", 50).default("")
+    val accionId = integer("accion_id").default(0)
+
+    override val primaryKey = PrimaryKey(id)
+}
+
 object EhsActionTable : Table("ehs_action_plans") {
     val id = integer("id").autoIncrement()
     val titulo = varchar("titulo", 300)

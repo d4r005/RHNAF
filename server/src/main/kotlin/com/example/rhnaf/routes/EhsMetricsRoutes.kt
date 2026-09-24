@@ -3,6 +3,8 @@ package com.example.rhnaf.routes
 import com.example.rhnaf.auth.Roles
 import com.example.rhnaf.auth.requireRoleOr403
 import com.example.rhnaf.database.DatabaseFactory
+import com.example.rhnaf.database.EhsActionTable
+import com.example.rhnaf.database.EhsChecklistItemTable
 import com.example.rhnaf.database.EhsRatePeriodTable
 import com.example.rhnaf.database.LegalMatrixTable
 import com.example.rhnaf.database.SafetyIncidentTable
@@ -29,6 +31,7 @@ data class EhsMetrics(
     val diasPerdidosRegistrados: Int,
     val incidentesSinDiasValidos: Int,
     val inspeccionesAbiertas: Int,
+    val hallazgosAuditoriaAbiertos: Int = 0,
     val capacitacionesVencidas: Int,
     val capacitacionesPorVencer30Dias: Int,
     val capacitacionesSinFechaValida: Int,
@@ -66,6 +69,15 @@ fun Route.ehsMetricsRouting() {
                 val openInspections = SafetyInspectionTable.selectAll().count { row ->
                     val status = row[SafetyInspectionTable.estado].trim().lowercase()
                     status !in setOf("cerrada", "cerrado", "resuelta", "resuelto", "completada", "completado")
+                }
+
+                // Hallazgos de auditoría (checklist) aún sin acción cerrada.
+                val accionesCerradas = EhsActionTable.selectAll()
+                    .filter { it[EhsActionTable.estado] == "Cerrada" }
+                    .map { it[EhsActionTable.id] }.toSet()
+                val hallazgosAbiertos = EhsChecklistItemTable.selectAll().count { row ->
+                    row[EhsChecklistItemTable.resultado] == "NoConforme" &&
+                        row[EhsChecklistItemTable.accionId] !in accionesCerradas
                 }
 
                 // Serie mensual de incidentes (ultimos 12 meses), un solo escaneo
@@ -122,6 +134,7 @@ fun Route.ehsMetricsRouting() {
                     diasPerdidosRegistrados = lostDays.filterNotNull().sum(),
                     incidentesSinDiasValidos = lostDays.count { it == null },
                     inspeccionesAbiertas = openInspections,
+                    hallazgosAuditoriaAbiertos = hallazgosAbiertos,
                     capacitacionesVencidas = trainings.count { it != null && it.isBefore(today) },
                     capacitacionesPorVencer30Dias = trainings.count { it != null && !it.isBefore(today) && !it.isAfter(today.plusDays(30)) },
                     capacitacionesSinFechaValida = trainings.count { it == null },
