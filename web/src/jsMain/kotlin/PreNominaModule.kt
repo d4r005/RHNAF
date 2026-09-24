@@ -213,7 +213,7 @@ fun AsignacionesTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
         try {
             items = client.get("$BACKEND_URL/api/v1/pre-nomina/asignaciones").body()
             shifts = client.get("$BACKEND_URL/api/v1/pre-nomina/turnos").body()
-            employees = client.get("$BACKEND_URL/api/v1/employees").body()
+            employees = client.get("$BACKEND_URL/api/employees").body()
         } catch (e: Exception) { println("Error: ${e.message}") }
         isLoading = false
     }
@@ -280,7 +280,7 @@ fun JustificacionesTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSc
         isLoading = true
         try {
             items = client.get("$BACKEND_URL/api/v1/pre-nomina/justificaciones").body()
-            employees = client.get("$BACKEND_URL/api/v1/employees").body()
+            employees = client.get("$BACKEND_URL/api/employees").body()
         } catch (e: Exception) { println("Error: ${e.message}") }
         isLoading = false
     }

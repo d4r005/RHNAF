@@ -585,7 +585,7 @@ fun EhsOccupationalHealthTab(client: HttpClient, scope: kotlinx.coroutines.Corou
         try {
             items = client.get("$BACKEND_URL/api/v1/sap/ehs/salud").body()
             evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=ExamenMedico").body()
-            employees = client.get("$BACKEND_URL/api/v1/employees").body()
+            employees = client.get("$BACKEND_URL/api/employees").body()
         } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
@@ -857,6 +857,7 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
     }
     var editingId by remember { mutableStateOf(0) }
     var e_area by remember { mutableStateOf("") }
+    var e_inspector by remember { mutableStateOf("") }
     var e_hallazgos by remember { mutableStateOf("") }
     var e_riesgo by remember { mutableStateOf("") }
     var e_acciones by remember { mutableStateOf("") }
@@ -865,7 +866,7 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
     var e_busy by remember { mutableStateOf(false) }
     fun startEdit(row: SafetyInspection) {
         editingId = row.id
-        e_area = row.area; e_hallazgos = row.hallazgos; e_riesgo = row.riesgo
+        e_area = row.area; e_inspector = row.inspector; e_hallazgos = row.hallazgos; e_riesgo = row.riesgo
         e_acciones = row.accionesCorrectivas; e_cierre = row.fechaCierre
         e_estado = row.estado.ifBlank { "Pendiente de revision" }
     }
@@ -876,7 +877,7 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
             try {
                 val resp = client.put("$BACKEND_URL/api/v1/sap/ehs/inspecciones/${row.id}") {
                     contentType(ContentType.Application.Json)
-                    setBody(row.copy(area = e_area, hallazgos = e_hallazgos, riesgo = e_riesgo,
+                    setBody(row.copy(area = e_area, inspector = e_inspector, hallazgos = e_hallazgos, riesgo = e_riesgo,
                         accionesCorrectivas = e_acciones, fechaCierre = e_cierre, estado = e_estado))
                 }
                 if (resp.status.value in 200..299) { editingId = 0; refresh() }
@@ -895,7 +896,7 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
                             Td { Text(row.fecha) }
                             Td { Text(row.tipoInspeccion) }
                             Td { Input(InputType.Text) { placeholder("Área"); value(e_area); onInput { e_area = it.value }; style { width(100.percent); padding(4.px) } } }
-                            Td { Text(row.inspector) }
+                            Td { Input(InputType.Text) { placeholder("Inspector"); value(e_inspector); onInput { e_inspector = it.value }; style { width(100.percent); padding(4.px) } } }
                             Td { Input(InputType.Text) { placeholder("Hallazgos"); value(e_hallazgos); onInput { e_hallazgos = it.value }; style { width(100.percent); padding(4.px) } } }
                             Td { Input(InputType.Text) { placeholder("Riesgo"); value(e_riesgo); onInput { e_riesgo = it.value }; style { width(100.percent); padding(4.px) } } }
                             Td { Input(InputType.Text) { placeholder("Acciones correctivas"); value(e_acciones); onInput { e_acciones = it.value }; style { width(100.percent); padding(4.px) } } }
@@ -1122,7 +1123,7 @@ fun EhsDc3Tab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     LaunchedEffect(refreshKey) { isLoading = true; try {
         items = client.get("$BACKEND_URL/api/v1/ehs/dc3").body()
         evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=DC3").body()
-        employees = client.get("$BACKEND_URL/api/v1/employees").body()
+        employees = client.get("$BACKEND_URL/api/employees").body()
     } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     // El responsable por defecto es quien está capturando (el dueño lo definió así).
