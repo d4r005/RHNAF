@@ -13,7 +13,6 @@ import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.like
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.update
@@ -36,7 +35,9 @@ fun Route.ehsIdMaintenanceRouting() {
         DatabaseFactory.dbQuery {
             // 1) Acciones de prueba generadas durante la verificación de checklists
             //    (título literal "Hallazgo de auditoría: PRUEBA..."); nunca son datos reales.
-            val borradas = EhsActionTable.deleteWhere { EhsActionTable.titulo like "Hallazgo de auditoría: PRUEBA%" }
+            val borradas = EhsActionTable.deleteWhere {
+                EhsActionTable.titulo eq "Hallazgo de auditoría: PRUEBA salida de emergencia obstruida"
+            }
             reporte["acciones_prueba_eliminadas"] = borradas.toString()
 
             // 2) Compactar IDs de evidencia documental (única tabla con datos reales)
