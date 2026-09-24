@@ -19,23 +19,32 @@ COPY web web
 # Permisos para el ejecutable de Gradle
 RUN chmod +x gradlew
 
-# Construcción dividida en dos invocaciones de Gradle independientes.
+# Construcción dividida en invocaciones de Gradle independientes.
 # Cada RUN levanta su propio proceso Java/Node y lo libera por completo al
-# terminar, evitando que ambas compilaciones (Kotlin/JS + webpack y Kotlin/JVM)
+# terminar, evitando que las compilaciones (Kotlin/JS, webpack y Kotlin/JVM)
 # acumulen memoria dentro del mismo proceso — esto fue lo que causó el
-# OOMKilled (exit 137) al combinarlas en una sola invocación con cache activado.
+# OOMKilled (exit 137) al combinarlas.
 # El cache mount persiste ~/.gradle (dependencias Gradle/Node/Yarn + build
 # cache) ENTRE builds de Hugging Face aunque el COPY de código fuente invalide
 # las capas de Docker, acelerando despliegues subsecuentes.
 
-# Paso 1: Web (Kotlin/JS + webpack) — el más pesado en memoria de Node.
+# Paso 1a: compilar Kotlin/JS a JS puro (proceso JVM, sin Node todavía).
 RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
-    SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentDistribution \
+    SKIP_ANDROID=true ./gradlew :web:compileDevelopmentExecutableKotlinJs \
     --no-daemon \
     --build-cache \
     --max-workers=1 \
-    -Dorg.gradle.jvmargs="-Xmx1280m -XX:+UseParallelGC" \
-    -Dnode.options="--max-old-space-size=896"
+    -Dorg.gradle.jvmargs="-Xmx1024m -XX:+UseParallelGC -XX:MaxMetaspaceSize=320m"
+
+# Paso 1b: empaquetar con webpack (proceso Node) — la JVM del paso anterior
+# ya terminó y liberó su memoria por completo antes de que arranque Node.
+RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
+    SKIP_ANDROID=true ./gradlew :web:jsBrowserDevelopmentWebpack \
+    --no-daemon \
+    --build-cache \
+    --max-workers=1 \
+    -Dorg.gradle.jvmargs="-Xmx768m -XX:+UseParallelGC -XX:MaxMetaspaceSize=256m" \
+    -Dnode.options="--max-old-space-size=768"
 
 # Paso 2: Servidor (Kotlin/JVM) — proceso limpio, sin Node de por medio.
 RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
@@ -43,7 +52,7 @@ RUN --mount=type=cache,target=/root/.gradle,id=rhnaf-gradle-cache \
     --no-daemon \
     --build-cache \
     --max-workers=1 \
-    -Dorg.gradle.jvmargs="-Xmx1536m -XX:+UseParallelGC"
+    -Dorg.gradle.jvmargs="-Xmx1536m -XX:+UseParallelGC -XX:MaxMetaspaceSize=384m"
 
 # Etapa 2: Ejecución
 FROM eclipse-temurin:21-jre-jammy

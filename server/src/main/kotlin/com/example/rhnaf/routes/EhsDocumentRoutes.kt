@@ -15,6 +15,7 @@ import com.example.rhnaf.database.RiskMatrixTable
 import com.example.rhnaf.database.EnvironmentalWasteTable
 import com.example.rhnaf.database.OccupationalHealthTable
 import com.example.rhnaf.database.ChemicalInventoryTable
+import com.example.rhnaf.database.Dc3ConstanciaTable
 import com.example.rhnaf.service.GoogleDriveService
 import com.example.rhnaf.shared.model.EhsDocument
 import com.example.rhnaf.shared.model.EhsDocumentUpload
@@ -26,6 +27,7 @@ import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Base64
 import java.io.File
@@ -118,7 +120,7 @@ fun Route.ehsDocumentRouting() {
                         mapOf("status" to "error", "message" to "Google Drive no pudo guardar el archivo")
                     )
 
-                val today = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                val today = LocalDate.now(ZoneId.of("America/Mexico_City")).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                 val uploadedBy = call.request.header(HttpHeaders.Authorization)
                     ?.removePrefix("Bearer ")?.trim().orEmpty()
                 val pointer = "$DRIVE_POINTER_PREFIX$driveFileId"
@@ -201,7 +203,7 @@ fun Route.ehsDocumentRouting() {
                     val driveId = GoogleDriveService.uploadLargeFile(temp, fileName, mimeType, folder)
                         ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
                             mapOf("status" to "error", "message" to "Drive no confirmo la subida del archivo"))
-                    val today = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    val today = LocalDate.now(ZoneId.of("America/Mexico_City")).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                     val uploadedBy = call.request.header(HttpHeaders.Authorization)
                         ?.removePrefix("Bearer ")?.trim().orEmpty()
                     val req = EhsDocumentUpload(
@@ -235,7 +237,7 @@ fun Route.ehsDocumentRouting() {
                 val categoria = call.receive<Map<String, String>>()["categoria"]?.trim().orEmpty()
                 val allowed = setOf("Inspeccion", "Capacitacion", "Simulacro", "Estudio", "Dictamen",
                     "ExamenMedico", "Incidente", "PermisoTrabajo", "EPP", "Residuos", "Riesgos",
-                    "Quimicos", "Auditoria", "Normativa", "Otro")
+                    "Quimicos", "Auditoria", "Normativa", "DC3", "Otro")
                 if (categoria !in allowed) return@safeApiCall call.respond(HttpStatusCode.BadRequest,
                     mapOf("message" to "Categoría desconocida"))
                 val row = DatabaseFactory.dbQuery {
@@ -509,6 +511,7 @@ fun Route.ehsDocumentRouting() {
                         "waste" -> EnvironmentalWasteTable.selectAll().where { EnvironmentalWasteTable.id eq req.moduleRecordId }.limit(1).any()
                         "health" -> OccupationalHealthTable.selectAll().where { OccupationalHealthTable.id eq req.moduleRecordId }.limit(1).any()
                         "chemical" -> ChemicalInventoryTable.selectAll().where { ChemicalInventoryTable.id eq req.moduleRecordId }.limit(1).any()
+                        "dc3" -> Dc3ConstanciaTable.selectAll().where { Dc3ConstanciaTable.id eq req.moduleRecordId }.limit(1).any()
                         else -> false
                     }
                 }

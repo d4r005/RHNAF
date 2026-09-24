@@ -576,6 +576,8 @@ fun EhsEnvironmentTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
 fun EhsOccupationalHealthTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     var items by remember { mutableStateOf(emptyList<MedicalExam>()) }
     var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
+    // Personal del modulo de RH: el desplegable evita teclear IDs y nombres a mano.
+    var employees by remember { mutableStateOf(emptyList<Employee>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) {
@@ -583,6 +585,7 @@ fun EhsOccupationalHealthTab(client: HttpClient, scope: kotlinx.coroutines.Corou
         try {
             items = client.get("$BACKEND_URL/api/v1/sap/ehs/salud").body()
             evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=ExamenMedico").body()
+            employees = client.get("$BACKEND_URL/api/v1/employees").body()
         } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }
@@ -596,12 +599,21 @@ fun EhsOccupationalHealthTab(client: HttpClient, scope: kotlinx.coroutines.Corou
 
     Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} examenes registrados") }
     Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-        Input(InputType.Text) { placeholder("ID Empleado *"); value(f_empId); onInput { f_empId = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
-        Input(InputType.Text) { placeholder("Nombre"); value(f_nombre); onInput { f_nombre = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
-        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        Select({
+            style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) }
+            onChange {
+                val emp = employees.firstOrNull { e -> e.id == it.value }
+                if (emp != null) { f_empId = emp.id; f_nombre = "${emp.firstName} ${emp.lastName}".trim() }
+                else { f_empId = ""; f_nombre = "" }
+            }
+        }) {
+            Option("") { Text("Selecciona trabajador *") }
+            employees.forEach { e -> Option(e.id) { Text("${e.id} · ${e.firstName} ${e.lastName}".trim()) } }
+        }
+        FechaInput(f_fecha, { f_fecha = it }, width = 130)
         Input(InputType.Text) { placeholder("Tipo (Ingreso/Periodico)"); value(f_tipo); onInput { f_tipo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
         Input(InputType.Text) { placeholder("Resultado (Apto/...)"); value(f_resultado); onInput { f_resultado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-        Input(InputType.Text) { placeholder("Prox. Cita"); value(f_prox); onInput { f_prox = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        FechaInput(f_prox, { f_prox = it }, width = 130)
         Button({
             style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
             onClick {
@@ -773,14 +785,14 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         H4 { Text("Nueva auditoría interna") }
         P { Text("Captura manualmente o carga un PDF, Word (.docx) o Excel (.xlsx/.xls) para revisar sus datos. El archivo no se guarda al analizarlo; las evidencias se suben por separado en Evidencia Documental.") }
         Div({ style { display(DisplayStyle.Flex); gap(8.px); flexWrap(FlexWrap.Wrap); marginBottom(10.px) } }) {
-            Input(InputType.Text) { placeholder("Fecha *"); value(fecha); onInput { fecha = it.value } }
+            FechaInput(fecha, { fecha = it }, width = 130)
             Input(InputType.Text) { placeholder("Tipo de auditoría"); value(tipo); onInput { tipo = it.value } }
             Input(InputType.Text) { placeholder("Área"); value(area); onInput { area = it.value } }
             Input(InputType.Text) { placeholder("Auditor"); value(inspector); onInput { inspector = it.value } }
             Input(InputType.Text) { placeholder("Hallazgos"); value(hallazgos); onInput { hallazgos = it.value } }
             Input(InputType.Text) { placeholder("Riesgo"); value(riesgo); onInput { riesgo = it.value } }
             Input(InputType.Text) { placeholder("Acciones correctivas"); value(acciones); onInput { acciones = it.value } }
-            Input(InputType.Text) { placeholder("Fecha de cierre"); value(cierre); onInput { cierre = it.value } }
+            FechaInput(cierre, { cierre = it }, width = 130)
             Input(InputType.Text) { placeholder("Estado"); value(estado); onInput { estado = it.value } }
         }
         Button({ onClick {
@@ -1029,14 +1041,20 @@ fun EhsTrainingsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
 @Composable
 fun EhsDc3Tab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     var items by remember { mutableStateOf(emptyList<Dc3Constancia>()) }
+    // Evidencia subida con la categoria DC3 del catalogo documental. Antes no
+    // existia esa categoria y las constancias subidas quedaban huerfanas.
+    var evidence by remember { mutableStateOf(emptyList<EhsDocument>()) }
+    var employees by remember { mutableStateOf(emptyList<Employee>()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshKey by remember { mutableStateOf(0) }
     LaunchedEffect(refreshKey) { isLoading = true; try {
         items = client.get("$BACKEND_URL/api/v1/ehs/dc3").body()
+        evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=DC3").body()
+        employees = client.get("$BACKEND_URL/api/v1/employees").body()
     } catch (e: Exception) { println("Err: ${e.message}") } finally { isLoading = false } }
     fun refresh() { refreshKey++ }
     // El responsable por defecto es quien está capturando (el dueño lo definió así).
-    var f_trabajador by remember { mutableStateOf("") }
+    var f_trabajadorId by remember { mutableStateOf("") }
     var f_tema by remember { mutableStateOf("") }
     var f_fecha by remember { mutableStateOf("") }
     var f_horas by remember { mutableStateOf("") }
@@ -1044,16 +1062,24 @@ fun EhsDc3Tab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
     var f_evidencia by remember { mutableStateOf("") }
     Span({ style { color(Color.gray); fontSize(13.px); marginBottom(8.px); display(DisplayStyle.Block) } }) { Text("${items.size} constancias DC-3 registradas") }
     P({ style { margin(0.px, 0.px, 12.px, 0.px); color(Color("#64748b")); fontSize(13.px) } }) {
-        Text("Constancia oficial de habilidades laborales (DC-3). El responsable se registra en cada constancia; la evidencia firmada se enlaza por URL HTTPS de Drive.")
+        Text("Constancia oficial de habilidades laborales (DC-3). El responsable se registra en cada constancia; la evidencia firmada se enlaza por URL HTTPS de Drive o se vincula desde la categoría DC3 de Evidencia Documental.")
     }
     Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
-        Input(InputType.Text) { placeholder("Trabajador *"); value(f_trabajador); onInput { f_trabajador = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) } }
+        Select({
+            style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) }
+            onChange { f_trabajadorId = it.value ?: "" }
+        }) {
+            Option("") { Text("Selecciona trabajador *") }
+            employees.forEach { e -> Option(e.id) { Text("${e.id} · ${e.firstName} ${e.lastName}".trim()) } }
+        }
         Input(InputType.Text) { placeholder("Tema / curso *"); value(f_tema); onInput { f_tema = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
-        Input(InputType.Text) { placeholder("Fecha *"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+        FechaInput(f_fecha, { f_fecha = it }, width = 130)
         Input(InputType.Text) { placeholder("Horas"); value(f_horas); onInput { f_horas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(80.px) } }
         Input(InputType.Text) { placeholder("Responsable"); value(f_responsable); onInput { f_responsable = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
         Input(InputType.Text) { placeholder("Enlace evidencia (https)"); value(f_evidencia); onInput { f_evidencia = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
-        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick { if (f_trabajador.isNotBlank() && f_tema.isNotBlank() && f_fecha.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/ehs/dc3") { contentType(ContentType.Application.Json); setBody(Dc3Constancia(trabajador = f_trabajador, tema = f_tema, fecha = f_fecha, horas = f_horas, responsable = f_responsable, evidenciaUrl = f_evidencia)) }; f_trabajador = ""; f_tema = ""; f_fecha = ""; f_horas = ""; f_evidencia = ""; refresh() } } else { window.alert("Trabajador, tema y fecha son obligatorios.") } } }) { Text("+ Agregar") }
+        Button({ style { padding(8.px, 16.px); backgroundColor(SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }; onClick {
+            val trabajadorNombre = employees.firstOrNull { it.id == f_trabajadorId }?.let { "${it.firstName} ${it.lastName}".trim() } ?: ""
+            if (trabajadorNombre.isNotBlank() && f_tema.isNotBlank() && f_fecha.isNotBlank()) { scope.launch { client.post("$BACKEND_URL/api/v1/ehs/dc3") { contentType(ContentType.Application.Json); setBody(Dc3Constancia(trabajador = trabajadorNombre, tema = f_tema, fecha = f_fecha, horas = f_horas, responsable = f_responsable, evidenciaUrl = f_evidencia)) }; f_trabajadorId = ""; f_tema = ""; f_fecha = ""; f_horas = ""; f_evidencia = ""; refresh() } } else { window.alert("Trabajador, tema y fecha son obligatorios.") } } }) { Text("+ Agregar") }
     }
     if (isLoading) { P { Text("Cargando...") } } else {
         Table({ style { width(100.percent) } }) {
@@ -1064,6 +1090,7 @@ fun EhsDc3Tab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope) {
                     Td { if (row.evidenciaUrl.startsWith("http")) A(href = row.evidenciaUrl, attrs = { target(ATarget.Blank); style { color(Color("#2563eb")); textDecoration("underline") } }) { Text("Ver constancia") } else Text("—") }
                     Td { Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }; onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/ehs/dc3/${row.id}"); refresh() } } }) { Text("X") } }
                 } }
+                EhsPendingEvidenceRows(evidence, colSpan = 7, moduleType = "dc3", linkTargets = items.map { it.id to "${it.trabajador} · ${it.tema} · ${it.fecha}" }, client = client, scope = scope, onLinked = { refresh() })
             }
         }
     }
@@ -1532,6 +1559,28 @@ fun EhsCategoryEvidence(client: HttpClient, categoria: String) {
 // estructurado que la reclame (moduleRecordId == 0). Antes estos documentos
 // se listaban todos juntos arriba del modulo; ahora aparecen dentro de la
 // misma tabla, ocupando el ancho completo, hasta que se les cree su registro.
+// Convierte dd/MM/yyyy <-> yyyy-MM/dd para el calendario nativo del navegador
+// (input type=date). El resto del sistema sigue guardando dd/MM/yyyy.
+private fun ddmmyyyyToIso(s: String): String {
+    val p = s.split("/")
+    return if (p.size == 3) "${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}" else ""
+}
+private fun isoToDdmmyyyy(s: String): String {
+    val p = s.split("-")
+    return if (p.size == 3) "${p[2]}/${p[1]}/${p[0]}" else ""
+}
+
+// Campo de fecha con calendario desplegable en vez de captura libre de texto.
+@Composable
+fun FechaInput(fecha: String, onFechaChange: (String) -> Unit, width: Int = 140, placeholder: String = "Fecha") {
+    Input(InputType.Date) {
+        placeholder(placeholder)
+        value(ddmmyyyyToIso(fecha))
+        onInput { onFechaChange(isoToDdmmyyyy(it.value)) }
+        style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(width.px) }
+    }
+}
+
 @Composable
 fun EhsPendingEvidenceRows(
     evidence: List<EhsDocument>,
@@ -1778,6 +1827,8 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     var inspections by remember { mutableStateOf(emptyList<SafetyInspection>()) }
     var trainings by remember { mutableStateOf(emptyList<SafetyTraining>()) }
     var drills by remember { mutableStateOf(emptyList<EmergencyDrill>()) }
+    var dc3s by remember { mutableStateOf(emptyList<Dc3Constancia>()) }
+    var healths by remember { mutableStateOf(emptyList<MedicalExam>()) }
 
     LaunchedEffect(refreshKey) {
         isLoading = true
@@ -1786,6 +1837,8 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
             inspections = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body()
             trainings = client.get("$BACKEND_URL/api/v1/sap/ehs/capacitaciones").body()
             drills = client.get("$BACKEND_URL/api/v1/sap/ehs/simulacros").body()
+            dc3s = client.get("$BACKEND_URL/api/v1/ehs/dc3").body()
+            healths = client.get("$BACKEND_URL/api/v1/sap/ehs/salud").body()
         } catch (e: Exception) {
             statusMsg = "No se pudo cargar la evidencia documental: ${e.message ?: "error del servidor"}"
         } finally { isLoading = false }
@@ -1802,17 +1855,22 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     var completedFiles by remember { mutableStateOf(emptySet<org.w3c.files.File>()) }
     var f_moduleRecordId by remember { mutableStateOf(0) }
 
-    val categorias = listOf("Inspeccion", "Capacitacion", "Simulacro", "Estudio", "Dictamen", "ExamenMedico", "Incidente", "PermisoTrabajo", "EPP", "Residuos", "Riesgos", "Quimicos", "Auditoria", "Normativa", "Otro")
+    val categorias = listOf("Inspeccion", "Capacitacion", "Simulacro", "Estudio", "Dictamen", "ExamenMedico", "Incidente", "PermisoTrabajo", "EPP", "Residuos", "Riesgos", "Quimicos", "Auditoria", "DC3", "Normativa", "Otro")
     val moduleType = when (f_categoria) {
         "Inspeccion" -> "inspection"
+        "Auditoria" -> "inspection"
         "Simulacro" -> "drill"
         "Capacitacion" -> "training"
+        "DC3" -> "dc3"
+        "ExamenMedico" -> "health"
         else -> ""
     }
     val linkOptions: List<Pair<Int, String>> = when (moduleType) {
         "inspection" -> inspections.map { it.id to "#${it.id} · ${it.fecha} · ${it.tipoInspeccion} · ${it.area}" }
         "drill" -> drills.map { it.id to "#${it.id} · ${it.fecha} · ${it.tipo}" }
         "training" -> trainings.map { it.id to "#${it.id} · ${it.fecha} · ${it.tema}" }
+        "dc3" -> dc3s.map { it.id to "#${it.id} · ${it.trabajador} · ${it.tema} · ${it.fecha}" }
+        "health" -> healths.map { it.id to "#${it.id} · ${it.nombreEmpleado.trim()} (${it.empleadoId}) · ${it.fecha}" }
         else -> emptyList()
     }
 
@@ -1826,7 +1884,7 @@ fun EhsDocumentsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
                 categorias.forEach { Option(it) { Text(it) } }
             }
             Input(InputType.Text) { placeholder("Título (opcional si es un archivo)"); value(f_titulo); onInput { f_titulo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) } }
-            Input(InputType.Text) { placeholder("Fecha (dd/MM/aaaa, opcional)"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+            FechaInput(f_fecha, { f_fecha = it }, width = 150)
             if (!f_general) {
                 Input(InputType.Text) { placeholder("Año para archivos sin carpeta anual"); value(f_anio); onInput { f_anio = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) } }
             }

@@ -31,9 +31,13 @@ Uso:
     python sync_all.py --sin-fotos               (mas rapido: omite fotos)
     python sync_all.py --debug                   (imprime respuestas crudas)
 
-Para dejarlo corriendo siempre en Windows:
-    - Tarea programada de Windows que arranque sync_all.py --loop al encender
-    - O dejar una terminal/consola abierta con: python sync_all.py --loop
+Para dejarlo corriendo siempre en Windows (recomendado):
+    - Ejecuta una sola vez Instalar-RHNAF-Sync.ps1 (clic derecho ->
+      "Ejecutar con PowerShell"), o directamente:
+      python sync_all.py --install
+      Registra el arranque automatico al encender la PC y empieza
+      a sincronizar en segundo plano. Bitacora en sync_log.txt.
+    - Para quitarlo: python sync_all.py --uninstall
 """
 
 import argparse
@@ -48,12 +52,29 @@ import requests
 from requests.auth import HTTPDigestAuth
 
 # ======================= CONFIGURACION =======================
-DEVICE_IP = "10.141.1.230"
-DEVICE_USER = "admin"
-DEVICE_PASS = "Branco2025"
+# Valores por defecto; pueden sobreescribirse creando un archivo
+# config.json junto a este script con el mismo formato que
+# config.example.json. Asi no hay que editar el codigo para cambiar
+# la IP de la lectora, el password o el servidor en la nube.
+CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+
+def _load_config():
+    cfg = {}
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception as e:
+            print(f"[AVISO] config.json ilegible ({e}); usando valores por defecto")
+    return cfg
+
+_cfg = _load_config()
+DEVICE_IP = _cfg.get("device_ip", "10.141.1.230")
+DEVICE_USER = _cfg.get("device_user", "admin")
+DEVICE_PASS = _cfg.get("device_pass", "Branco2025")
 
 # URLs del servidor en la nube (Hugging Face Space)
-CLOUD_BASE = "https://d4r005-rhnaf-industrial.hf.space"
+CLOUD_BASE = _cfg.get("cloud_base", "https://d4r005-rhnaf-industrial.hf.space")
 CLOUD_ATTENDANCE_URL = f"{CLOUD_BASE}/api/v1/asistencia/hikvision"
 CLOUD_EMPLOYEE_SYNC_URL = f"{CLOUD_BASE}/api/v1/empleados/sync-device"
 CLOUD_BACKFILL_URL = f"{CLOUD_BASE}/api/v1/asistencia/backfill-metadata"
@@ -82,9 +103,20 @@ UPLOAD_CHUNK = 25
 # =============================================================
 
 
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sync_log.txt")
+MAX_LOG_BYTES = 2 * 1024 * 1024  # 2 MB, luego rota
+
 def log(msg: str):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{ts}] {msg}")
+    line = f"[{ts}] {msg}"
+    print(line)
+    try:
+        if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > MAX_LOG_BYTES:
+            os.replace(LOG_FILE, LOG_FILE + ".old")
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass  # nunca morir por el log
 
 
 # -------------------- utilidades ISAPI --------------------
@@ -747,6 +779,109 @@ def run_cycle(sin_fotos: bool = False, debug: bool = False, force_since: str | N
     log("------ CICLO COMPLETADO ------")
 
 
+
+
+# -------------------- INSTALACION EN WINDOWS --------------------
+
+TASK_NAME = "RHNAF Sync Asistencia"
+
+def _pythonw_path() -> str:
+    """Ruta de pythonw.exe (Python sin ventana de consola), ideal para
+    dejar el sincronizador corriendo en segundo plano."""
+    base = os.path.dirname(sys.executable)
+    cand = os.path.join(base, "pythonw.exe")
+    if os.path.exists(cand):
+        return cand
+    return sys.executable  # fallback: el python normal
+
+def install_windows_startup() -> bool:
+    if sys.platform != "win32":
+        print("[INSTALL] La instalacion automatica solo funciona en Windows.")
+        print("          En Linux/Mac usa un servicio systemd/launchd o cron con --loop.")
+        return False
+
+    script = os.path.abspath(__file__)
+    pyw = _pythonw_path()
+    run_cmd = f'"{pyw}" "{script}" --loop'
+    log(f"[INSTALL] Registrando arranque automatico: {run_cmd}")
+
+    ok = False
+    # Metodo 1: tarea programada al iniciar sesion (sobrevive cierres y no
+    # depende de que el usuario ponga el script en el Run del registro).
+    try:
+        import subprocess
+        r = subprocess.run(
+            ["schtasks", "/Create", "/TN", TASK_NAME, "/SC", "ONLOGON",
+             "/TR", run_cmd, "/F"],
+            capture_output=True, text=True,
+        )
+        if r.returncode == 0:
+            log(f"[INSTALL] Tarea programada '{TASK_NAME}' creada (arranque al iniciar sesion).")
+            ok = True
+        else:
+            log(f"[INSTALL] schtasks fallo: {r.stdout.strip()} {r.stderr.strip()}")
+    except Exception as e:
+        log(f"[INSTALL] schtasks no disponible: {e}")
+
+    # Metodo 2 (respaldo): clave Run del registro del usuario actual.
+    try:
+        import winreg
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0, winreg.KEY_SET_VALUE,
+        )
+        winreg.SetValueEx(key, "RHNAF_Sync_Asistencia", 0, winreg.REG_SZ, run_cmd)
+        winreg.CloseKey(key)
+        log("[INSTALL] Arranque registrado tambien en el registro (HKCU Run).")
+        ok = True
+    except Exception as e:
+        log(f"[INSTALL] Registro HKCU no disponible: {e}")
+
+    if not ok:
+        log("[INSTALL] No se pudo registrar el arranque automatico.")
+        log("[INSTALL] Ejecuta este archivo como administrador o agendalo manualmente.")
+        return False
+
+    # Arrancar ahora mismo en segundo plano para no esperar el reinicio.
+    try:
+        import subprocess
+        subprocess.Popen([pyw, script, "--loop"],
+                         cwd=os.path.dirname(script),
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        log("[INSTALL] Sincronizador iniciado en segundo plano.")
+    except Exception as e:
+        log(f"[INSTALL] No se pudo iniciar ahora ({e}); arrancara al reiniciar la PC.")
+
+    log("[INSTALL] Listo. La asistencia se sincronizara automaticamente en cada arranque.")
+    log(f"[INSTALL] Detalles y bitacora: {LOG_FILE}")
+    return True
+
+def uninstall_windows_startup():
+    if sys.platform != "win32":
+        print("[UNINSTALL] Solo aplica en Windows.")
+        return
+    try:
+        import subprocess
+        subprocess.run(["schtasks", "/Delete", "/TN", TASK_NAME, "/F"], capture_output=True)
+        log(f"[UNINSTALL] Tarea '{TASK_NAME}' eliminada.")
+    except Exception as e:
+        log(f"[UNINSTALL] schtasks: {e}")
+    try:
+        import winreg
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0, winreg.KEY_SET_VALUE,
+        )
+        winreg.DeleteValue(key, "RHNAF_Sync_Asistencia")
+        winreg.CloseKey(key)
+        log("[UNINSTALL] Entrada de registro eliminada.")
+    except Exception:
+        pass
+    log("[UNINSTALL] Listo.")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Sincronizacion total RHNAF: empleados + asistencia + reparacion"
@@ -760,21 +895,40 @@ def main():
                         help="Omitir fotos de rostro (mas rapido)")
     parser.add_argument("--debug", action="store_true",
                         help="Imprime respuestas crudas de la lectora para diagnostico")
+    parser.add_argument("--install", action="store_true",
+                        help="[Windows] instala el arranque automatico: tarea programada al iniciar sesion + fallback en el registro; luego empieza a sincronizar")
+    parser.add_argument("--uninstall", action="store_true",
+                        help="[Windows] quita el arranque automatico instalado con --install")
     args = parser.parse_args()
 
+    if args.install:
+        ok = install_windows_startup()
+        sys.exit(0 if ok else 1)
+    if args.uninstall:
+        uninstall_windows_startup()
+        sys.exit(0)
     if args.loop:
         log(f"Modo continuo: cada {args.interval}s. Ctrl+C para detener.")
         first = True
         while True:
-            # Primero revisar si la web solicito sync (espejo)
-            handled = poll_and_run_remote_task()
-            if not handled:
-                # Si no hay tarea remota, correr ciclo normal
-                run_cycle(
-                    sin_fotos=args.sin_fotos,
-                    debug=args.debug,
-                    force_since=args.since if first else None,
-                )
+            try:
+                # Primero revisar si la web solicito sync (espejo)
+                handled = poll_and_run_remote_task()
+                if not handled:
+                    # Si no hay tarea remota, correr ciclo normal
+                    run_cycle(
+                        sin_fotos=args.sin_fotos,
+                        debug=args.debug,
+                        force_since=args.since if first else None,
+                    )
+            except KeyboardInterrupt:
+                log("Detenido por el usuario.")
+                break
+            except Exception as e:
+                # Un error punticular (red caida, lectora apagada, HF dormido)
+                # NO debe tumbar el servicio: se anota y se reintenta en el
+                # siguiente ciclo. Con la tarea programada esto corre por años.
+                log(f"[ERROR] ciclo fallo (se reintentara en {args.interval}s): {e}")
             first = False
             time.sleep(args.interval)
     else:

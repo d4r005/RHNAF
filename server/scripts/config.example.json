@@ -1,0 +1,7 @@
+{
+  "device_ip": "10.141.1.230",
+  "device_user": "admin",
+  "device_pass": "CAMBIA_ESTE_PASSWORD",
+  "cloud_base": "https://d4r005-rhnaf-industrial.hf.space",
+  "interval_seconds": 300
+}
