@@ -753,7 +753,13 @@ fun EhsInspectionsTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSco
         isLoading = true
         try {
             items = client.get("$BACKEND_URL/api/v1/sap/ehs/inspecciones").body()
-            evidence = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Inspeccion").body()
+            // Esta pestana antes solo traia evidencia de categoria "Inspeccion",
+            // por lo que los documentos subidos como "Auditoria" (p. ej. el
+            // catalogo de evidencia documental) nunca aparecian aqui aunque
+            // estuvieran vinculados o pendientes de vincular.
+            val evInspecciones: List<EhsDocument> = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Inspeccion").body()
+            val evAuditorias: List<EhsDocument> = client.get("$BACKEND_URL/api/v1/ehs/documentos?categoria=Auditoria").body()
+            evidence = evInspecciones + evAuditorias
         } catch (e: Exception) { error = e.message ?: "Error cargando auditorías" } finally { isLoading = false }
     }
     fun refresh() { refreshKey++ }

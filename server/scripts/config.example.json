@@ -3,5 +3,6 @@
   "device_user": "admin",
   "device_pass": "CAMBIA_ESTE_PASSWORD",
   "cloud_base": "https://d4r005-rhnaf-industrial.hf.space",
+  "cloud_token": "pon_aqui_tu_correo_de_login_de_la_web",
   "interval_seconds": 300
 }

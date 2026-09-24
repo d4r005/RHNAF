@@ -72,6 +72,14 @@ _cfg = _load_config()
 DEVICE_IP = _cfg.get("device_ip", "10.141.1.230")
 DEVICE_USER = _cfg.get("device_user", "admin")
 DEVICE_PASS = _cfg.get("device_pass", "Branco2025")
+# Token de sesion del servidor en la nube: es el CORREO con el que inicias
+# sesion en la web (Authorization: Bearer <correo>). Sin esto, el servidor
+# rechaza con 401 la subida de empleados y las llamadas de reparacion
+# (backfill/normalize/poll-task/update-task), aunque las checadas si pasan
+# porque /asistencia/hikvision es publica (lo dejaron asi para que la lectora
+# pueda hacer push directo).
+CLOUD_TOKEN = _cfg.get("cloud_token", "").strip()
+CLOUD_HEADERS = {"Authorization": f"Bearer {CLOUD_TOKEN}"} if CLOUD_TOKEN else {}
 
 # URLs del servidor en la nube (Hugging Face Space)
 CLOUD_BASE = _cfg.get("cloud_base", "https://d4r005-rhnaf-industrial.hf.space")
@@ -562,7 +570,7 @@ def push_employees_to_cloud(rows: list):
     for i in range(0, len(rows), UPLOAD_CHUNK):
         chunk = rows[i:i + UPLOAD_CHUNK]
         try:
-            resp = requests.post(CLOUD_EMPLOYEE_SYNC_URL, json=chunk, timeout=30)
+            resp = requests.post(CLOUD_EMPLOYEE_SYNC_URL, json=chunk, headers=CLOUD_HEADERS, timeout=30)
             resp.raise_for_status()
             result = resp.json()
             total_creados += result.get("creados", 0)
@@ -643,7 +651,7 @@ def push_attendance_to_cloud(event: dict) -> bool:
     }
 
     try:
-        resp = requests.post(CLOUD_ATTENDANCE_URL, json=payload, timeout=15)
+        resp = requests.post(CLOUD_ATTENDANCE_URL, json=payload, headers=CLOUD_HEADERS, timeout=15)
         resp.raise_for_status()
         return True
     except requests.RequestException as e:
@@ -712,7 +720,7 @@ def sync_attendance(force_since: str | None = None):
 
 def call_cloud_endpoint(url: str, label: str):
     try:
-        resp = requests.post(url, timeout=30)
+        resp = requests.post(url, headers=CLOUD_HEADERS, timeout=30)
         resp.raise_for_status()
         data = resp.json()
         log(f"  {label}: {data}")
@@ -733,7 +741,7 @@ def poll_and_run_remote_task():
     Si existe, la ejecuta y marca como DONE. Asi el boton 'Get' de la web
     funciona como espejo del boton 'Sincronizar Todo' del desktop."""
     try:
-        resp = requests.get(CLOUD_POLL_TASK_URL, timeout=10)
+        resp = requests.get(CLOUD_POLL_TASK_URL, headers=CLOUD_HEADERS, timeout=10)
         if resp.status_code == 204:
             return False  # No hay tareas pendientes
         if resp.status_code != 200:
@@ -744,7 +752,7 @@ def poll_and_run_remote_task():
         log(f"  [TASK] Tarea remota #{task_id} tipo {task_type} recibida de la web")
 
         # Marcar como IN_PROGRESS
-        requests.post(CLOUD_UPDATE_TASK_URL, json={"id": task_id, "status": "IN_PROGRESS"}, timeout=10)
+        requests.post(CLOUD_UPDATE_TASK_URL, json={"id": task_id, "status": "IN_PROGRESS"}, headers=CLOUD_HEADERS, timeout=10)
 
         # Ejecutar sincronizacion completa
         result = run_cycle(force_since="2026-01-01T00:00:00")
@@ -754,7 +762,7 @@ def poll_and_run_remote_task():
             "id": task_id,
             "status": "DONE",
             "result": "Sincronizacion completada desde la lectora local"
-        }, timeout=10)
+        }, headers=CLOUD_HEADERS, timeout=10)
         log(f"  [TASK] Tarea #{task_id} completada")
         return True
     except Exception as e:
@@ -765,7 +773,7 @@ def poll_and_run_remote_task():
                     "id": task_id,
                     "status": "ERROR",
                     "result": str(e)
-                }, timeout=10)
+                }, headers=CLOUD_HEADERS, timeout=10)
         except:
             pass
         return False
@@ -773,6 +781,9 @@ def poll_and_run_remote_task():
 
 def run_cycle(sin_fotos: bool = False, debug: bool = False, force_since: str | None = None):
     log("------ INICIO DE CICLO ------")
+    if not CLOUD_TOKEN:
+        log("[AVISO] config.json no tiene 'cloud_token' (tu correo de login de la web).")
+        log("[AVISO] Las checadas SI se subiran, pero empleados/repaciones seran rechazadas (401).")
     sync_employees(sin_fotos=sin_fotos, debug=debug)
     sync_attendance(force_since=force_since)
     repair_attendance()
