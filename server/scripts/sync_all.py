@@ -614,13 +614,18 @@ def sync_employees(sin_fotos: bool = False, debug: bool = False):
 # -------------------- PARTE 2: ASISTENCIA --------------------
 
 def fetch_events(start_time: str, end_time: str, position: int = 0):
+    """Un solo request de busqueda de eventos a la ISAPI de la lectora.
+    major=5 = eventos de Control de Acceso (checadas reales, con employeeNoString).
+    major=0 traeria TODO el ruido del sistema (alarmas, puerta abierta, tamper,
+    etc. sin employeeNo) y por eso las checadas nunca se subian: se veian 1500
+    eventos pero 0 con numero de empleado."""
     url = f"http://{DEVICE_IP}/ISAPI/AccessControl/AcsEvent?format=json"
     body = {
         "AcsEventCond": {
             "searchID": "1",
             "searchResultPosition": position,
             "maxResults": BATCH_SIZE,
-            "major": 0,
+            "major": 5,
             "minor": 0,
             "startTime": with_tz(start_time),
             "endTime": with_tz(end_time),
