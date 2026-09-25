@@ -97,31 +97,34 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                 alignItems(AlignItems.FlexEnd)
             }
         }) {
-            // Start Time
+            // Start Time: selector nativo de fecha+hora (abre el mismo tipo de
+            // calendario que el cliente de escritorio Hikvision al hacer clic).
             Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column) } }) {
-                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Start") }
-                Input(InputType.Text) {
+                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Start Time") }
+                Input(InputType.DateTimeLocal) {
+                    attr("step", "1") // conserva los segundos (el filtro los usa)
                     value(startTime)
                     onInput { startTime = it.value }
-                    style { IvmsInputStyle() }
+                    style { IvmsInputStyle(); width(170.px) }
                 }
             }
             // End Time
             Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column) } }) {
-                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("End") }
-                Input(InputType.Text) {
+                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("End Time") }
+                Input(InputType.DateTimeLocal) {
+                    attr("step", "1")
                     value(endTime)
                     onInput { endTime = it.value }
-                    style { IvmsInputStyle() }
+                    style { IvmsInputStyle(); width(170.px) }
                 }
             }
             // Person ID
             Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column) } }) {
-                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("PID") }
+                Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Person ID") }
                 Input(InputType.Text) {
                     value(pidFilter)
                     onInput { pidFilter = it.value }
-                    style { IvmsInputStyle(); width(80.px) }
+                    style { IvmsInputStyle(); width(90.px) }
                 }
             }
             // Name
@@ -137,11 +140,11 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
             Div({ style { display(DisplayStyle.Flex); flexDirection(FlexDirection.Column) } }) {
                 Label(null, { style { fontSize(10.px); color(Color("#8b9dad")); marginBottom(2.px); fontWeight("bold") } }) { Text("Dept") }
                 Select({
-                    style { IvmsInputStyle(); width(100.px) }
+                    style { IvmsInputStyle(); width(120.px) }
                     onChange { deptFilter = it.target.asDynamic().value as String }
                 }) {
                     Option("") { Text("All") }
-                    listOf("Produccion", "Almacen", "RH", "Mantenimiento", "Seguridad", "General").forEach {
+                    listOf("Oficina", "Seguridad", "Vigilancia", "Limpieza", "Calidad", "Almacen", "Gerencia", "Mantenimiento", "Producción").forEach {
                         Option(it) { Text(it) }
                     }
                 }
