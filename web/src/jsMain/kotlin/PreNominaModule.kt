@@ -11,6 +11,7 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.launch
 import kotlinx.browser.window
+import kotlinx.browser.document
 
 fun fmt1(d: Double): String {
     val s = d.toString()
@@ -357,6 +358,38 @@ fun JustificacionesTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSc
     }
 }
 
+// Descarga los resultados calculados como CSV (abre directo en Excel).
+// Se usa BOM UTF-8 para que Excel muestre bien los acentos.
+fun descargarPreNominaCsv(items: List<PrePayrollRecord>) {
+    if (items.isEmpty()) { window.alert("Primero calcula un periodo para poder descargarlo."); return }
+    fun csv(v: String) = "\"" + v.replace("\"", "\"\"") + "\""
+    val header = listOf("ID Empleado","Empleado","Periodo Inicio","Periodo Fin","Dias Trabajados","Faltas","Retardos Menores","Retardos Mayores","Salidas Anticipadas","Horas Trabajadas","Horas Extra","Prima Dominical","Dias Descanso Trabajados","Estado")
+    val lines = StringBuilder()
+    lines.append(header.joinToString(","))
+    lines.append("\r\n")
+    for (r in items) {
+        lines.append(listOf(
+            r.employeeId, r.employeeName, r.periodoInicio, r.periodoFin,
+            r.diasTrabajados.toString(), r.faltas.toString(),
+            r.retardosMenores.toString(), r.retardosMayores.toString(),
+            r.salidasAnticipadas.toString(), r.horasTrabajadas.toString(),
+            r.horasExtra.toString(), r.primaDominical.toString(),
+            r.diasDescansoTrabajados.toString(), r.estado
+        ).joinToString(",") { csv(it) })
+        lines.append("\r\n")
+    }
+    val blob = org.w3c.files.Blob(arrayOf("\uFEFF" + lines.toString()))
+    val url = window.asDynamic().URL.createObjectURL(blob) as String
+    val a = kotlinx.browser.document.createElement("a") as org.w3c.dom.HTMLAnchorElement
+    a.href = url
+    val periodo = if (items.isNotEmpty()) items.first().periodoInicio + "_a_" + items.first().periodoFin else ""
+    a.download = "pre_nomina_$periodo.csv"
+    document.body?.appendChild(a)
+    a.click()
+    document.body?.removeChild(a)
+    window.asDynamic().URL.revokeObjectURL(url)
+}
+
 @Composable
 fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canEdit: Boolean) {
     var items by remember { mutableStateOf(emptyList<PrePayrollRecord>()) }
@@ -408,6 +441,10 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
             style { padding(8.px, 16.px); backgroundColor(Color("#475569")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
             onClick { refreshKey++ }
         }) { Text("Refrescar") }
+        Button({
+            style { padding(8.px, 16.px); backgroundColor(Color("#16a34a")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
+            onClick { descargarPreNominaCsv(items) }
+        }) { Text("Descargar CSV") }
         if (canEdit && items.isNotEmpty()) {
             Button({
                 style { padding(8.px, 16.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
