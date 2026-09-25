@@ -33,6 +33,8 @@ data class Employee(
     val phone: String? = null,
     
     // Historial y Salud
+    val exitDate: String? = null,        // fecha de baja (dd/MM/yyyy)
+    val sbc: Double? = null,             // salario base de cotizacion IMSS
     val status: EmployeeStatus = EmployeeStatus.ACTIVE,
     val disciplinaryHistory: List<String> = emptyList(),
     val medicalHistory: String? = null,

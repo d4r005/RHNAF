@@ -267,7 +267,15 @@ fun Application.module() {
                             nss = it[EmployeeTable.nss],
                             readerId = it[EmployeeTable.readerId],
                             photoUrl = it[EmployeeTable.photoUrl],
-                            attritionRisk = it[EmployeeTable.attritionRisk]
+                            attritionRisk = it[EmployeeTable.attritionRisk],
+                            salary = it[EmployeeTable.salary],
+                            sbc = it[EmployeeTable.sbc],
+                            exitDate = it[EmployeeTable.exitDate],
+                            phone = it[EmployeeTable.phone],
+                            supervisor = it[EmployeeTable.supervisor],
+                            contractType = it[EmployeeTable.contractType],
+                            maritalStatus = it[EmployeeTable.maritalStatus],
+                            emergencyContact = it[EmployeeTable.emergencyContact]
                         )
                     }
                 }
@@ -344,6 +352,14 @@ fun Application.module() {
                         it[readerId] = emp.readerId ?: emp.id
                         it[photoUrl] = emp.photoUrl
                         it[attritionRisk] = emp.attritionRisk
+                        it[salary] = emp.salary
+                        it[sbc] = emp.sbc
+                        it[exitDate] = emp.exitDate
+                        it[phone] = emp.phone
+                        it[supervisor] = emp.supervisor
+                        it[contractType] = emp.contractType
+                        it[maritalStatus] = emp.maritalStatus
+                        it[emergencyContact] = emp.emergencyContact
                     }
                 }
                 call.respond(HttpStatusCode.Created, mapOf("status" to "success"))
@@ -366,6 +382,14 @@ fun Application.module() {
                         it[readerId] = emp.readerId
                         it[photoUrl] = emp.photoUrl
                         it[attritionRisk] = emp.attritionRisk
+                        it[salary] = emp.salary
+                        it[sbc] = emp.sbc
+                        it[exitDate] = emp.exitDate
+                        it[phone] = emp.phone
+                        it[supervisor] = emp.supervisor
+                        it[contractType] = emp.contractType
+                        it[maritalStatus] = emp.maritalStatus
+                        it[emergencyContact] = emp.emergencyContact
                     }
                 }
                 call.respond(mapOf("status" to "success"))

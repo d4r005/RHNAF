@@ -398,6 +398,9 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
     var refreshKey by remember { mutableStateOf(0) }
     var f_inicio by remember { mutableStateOf("") }
     var f_fin by remember { mutableStateOf("") }
+    var ajusteEmp by remember { mutableStateOf<PrePayrollRecord?>(null) }
+    var isDescargandoPdf by remember { mutableStateOf(false) }
+    var ajustesExistentes by remember { mutableStateOf<Map<String, Map<String, String?>>>(emptyMap()) }
 
     LaunchedEffect(refreshKey) {
         isLoading = true
@@ -445,6 +448,37 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
             style { padding(8.px, 16.px); backgroundColor(Color("#16a34a")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
             onClick { descargarPreNominaCsv(items) }
         }) { Text("Descargar CSV") }
+        Button({
+            style { padding(8.px, 16.px); backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
+            onClick {
+                if (items.isNotEmpty() && !isDescargandoPdf) {
+                    scope.launch {
+                        isDescargandoPdf = true
+                        try {
+                            val resp = client.get("$BACKEND_URL/api/v1/pre-nomina/pdf?inicio=${items.first().periodoInicio}&fin=${items.first().periodoFin}")
+                            if (resp.status == HttpStatusCode.OK) {
+                                val bytes = resp.readBytes()
+                                val blob = org.w3c.files.Blob(arrayOf(bytes))
+                                val url = window.asDynamic().URL.createObjectURL(blob) as String
+                                val a = document.createElement("a") as org.w3c.dom.HTMLAnchorElement
+                                a.href = url
+                                a.download = "pre_nomina_${items.first().periodoInicio}_a_${items.first().periodoFin}.pdf"
+                                document.body?.appendChild(a)
+                                a.click()
+                                document.body?.removeChild(a)
+                                window.asDynamic().URL.revokeObjectURL(url)
+                            } else {
+                                window.alert("No hay pre-nomina calculada para ese periodo. Calcula primero.")
+                            }
+                        } catch (e: Exception) {
+                            window.alert("Error al generar PDF: ${e.message}")
+                        } finally {
+                            isDescargandoPdf = false
+                        }
+                    }
+                }
+            }
+        }) { Text(if (isDescargandoPdf) "Generando..." else "Descargar PDF") }
         if (canEdit && items.isNotEmpty()) {
             Button({
                 style { padding(8.px, 16.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
@@ -462,6 +496,7 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
             }
             Tbody {
                 items.forEach { r ->
+                    val aj = ajustesExistentes[r.employeeId]
                     Tr {
                         Td { Text(r.employeeName) }; Td { Text("${r.periodoInicio} a ${r.periodoFin}") }
                         Td { Text(r.diasTrabajados.toString()) }
@@ -470,12 +505,92 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
                         Td { Text(fmt1(r.horasTrabajadas)) }
                         Td { if (r.horasExtra > 0) Span({ style { color(Color("#10b981")); fontWeight("bold") } }) { Text(fmt1(r.horasExtra)) } else Text("0") }
                         Td { Text(fmt2(r.primaDominical)) }; Td { Text(r.diasDescansoTrabajados.toString()) }
-                        if (canEdit) Td {
+                        if (canEdit) Td({ style { whiteSpace("nowrap") } }) {
+                            if (aj != null) Span({ style { fontSize(10.px); backgroundColor(Color("#fef3c7")); color(Color("#92400e")); padding(2.px, 6.px); borderRadius(4.px); marginRight(4.px) } }) { Text("AJUSTADO") }
+                            Button({ style { backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
+                                onClick {
+                                    ajusteEmp = r
+                                    scope.launch {
+                                        try {
+                                            val resp: List<Map<String, String?>> = client.get("$BACKEND_URL/api/v1/pre-nomina/ajustes?inicio=${r.periodoInicio}&fin=${r.periodoFin}").body()
+                                            ajustesExistentes = resp.associate { (it["employeeId"] ?: "") to it }
+                                        } catch (e: Exception) { }
+                                    }
+                                }
+                            }) { Text("Ajustar") }
                             Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
                                 onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/pre-nomina/resultados/${r.id}"); refreshKey++ } }
                             }) { Text("Eliminar") }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // --- DIALOG: Ajustar deducciones (ISR/IMSS/anticipos) ---
+    val ajusteRec = ajusteEmp
+    if (ajusteRec != null) {
+        val ajEx = ajustesExistentes[ajusteRec.employeeId]
+        var vIsr by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("isr") ?: "") }
+        var vImss by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("imss") ?: "") }
+        var vAnticipo by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("anticipo") ?: "") }
+        var vOtros by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("otros") ?: "") }
+        var guardando by remember { mutableStateOf(false) }
+        Div({
+            style {
+                position(Position.Fixed); top(0.px); left(0.px); width(100.vw); height(100.vh)
+                backgroundColor(Color("rgba(0,0,0,0.5)")); display(DisplayStyle.Flex)
+                alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); property("z-index", "999")
+            }
+        }) {
+            Div({ style { backgroundColor(Color.white); borderRadius(12.px); padding(28.px); width(440.px); maxWidth("90vw") } }) {
+                H3({ style { margin(0.px, 0.px, 6.px, 0.px) } }) { Text("Ajustar deducciones") }
+                P({ style { fontSize(12.px); color(Color("#64748b")); margin(0.px, 0.px, 16.px, 0.px) } }) {
+                    Text("${ajusteRec.employeeName} (${ajusteRec.periodoInicio} a ${ajusteRec.periodoFin})")
+                }
+                P({ style { fontSize(11.px); color(Color("#92400e")); backgroundColor(Color("#fef3c7")); padding(8.px, 10.px); borderRadius(6.px); margin(0.px, 0.px, 12.px, 0.px) } }) {
+                    Text("Deja un campo vacio para usar el calculo automatico de ISR/IMSS.")
+                }
+                EditField("ISR (retencion) - vacio = automatico", vIsr) { vIsr = it }
+                EditField("IMSS (cuota obrera) - vacio = automatico", vImss) { vImss = it }
+                EditField("Anticipo de nomina", vAnticipo) { vAnticipo = it }
+                EditField("Otros descuentos", vOtros) { vOtros = it }
+                Div({ style { display(DisplayStyle.Flex); gap(12.px); marginTop(20.px) } }) {
+                    Button({
+                        style { flex(1); padding(10.px); borderRadius(8.px); property("border", "none"); backgroundColor(Color("#2563eb")); color(Color.white); cursor("pointer"); fontWeight("bold") }
+                        onClick {
+                            if (!guardando) {
+                                guardando = true
+                                scope.launch {
+                                    try {
+                                        client.post("$BACKEND_URL/api/v1/pre-nomina/ajuste") {
+                                            contentType(ContentType.Application.Json)
+                                            setBody(mapOf(
+                                                "employeeId" to ajusteRec.employeeId,
+                                                "periodoInicio" to ajusteRec.periodoInicio,
+                                                "periodoFin" to ajusteRec.periodoFin,
+                                                "isr" to vIsr, "imss" to vImss,
+                                                "anticipo" to vAnticipo, "otros" to vOtros
+                                            ))
+                                        }
+                                        // refrescar lista de ajustes
+                                        val resp: List<Map<String, String?>> = client.get("$BACKEND_URL/api/v1/pre-nomina/ajustes?inicio=${ajusteRec.periodoInicio}&fin=${ajusteRec.periodoFin}").body()
+                                        ajustesExistentes = resp.associate { (it["employeeId"] ?: "") to it }
+                                    } catch (e: Exception) {
+                                        window.alert("Error al guardar: ${e.message}")
+                                    } finally {
+                                        guardando = false
+                                        ajusteEmp = null
+                                    }
+                                }
+                            }
+                        }
+                    }) { Text(if (guardando) "Guardando..." else "Guardar ajuste") }
+                    Button({
+                        style { flex(1); padding(10.px); borderRadius(8.px); property("border", "1px solid #cbd5e1"); backgroundColor(Color.white); cursor("pointer") }
+                        onClick { ajusteEmp = null }
+                    }) { Text("Cancelar") }
                 }
             }
         }

@@ -235,6 +235,20 @@ fun EmployeeModule(
         var photoDataUrl by remember { mutableStateOf(emp.photoUrl) }
         var photoError by remember { mutableStateOf("") }
         var photoBusy by remember { mutableStateOf(false) }
+        var rfc by remember { mutableStateOf(emp.rfc ?: "") }
+        var curp by remember { mutableStateOf(emp.curp ?: "") }
+        var nss by remember { mutableStateOf(emp.nss ?: "") }
+        var entryDate by remember { mutableStateOf(emp.entryDate) }
+        var exitDate by remember { mutableStateOf(emp.exitDate ?: "") }
+        var salary by remember { mutableStateOf(emp.salary?.let { it.toString() } ?: "") }
+        var sbc by remember { mutableStateOf(emp.sbc?.let { it.toString() } ?: "") }
+        var phone by remember { mutableStateOf(emp.phone ?: "") }
+        var email by remember { mutableStateOf(emp.email ?: "") }
+        var supervisor by remember { mutableStateOf(emp.supervisor ?: "") }
+        var contractType by remember { mutableStateOf(emp.contractType ?: "") }
+        var maritalStatus by remember { mutableStateOf(emp.maritalStatus ?: "") }
+        var emergencyContact by remember { mutableStateOf(emp.emergencyContact ?: "") }
+        var status by remember { mutableStateOf(emp.status.name) }
 
         Div({
             style {
@@ -246,12 +260,14 @@ fun EmployeeModule(
             Div({
                 style {
                     backgroundColor(Color.white); borderRadius(12.px); padding(32.px)
-                    width(420.px); maxWidth("90vw"); maxHeight("90vh"); overflowY("auto")
+                    width(720.px); maxWidth("95vw"); maxHeight("92vh"); overflowY("auto")
                     property("box-shadow", "0 20px 25px -5px rgba(0,0,0,0.3)")
                 }
             }) {
-                H3({ style { margin(0.px, 0.px, 20.px, 0.px) } }) { Text("Editar Empleado") }
-                P({ style { fontSize(12.px); color(Color("#64748b")); marginBottom(16.px) } }) { Text("ID: ${emp.id}") }
+                H3({ style { margin(0.px, 0.px, 20.px, 0.px) } }) { Text("Ficha de Empleado - ${emp.id}") }
+                P({ style { fontSize(12.px); color(Color("#64748b")); marginBottom(16.px) } }) {
+                    Text(if (status == "ACTIVE") "Empleado activo" else "Estado: $status")
+                }
 
                 // --- Foto ---
                 Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(12.px); marginBottom(16.px) } }) {
@@ -322,6 +338,33 @@ fun EmployeeModule(
                 EditField("Apellidos", lastName) { lastName = it }
                 EditField("Puesto", position) { position = it }
                 EditField("Departamento", department) { department = it }
+                Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
+                    Div({ style { flex(1) } }) {
+                        EditField("Fecha de ingreso (dd/MM/aaaa)", entryDate) { entryDate = it }
+                        EditField("Fecha de baja (dd/MM/aaaa)", exitDate) { exitDate = it }
+                        EditField("Tipo de contrato", contractType) { contractType = it }
+                        EditField("Estado civil", maritalStatus) { maritalStatus = it }
+                    }
+                    Div({ style { flex(1) } }) {
+                        EditField("Sueldo diario ($)", salary) { salary = it }
+                        EditField("SBC / IMSS ($)", sbc) { sbc = it }
+                        EditField("Jefe directo", supervisor) { supervisor = it }
+                        EditField("Estado (ACTIVE / INACTIVE)", status) { status = it }
+                    }
+                }
+                P({ style { fontSize(12.px); fontWeight("bold"); color(Color("#334155")); margin(16.px, 0.px, 4.px, 0.px) } }) { Text("Datos oficiales (RFC, CURP, NSS)") }
+                Div({ style { display(DisplayStyle.Flex); gap(12.px) } }) {
+                    Div({ style { flex(1) } }) {
+                        EditField("RFC", rfc) { rfc = it }
+                        EditField("CURP", curp) { curp = it }
+                        EditField("NSS (No. Seguro Social)", nss) { nss = it }
+                    }
+                    Div({ style { flex(1) } }) {
+                        EditField("Telefono", phone) { phone = it }
+                        EditField("Correo electronico", email) { email = it }
+                        EditField("Contacto de emergencia", emergencyContact) { emergencyContact = it }
+                    }
+                }
 
                 Div({ style { display(DisplayStyle.Flex); gap(12.px); marginTop(24.px) } }) {
                     Button({
@@ -333,7 +376,20 @@ fun EmployeeModule(
                             val updated = emp.copy(
                                 firstName = firstName, lastName = lastName,
                                 position = position, department = department,
-                                photoUrl = photoDataUrl
+                                photoUrl = photoDataUrl,
+                                rfc = rfc.ifBlank { null }, curp = curp.ifBlank { null },
+                                nss = nss.ifBlank { null },
+                                entryDate = entryDate,
+                                exitDate = exitDate.ifBlank { null },
+                                salary = salary.replace(",", "").toDoubleOrNull(),
+                                sbc = sbc.replace(",", "").toDoubleOrNull(),
+                                phone = phone.ifBlank { null },
+                                email = email.ifBlank { null },
+                                supervisor = supervisor.ifBlank { null },
+                                contractType = contractType.ifBlank { null },
+                                maritalStatus = maritalStatus.ifBlank { null },
+                                emergencyContact = emergencyContact.ifBlank { null },
+                                status = try { EmployeeStatus.valueOf(status) } catch (e: Exception) { emp.status }
                             )
                             updateEmployee(updated)
                             showEditDialog = false
@@ -443,7 +499,14 @@ fun EmployeeModule(
 
 @Composable
 fun EmployeeRow(emp: Employee, canManage: Boolean, onEdit: () -> Unit, onBaja: () -> Unit, onDelete: () -> Unit) {
-    Tr({ style { property("border-bottom", "1px solid #f1f5f9") } }) {
+    Tr({
+        style {
+            property("border-bottom", "1px solid #f1f5f9")
+            property("cursor", "pointer")
+            property("background-color", "#ffffff")
+        }
+        onClick { onEdit() }
+    }) {
         Td({ style { padding(6.px, 10.px) } }) {
             val photo = emp.photoUrl
             if (!photo.isNullOrBlank()) {

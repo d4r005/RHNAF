@@ -42,7 +42,7 @@ object DatabaseFactory {
         // en vez de crashear.
         try {
         transaction(database) {
-            val managedTables = listOf(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, SafetyIncidentTable, WorkPermitTable, PpeDeliveryTable, SafetyTrainingTable, EmergencyDrillTable, RiskMatrixTable, AccessAuditLogTable, EnvironmentalWasteTable, OccupationalHealthTable, ChemicalInventoryTable, ShiftTable, AttendancePolicyTable, EmployeeShiftTable, JustificationTable, PrePayrollTable, SystemTaskTable, WarehouseLocationTable, WarehouseOutgoingLogTable, WarehouseAuditTable, OrderTable, DeliveryRouteTable, TraceabilityEventTable, FerreteriaTable, RecepcionMPTable, TarimaTable, ContenedorChinaTable, SelloStockTable, GasConsumoTable, PersonalTallaTable, ApprovalWorkflowTable, DocumentLogTable, LegalMatrixTable, EhsActionTable, EhsContractorTable, EhsRatePeriodTable, Dc3ConstanciaTable, EhsCustomEventTable, EhsChecklistTable, EhsChecklistItemTable,LegalMatrixRefTable, LegalMatrixDocTable, EhsReminderLogTable) +
+            val managedTables = listOf(EmployeeTable, AttendanceLogTable, IncidentTable, DebugLogTable, WarehouseInventoryTable, WarehouseIncomingLogTable, ShipmentTable, ShipmentSummaryTable, UserTable, JournalEntryTable, CostCenterTable, PurchaseOrderTable, ProductionOrderTable, QualityInspectionTable, MaintenanceOrderTable, WarehouseTaskTable, RecruitmentVacancyTable, CustomsDeclarationTable, SafetyInspectionTable, SafetyIncidentTable, WorkPermitTable, PpeDeliveryTable, SafetyTrainingTable, EmergencyDrillTable, RiskMatrixTable, AccessAuditLogTable, EnvironmentalWasteTable, OccupationalHealthTable, ChemicalInventoryTable, ShiftTable, AttendancePolicyTable, EmployeeShiftTable, JustificationTable, PrePayrollTable, PayrollOverrideTable, SystemTaskTable, WarehouseLocationTable, WarehouseOutgoingLogTable, WarehouseAuditTable, OrderTable, DeliveryRouteTable, TraceabilityEventTable, FerreteriaTable, RecepcionMPTable, TarimaTable, ContenedorChinaTable, SelloStockTable, GasConsumoTable, PersonalTallaTable, ApprovalWorkflowTable, DocumentLogTable, LegalMatrixTable, EhsActionTable, EhsContractorTable, EhsRatePeriodTable, Dc3ConstanciaTable, EhsCustomEventTable, EhsChecklistTable, EhsChecklistItemTable,LegalMatrixRefTable, LegalMatrixDocTable, EhsReminderLogTable) +
                 if (System.getenv("OMIT_EHS_DOCUMENTS") == "true") emptyList() else listOf(EhsDocumentTable)
             SchemaUtils.createMissingTablesAndColumns(*managedTables.toTypedArray())
 
@@ -54,6 +54,15 @@ object DatabaseFactory {
             // varying" -> 500 al sincronizar el historico real. Ampliamos explicitamente
             // aqui (idempotente, seguro de correr en cada arranque).
             if (!rawDatabaseUrl.isNullOrBlank()) {
+                // MIGRACION: ficha de empleado completa (sueldos, SBC, datos personales).
+                runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS salary DOUBLE PRECISION") }
+                runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS sbc DOUBLE PRECISION") }
+                runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS exit_date VARCHAR(20)") }
+                runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS phone VARCHAR(30)") }
+                runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS supervisor VARCHAR(150)") }
+                runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS contract_type VARCHAR(60)") }
+                runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS marital_status VARCHAR(40)") }
+                runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS emergency_contact VARCHAR(150)") }
                 runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN device_serial TYPE VARCHAR(150)") }
                 runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN verify_mode TYPE VARCHAR(100)") }
                 runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN employee_id TYPE VARCHAR(100)") }

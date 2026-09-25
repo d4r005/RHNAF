@@ -18,6 +18,14 @@ object EmployeeTable : Table("employees") {
     val readerId = varchar("reader_id", 50).nullable() 
     val photoUrl = text("photo_url").nullable()
     val attritionRisk = double("attrition_risk").default(0.15)
+    val salary = double("salary").nullable()            // sueldo diario en pesos
+    val sbc = double("sbc").nullable()                  // salario base de cotizacion IMSS
+    val exitDate = varchar("exit_date", 20).nullable()  // fecha de baja (dd/MM/yyyy)
+    val phone = varchar("phone", 30).nullable()
+    val supervisor = varchar("supervisor", 150).nullable()
+    val contractType = varchar("contract_type", 60).nullable()
+    val maritalStatus = varchar("marital_status", 40).nullable()
+    val emergencyContact = varchar("emergency_contact", 150).nullable()
     
     override val primaryKey = PrimaryKey(id)
 }

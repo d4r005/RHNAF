@@ -17,6 +17,11 @@ import org.jetbrains.exposed.sql.and
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.Duration
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.pdmodel.PDPage
+import org.apache.pdfbox.pdmodel.PDPageContentStream
+import org.apache.pdfbox.pdmodel.common.PDRectangle
+import org.apache.pdfbox.pdmodel.font.PDType1Font
 
 fun Route.prePayrollRouting() {
     route("/api/v1/pre-nomina") {
@@ -515,6 +520,293 @@ fun Route.prePayrollRouting() {
                 "registros" to resultados.size.toString(),
                 "periodo" to "$inicioStr a $finStr"
             ))
+        }
+
+        // ---------- AJUSTES MANUALES (correcciones de ISR/IMSS, anticipos) ----------
+        // Devuelve los ajustes manuales capturados para un periodo.
+        get("/ajustes") {
+            val inicioStr = call.request.queryParameters["inicio"] ?: ""
+            val finStr = call.request.queryParameters["fin"] ?: ""
+            val items = DatabaseFactory.dbQuery {
+                PayrollOverrideTable.selectAll()
+                    .filter { it[PayrollOverrideTable.periodoInicio] == inicioStr && it[PayrollOverrideTable.periodoFin] == finStr }
+                    .map {
+                        mapOf(
+                            "employeeId" to it[PayrollOverrideTable.employeeId],
+                            "isr" to it[PayrollOverrideTable.isr],
+                            "imss" to it[PayrollOverrideTable.imss],
+                            "anticipo" to it[PayrollOverrideTable.anticipo],
+                            "otros" to it[PayrollOverrideTable.otros]
+                        )
+                    }
+            }
+            call.respond(items)
+        }
+
+        // Captura o corrige un ajuste manual (si isr/imss llegan null se vuelve
+        // al calculo automatico). Borra el registro previo del mismo empleado
+        // y periodo, y guarda el nuevo.
+        post("/ajuste") {
+            val body = call.receive<Map<String, String>>()
+            val empId = body["employeeId"] ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "employeeId requerido"))
+            val inicioStr = body["periodoInicio"] ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "periodoInicio requerido"))
+            val finStr = body["periodoFin"] ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "periodoFin requerido"))
+            fun d(k: String): Double? = body[k]?.takeIf { it.isNotBlank() }?.replace(",", "")?.toDoubleOrNull()
+            DatabaseFactory.dbQuery {
+                PayrollOverrideTable.deleteWhere {
+                    (PayrollOverrideTable.employeeId eq empId).and(PayrollOverrideTable.periodoInicio eq inicioStr).and(PayrollOverrideTable.periodoFin eq finStr)
+                }
+                PayrollOverrideTable.insert {
+                    it[employeeId] = empId
+                    it[periodoInicio] = inicioStr
+                    it[periodoFin] = finStr
+                    it[isr] = d("isr")
+                    it[imss] = d("imss")
+                    it[anticipo] = d("anticipo") ?: 0.0
+                    it[otros] = d("otros") ?: 0.0
+                    it[updatedBy] = body["updatedBy"]
+                }
+            }
+            call.respond(mapOf("status" to "success"))
+        }
+
+        // ---------- DATOS FISCALES / CALCULO DE DINERO ----------
+        // Datos de la empresa (de la guia de configuracion del cliente).
+        val EMPRESA_NOMBRE = "SHELSER"
+        val EMPRESA_RFC = "CGU101126SA2"
+        val EMPRESA_DOMICILIO = "CALZADA DEL VALLE #400, COLONIA DEL VALLE, SAN PEDRO GARZA GARCIA"
+
+        // Tabla semanal ISR (Art. 96 LISR): limite inferior -> cuota fija + % excedente.
+        val TABLA_ISR_SEMANAL = listOf(
+            Triple(0.01, 0.0, 0.0),
+            Triple(176.67, 5.30, 0.0688),
+            Triple(1487.63, 100.40, 0.1077),
+            Triple(2597.29, 219.83, 0.1604),
+            Triple(3706.91, 397.81, 0.1792),
+            Triple(4486.15, 537.75, 0.2136),
+            Triple(5265.39, 704.35, 0.2352),
+            Triple(6247.94, 935.53, 0.30),
+            Triple(7230.49, 1230.57, 0.32),
+            Triple(10401.79, 2316.95, 0.34),
+            Triple(20803.82, 5516.55, 0.35)
+        )
+
+        fun isrSemanal(base: Double): Double {
+            val li = TABLA_ISR_SEMANAL.last { base >= it.first }
+            return maxOf(0.0, li.second + (base - li.first) * li.third)
+        }
+
+        // ISR prorrateado para periodos distintos de 7 dias.
+        fun isrPeriodo(baseGravable: Double, dias: Int): Double {
+            if (dias <= 0 || baseGravable <= 0.0) return 0.0
+            val semanal = isrSemanal(baseGravable * 7.0 / dias)
+            return maxOf(0.0, semanal * dias / 7.0)
+        }
+
+        // IMSS obrero (aproximacion de las cuotas del trabajador).
+        fun imssObrero(sbc: Double, dias: Int): Double {
+            if (sbc <= 0.0 || dias <= 0) return 0.0
+            val umaDiaria = 113.14
+            val excedenteBase = maxOf(0.0, sbc - 3 * umaDiaria)
+            val diario = sbc * (0.00625 + 0.01125) + excedenteBase * 0.01025
+            return diario * dias
+        }
+
+        fun dinero(v: Double): String = String.format("$%,.2f", v)
+        fun limpio(v: Double): String = String.format("%,.2f", v)
+
+        // ---------- PDF DE PRE-NOMINA ----------
+        // GET /pdf?inicio=2026-09-21&fin=2026-09-25[&pid=10010]
+        // Genera un recibo estilo PreAsyst por empleado: una pagina con
+        // percepciones y deducciones, totales y espacio de firma. Si pid
+        // viene, solo ese empleado; si no, todos los del periodo.
+        get("/pdf") {
+            val inicioStr = call.request.queryParameters["inicio"] ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "inicio requerido"))
+            val finStr = call.request.queryParameters["fin"] ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "fin requerido"))
+            val pid = call.request.queryParameters["pid"]
+
+            val records = DatabaseFactory.dbQuery {
+                PrePayrollTable.selectAll()
+                    .filter { it[PrePayrollTable.periodoInicio] == inicioStr && it[PrePayrollTable.periodoFin] == finStr }
+                    .map { PrePayrollRecord(
+                        id = it[PrePayrollTable.id],
+                        employeeId = it[PrePayrollTable.employeeId],
+                        employeeName = it[PrePayrollTable.employeeName],
+                        periodoInicio = it[PrePayrollTable.periodoInicio],
+                        periodoFin = it[PrePayrollTable.periodoFin],
+                        diasTrabajados = it[PrePayrollTable.diasTrabajados],
+                        faltas = it[PrePayrollTable.faltas],
+                        retardosMenores = it[PrePayrollTable.retardosMenores],
+                        retardosMayores = it[PrePayrollTable.retardosMayores],
+                        salidasAnticipadas = it[PrePayrollTable.salidasAnticipadas],
+                        horasTrabajadas = it[PrePayrollTable.horasTrabajadas],
+                        horasExtra = it[PrePayrollTable.horasExtra],
+                        primaDominical = it[PrePayrollTable.primaDominical],
+                        diasDescansoTrabajados = it[PrePayrollTable.diasDescansoTrabajados],
+                        estado = it[PrePayrollTable.estado]
+                    ) }
+                    .filter { pid == null || it.employeeId == pid }
+                    .sortedBy { it.employeeId }
+            }
+            if (records.isEmpty()) return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "No hay pre-nomina calculada para ese periodo"))
+
+            val employees = DatabaseFactory.dbQuery {
+                EmployeeTable.selectAll().associate { it[EmployeeTable.id] to it }
+            }
+            val overrides = DatabaseFactory.dbQuery {
+                PayrollOverrideTable.selectAll()
+                    .filter { it[PayrollOverrideTable.periodoInicio] == inicioStr && it[PayrollOverrideTable.periodoFin] == finStr }
+                    .associate { it[PayrollOverrideTable.employeeId] to it }
+            }
+            val policyRow = DatabaseFactory.dbQuery { AttendancePolicyTable.selectAll().firstOrNull { it[AttendancePolicyTable.activo] } }
+            val primaDomPct = policyRow?.get(AttendancePolicyTable.primaDominical) ?: 0.25
+
+            val diasPeriodo = try { java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(inicioStr), LocalDate.parse(finStr)).toInt() + 1 } catch (e: Exception) { 7 }
+
+            PDDocument().use { doc ->
+                var folio = 0
+                for (r in records) {
+                    folio++
+                    val emp = employees[r.employeeId]
+                    val ov = overrides[r.employeeId]
+                    val sueldoDiario = emp?.get(EmployeeTable.salary)
+                        ?: (if ((emp?.get(EmployeeTable.position) ?: "").contains("Operador", ignoreCase = true)) 337.31 else null)
+                    val sbc = emp?.get(EmployeeTable.sbc) ?: (sueldoDiario?.times(1.05))
+                    val diasPagados = r.diasTrabajados + r.diasDescansoTrabajados
+
+                    // PERCEPCIONES
+                    val sueldoBase = (sueldoDiario ?: 0.0) * r.diasTrabajados
+                    val horasExtraPesos = r.horasExtra * ((sueldoDiario ?: 0.0) / 8.0) * 2.0
+                    val primaDomPesos = r.primaDominical * (sueldoDiario ?: 0.0) * primaDomPct
+                    val descansoTrabPesos = r.diasDescansoTrabajados.toDouble() * (sueldoDiario ?: 0.0) * 2.0
+                    val percepciones = listOf(
+                        Pair("SUELDO BASE (${r.diasTrabajados} dias)", sueldoBase),
+                        Pair("HORAS EXTRAS (${limpio(r.horasExtra)} h)", horasExtraPesos),
+                        Pair("PRIMA DOMINICAL (${limpio(r.primaDominical)} dias)", primaDomPesos),
+                        Pair("DESCANSOS TRABAJADOS (${r.diasDescansoTrabajados})", descansoTrabPesos)
+                    ).filter { it.second > 0.0 }
+                    val totalPercepciones = percepciones.sumOf { it.second }
+
+                    // DEDUCCIONES (automaticas salvo ajuste manual)
+                    val isrAuto = isrPeriodo(totalPercepciones, diasPeriodo)
+                    val imssAuto = imssObrero(sbc ?: 0.0, diasPagados)
+                    val isr = ov?.get(PayrollOverrideTable.isr) ?: isrAuto
+                    val imss = ov?.get(PayrollOverrideTable.imss) ?: imssAuto
+                    val anticipo = ov?.get(PayrollOverrideTable.anticipo) ?: 0.0
+                    val otros = ov?.get(PayrollOverrideTable.otros) ?: 0.0
+                    val deducciones = listOf(
+                        Pair("ISR (RETENCION)", isr),
+                        Pair("IMSS (CUOTA OBRERA)", imss),
+                        Pair("ANTICIPO DE NOMINA", anticipo),
+                        Pair("OTROS DESCUENTOS", otros)
+                    ).filter { it.second > 0.0 }
+                    val totalDeducciones = deducciones.sumOf { it.second }
+                    val neto = totalPercepciones - totalDeducciones
+
+                    // ---- Pagina ----
+                    val page = PDPage(PDRectangle(612f, 792f))
+                    doc.addPage(page)
+                    PDPageContentStream(doc, page).use { cs ->
+                        fun texto(x: Float, y: Float, txt: String, size: Float = 9f, bold: Boolean = false, center: Boolean = false) {
+                            cs.beginText()
+                            cs.setFont(if (bold) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA, size)
+                            if (center) cs.newLineAtOffset(x - PDType1Font.HELVETICA.getStringWidth(txt) / 100f * size / 2f, y) else cs.newLineAtOffset(x, y)
+                            cs.showText(txt)
+                            cs.endText()
+                        }
+                        val margenIzq = 40f
+                        var y = 762f
+                        // Encabezado empresa
+                        texto(margenIzq, y, EMPRESA_NOMBRE, 14f, bold = true)
+                        y -= 14f
+                        texto(margenIzq, y, "RFC: $EMPRESA_RFC", 8f)
+                        y -= 11f
+                        texto(margenIzq, y, EMPRESA_DOMICILIO, 7f)
+                        y -= 11f
+                        texto(margenIzq, y, "PERIODO: $inicioStr AL $finStr", 8f, bold = true)
+                        // Titulo derecho
+                        texto(572f, 762f, "RECIBO DE PRE-NOMINA", 12f, bold = true, center = true)
+                        texto(572f, 748f, "FOLIO: PN-${inicioStr.replace("-", "")}-${"%03d".format(folio)}", 9f, center = true)
+                        texto(572f, 736f, "FECHA DE IMPRESION: ${LocalDate.now()}", 7f, center = true)
+
+                        // Linea divisoria
+                        cs.moveTo(margenIzq, 726f); cs.lineTo(572f, 726f); cs.stroke()
+
+                        // Datos del empleado
+                        y = 710f
+                        fun par(etiqueta: String, valor: String?, x: Float) {
+                            if (valor.isNullOrBlank()) return
+                            texto(x, y, "$etiqueta $valor", 8f)
+                            y -= 12f
+                        }
+                        par("EMPLEADO:", (emp?.get(EmployeeTable.firstName) ?: "") + " " + (emp?.get(EmployeeTable.lastName) ?: r.employeeName), margenIzq)
+                        par("NO. EMPLEADO:", r.employeeId, margenIzq)
+                        par("RFC:", emp?.get(EmployeeTable.rfc), margenIzq)
+                        par("CURP:", emp?.get(EmployeeTable.curp), margenIzq)
+                        par("NSS:", emp?.get(EmployeeTable.nss), margenIzq)
+                        par("PUESTO:", emp?.get(EmployeeTable.position), margenIzq)
+                        val yIzq = y
+                        y = 710f
+                        par("DEPARTAMENTO:", emp?.get(EmployeeTable.department), 320f)
+                        par("FECHA INGRESO:", emp?.get(EmployeeTable.entryDate), 320f)
+                        par("FECHA BAJA:", emp?.get(EmployeeTable.exitDate), 320f)
+                        par("SUELDO DIARIO:", sueldoDiario?.let { dinero(it) }, 320f)
+                        par("SBC (IMSS):", sbc?.let { dinero(it) }, 320f)
+                        par("DIAS TRABAJADOS:", r.diasTrabajados.toString(), 320f)
+                        par("FALTAS:", r.faltas.toString(), 320f)
+                        y = minOf(yIzq, y) - 10f
+
+                        if (sueldoDiario == null) {
+                            texto(306f, y, "SIN SUELDO CAPTURADO: capture el sueldo diario en la ficha del empleado", 9f, bold = true, center = true)
+                            y -= 20f
+                        }
+
+                        // Encabezados de columnas
+                        cs.moveTo(margenIzq, y + 5f); cs.lineTo(572f, y + 5f); cs.stroke()
+                        y -= 14f
+                        texto(margenIzq, y, "PERCEPCIONES", 10f, bold = true)
+                        texto(320f, y, "DEDUCCIONES", 10f, bold = true)
+                        y -= 14f
+                        cs.moveTo(margenIzq, y + 4f); cs.lineTo(572f, y + 4f); cs.stroke()
+                        y -= 14f
+
+                        var yPer = y
+                        var yDed = y
+                        for ((concepto, importe) in percepciones) {
+                            texto(margenIzq, yPer, concepto, 8f)
+                            texto(300f, yPer, dinero(importe), 8f)
+                            yPer -= 13f
+                        }
+                        texto(margenIzq, yPer, "TOTAL PERCEPCIONES", 8f, bold = true)
+                        texto(300f, yPer, dinero(totalPercepciones), 8f, bold = true)
+
+                        for ((concepto, importe) in deducciones) {
+                            texto(320f, yDed, concepto, 8f)
+                            texto(572f, yDed, dinero(importe), 8f)
+                            yDed -= 13f
+                        }
+                        texto(320f, yDed, "TOTAL DEDUCCIONES", 8f, bold = true)
+                        texto(572f, yDed, dinero(totalDeducciones), 8f, bold = true)
+
+                        y = minOf(yPer, yDed) - 20f
+                        texto(320f, y, "NETO A PAGAR: ${dinero(neto)}", 12f, bold = true)
+
+                        // Firmas
+                        val yFirma = 120f
+                        texto(140f, yFirma, "_______________________", 9f, center = true)
+                        texto(140f, yFirma - 12f, "ELABORO", 8f, center = true)
+                        texto(430f, yFirma, "_______________________", 9f, center = true)
+                        texto(430f, yFirma - 12f, "RECIBI DE CONFORMIDAD: ${emp?.get(EmployeeTable.firstName) ?: ""} ${emp?.get(EmployeeTable.lastName) ?: ""}", 8f, center = true)
+
+                        texto(306f, 60f, "Documento informativo de pre-nomina generado por RHNAF", 7f, center = true)
+                    }
+                }
+                val out = java.io.ByteArrayOutputStream()
+                doc.save(out)
+                val bytes = out.toByteArray()
+                call.response.headers.append(HttpHeaders.ContentDisposition, "attachment; filename=\"pre_nomina_${inicioStr}_a_${finStr}.pdf\"")
+                call.respondBytes(bytes, ContentType.Application.Pdf)
+            }
         }
     }
 }
