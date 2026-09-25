@@ -322,6 +322,44 @@ fun Route.prePayrollRouting() {
                 else if (status.contains("out") || status.contains("salida")) pair.checkOut = timeStr
             }
 
+            // ---------- PATRON DE DIAS LABORALES POR EMPLEADO ----------
+            // No todo mundo trabaja los mismos dias (ej. alguien de Lunes a Jueves
+            // no debe tener falta el Viernes porque no le corresponde asistencia).
+            // Como no existe un catalogo de "dias laborales" por empleado, lo
+            // inferimos de su propio historial de checadas: miramos las 8 semanas
+            // previas al periodo y, por cada dia de la semana, en que fraccion de
+            // sus semanas activas (semanas donde SI vino algun dia) tiene checada.
+            // Si aparece esa fraccion >= 50%, ese dia de la semana es "suyo".
+            // Si no hay suficiente historial (menos de 2 semanas activas), no se
+            // aplica el filtro y se usa el comportamiento anterior (todos los dias
+            // no-descanso cuentan) para no ocultar faltas reales de gente nueva.
+            val lookbackDesde = inicio.minusDays(56)
+            val lookbackHasta = inicio.minusDays(1)
+            val logsHistoricos = DatabaseFactory.dbQuery {
+                AttendanceLogTable.selectAll()
+                    .filter { row ->
+                        val dt = parseTs(row[AttendanceLogTable.timestamp]) ?: return@filter false
+                        dt.toLocalDate() in lookbackDesde..lookbackHasta
+                    }
+                    .map { it[AttendanceLogTable.employeeId] to parseTs(it[AttendanceLogTable.timestamp])!!.toLocalDate() }
+            }
+            val isoWeekOf = { d: LocalDate -> d.get(java.time.temporal.WeekFields.ISO.weekBasedYear()) * 100 + d.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear()) }
+            val semanasActivasPorEmpleado = mutableMapOf<String, MutableSet<Int>>()
+            val semanasPorDiaSemana = mutableMapOf<String, MutableMap<Int, MutableSet<Int>>>() // empId -> dow(0..6) -> semanas
+            for ((empId, day) in logsHistoricos) {
+                val week = isoWeekOf(day)
+                val dow = day.dayOfWeek.value % 7
+                semanasActivasPorEmpleado.getOrPut(empId) { mutableSetOf() }.add(week)
+                semanasPorDiaSemana.getOrPut(empId) { mutableMapOf() }.getOrPut(dow) { mutableSetOf() }.add(week)
+            }
+            fun diasLaboralesDeEmpleado(empId: String): Set<Int>? {
+                val semanasActivas = semanasActivasPorEmpleado[empId] ?: return null
+                if (semanasActivas.size < 2) return null // sin suficiente historial, no filtrar
+                val porDia = semanasPorDiaSemana[empId] ?: return null
+                val minimo = maxOf(1, (semanasActivas.size * 0.5).let { Math.ceil(it).toInt() })
+                return (0..6).filter { dow -> (porDia[dow]?.size ?: 0) >= minimo }.toSet()
+            }
+
             // Cargar justificaciones aprobadas
             val justificadas = DatabaseFactory.dbQuery {
                 JustificationTable.selectAll()
@@ -349,6 +387,7 @@ fun Route.prePayrollRouting() {
                 val empName = employees[empId] ?: byEmployeeDay.values.firstOrNull()?.let { "" } ?: ""
                 val shiftId = assignments[empId]
                 val shiftRow = shiftId?.let { shifts[it] }
+                val diasLaborales = diasLaboralesDeEmpleado(empId) // null = sin historial suficiente, no filtrar
 
                 var diasTrabajados = 0
                 var faltas = 0
@@ -364,6 +403,9 @@ fun Route.prePayrollRouting() {
                 while (!day.isAfter(fin)) {
                     val dayOfWeek = day.dayOfWeek.value % 7 // 0=domingo, 6=sabado
                     val esDescanso = dayOfWeek in diasDescanso
+                    // Dia que no le corresponde a ESTE empleado segun su patron real
+                    // de asistencia (ej. trabaja Lunes-Jueves, Viernes no es suyo).
+                    val noLeCorresponde = diasLaborales != null && dayOfWeek !in diasLaborales
                     val pair = byEmployeeDay[empId to day]
                     val justificada = (empId to day.toString()) in justificadas
 
@@ -419,8 +461,9 @@ fun Route.prePayrollRouting() {
                                 }
                             }
                         }
-                    } else if (!esDescanso && !justificada) {
-                        // Falta si es día laborable y no hay justificación
+                    } else if (!esDescanso && !justificada && !noLeCorresponde) {
+                        // Falta solo si es dia laborable, no hay justificacion Y
+                        // le corresponde asistir ese dia segun su patron real.
                         faltas++
                     }
 
