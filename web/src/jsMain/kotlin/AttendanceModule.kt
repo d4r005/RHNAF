@@ -144,7 +144,7 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                     onChange { deptFilter = it.target.asDynamic().value as String }
                 }) {
                     Option("") { Text("All") }
-                    listOf("Oficina", "Seguridad", "Vigilancia", "Limpieza", "Calidad", "Almacen", "Gerencia", "Mantenimiento", "Producción").forEach {
+                    listOf("Oficina", "Seguridad", "Vigilancia", "Limpieza", "Calidad", "Almacen", "Gerencia", "Mantenimiento", "Producción", "Servicios Generales").forEach {
                         Option(it) { Text(it) }
                     }
                 }
