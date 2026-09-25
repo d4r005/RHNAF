@@ -28,6 +28,7 @@ data class Employee(
     val paymentFrequency: String? = null, // Semanal | Quincenal
     val infonavitDescuento: Double? = null, // monto fijo por periodo de credito Infonavit
     val fondoAhorroPct: Double? = null,     // % del sueldo base para fondo de ahorro (trabajador y empresa)
+    val fonacotDescuento: Double? = null,   // monto fijo por periodo de credito Fonacot
     
     // Datos Personales
     val maritalStatus: String? = null,

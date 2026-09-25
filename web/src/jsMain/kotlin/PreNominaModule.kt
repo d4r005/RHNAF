@@ -547,6 +547,7 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
         var vOtros by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("otros") ?: "") }
         var vInfonavit by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("infonavit") ?: "") }
         var vFondoAhorro by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("fondoAhorro") ?: "") }
+        var vFonacot by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("fonacot") ?: "") }
         var vDiasProyectados by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("diasProyectados")?.takeIf { it != "0" } ?: "") }
         var guardando by remember { mutableStateOf(false) }
         Div({
@@ -568,6 +569,7 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
                 EditField("IMSS (cuota obrera) - vacio = automatico", vImss) { vImss = it }
                 P({ style { fontSize(11.px); color(Color("#64748b")); margin(4.px, 0.px, 8.px, 0.px) } }) { Text("Cesantia y vejez se calcula automaticamente (no se edita aqui).") }
                 EditField("Infonavit - vacio = usa el monto de la ficha del empleado", vInfonavit) { vInfonavit = it }
+                EditField("Fonacot - vacio = usa el monto de la ficha del empleado", vFonacot) { vFonacot = it }
                 EditField("Fondo de ahorro (trabajador) - vacio = usa % de la ficha", vFondoAhorro) { vFondoAhorro = it }
                 EditField("Anticipo de nomina", vAnticipo) { vAnticipo = it }
                 EditField("Otros descuentos", vOtros) { vOtros = it }
@@ -591,7 +593,7 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
                                                 "periodoFin" to ajusteRec.periodoFin,
                                                 "isr" to vIsr, "imss" to vImss,
                                                 "anticipo" to vAnticipo, "otros" to vOtros,
-                                                "infonavit" to vInfonavit, "fondoAhorro" to vFondoAhorro,
+                                                "infonavit" to vInfonavit, "fondoAhorro" to vFondoAhorro, "fonacot" to vFonacot,
                                                 "diasProyectados" to vDiasProyectados
                                             ))
                                         }

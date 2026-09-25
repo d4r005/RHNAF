@@ -278,7 +278,8 @@ fun Application.module() {
                             emergencyContact = it[EmployeeTable.emergencyContact],
                             paymentFrequency = it[EmployeeTable.paymentFrequency],
                             infonavitDescuento = it[EmployeeTable.infonavitDescuento],
-                            fondoAhorroPct = it[EmployeeTable.fondoAhorroPct]
+                            fondoAhorroPct = it[EmployeeTable.fondoAhorroPct],
+                            fonacotDescuento = it[EmployeeTable.fonacotDescuento]
                         )
                     }
                 }
@@ -366,6 +367,7 @@ fun Application.module() {
                         it[paymentFrequency] = emp.paymentFrequency ?: "Semanal"
                         it[infonavitDescuento] = emp.infonavitDescuento
                         it[fondoAhorroPct] = emp.fondoAhorroPct
+                        it[fonacotDescuento] = emp.fonacotDescuento
                     }
                 }
                 call.respond(HttpStatusCode.Created, mapOf("status" to "success"))
@@ -399,6 +401,7 @@ fun Application.module() {
                         it[paymentFrequency] = emp.paymentFrequency ?: "Semanal"
                         it[infonavitDescuento] = emp.infonavitDescuento
                         it[fondoAhorroPct] = emp.fondoAhorroPct
+                        it[fonacotDescuento] = emp.fonacotDescuento
                     }
                 }
                 call.respond(mapOf("status" to "success"))

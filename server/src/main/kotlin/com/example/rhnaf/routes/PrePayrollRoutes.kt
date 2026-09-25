@@ -548,6 +548,7 @@ fun Route.prePayrollRouting() {
                             "otros" to it[PayrollOverrideTable.otros],
                             "infonavit" to it[PayrollOverrideTable.infonavit],
                             "fondoAhorro" to it[PayrollOverrideTable.fondoAhorro],
+                            "fonacot" to it[PayrollOverrideTable.fonacot],
                             "diasProyectados" to it[PayrollOverrideTable.diasProyectados]
                         )
                     }
@@ -579,6 +580,7 @@ fun Route.prePayrollRouting() {
                     it[otros] = d("otros") ?: 0.0
                     it[infonavit] = d("infonavit")
                     it[fondoAhorro] = d("fondoAhorro")
+                    it[fonacot] = d("fonacot")
                     it[diasProyectados] = diasProy
                     it[updatedBy] = body["updatedBy"]
                 }
@@ -744,10 +746,12 @@ fun Route.prePayrollRouting() {
                         val anticipo = ov?.get(PayrollOverrideTable.anticipo) ?: 0.0
                         val otros = ov?.get(PayrollOverrideTable.otros) ?: 0.0
 
-                        // Infonavit: monto fijo por periodo capturado en la ficha del empleado,
-                        // o corregido manualmente en "Ajustar". Se prorratea si hubo faltas.
-                        val infonavitBase = ov?.get(PayrollOverrideTable.infonavit) ?: emp?.get(EmployeeTable.infonavitDescuento) ?: 0.0
-                        val infonavit = if (diasPeriodoEfectivo > 0) infonavitBase * diasTrabEfectivos / diasPeriodoEfectivo else infonavitBase
+                        // Infonavit: monto fijo por periodo capturado en la ficha del empleado
+                        // (como aparece en el listado maestro de nomina) o corregido manualmente.
+                        val infonavit = ov?.get(PayrollOverrideTable.infonavit) ?: emp?.get(EmployeeTable.infonavitDescuento) ?: 0.0
+
+                        // Fonacot: monto fijo por periodo (credito Fonacot), igual que Infonavit.
+                        val fonacot = ov?.get(PayrollOverrideTable.fonacot) ?: emp?.get(EmployeeTable.fonacotDescuento) ?: 0.0
 
                         // Fondo de ahorro: % configurado en la ficha del empleado sobre el
                         // sueldo base del periodo. El trabajador se descuenta aqui; la
@@ -762,6 +766,7 @@ fun Route.prePayrollRouting() {
                             Pair("IMSS (CUOTA OBRERA)", imss),
                             Pair("CESANTIA Y VEJEZ", cesantiaVejez),
                             Pair("INFONAVIT", infonavit),
+                            Pair("FONACOT", fonacot),
                             Pair("FONDO DE AHORRO (TRABAJADOR)", fondoAhorroTrabajador),
                             Pair("ANTICIPO DE NOMINA", anticipo),
                             Pair("OTROS DESCUENTOS", otros)

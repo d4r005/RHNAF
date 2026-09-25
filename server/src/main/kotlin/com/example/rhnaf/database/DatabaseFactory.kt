@@ -66,6 +66,8 @@ object DatabaseFactory {
                 runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS payment_frequency VARCHAR(20) DEFAULT 'Semanal'") }
                 runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS infonavit_descuento DOUBLE PRECISION") }
                 runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS fondo_ahorro_pct DOUBLE PRECISION") }
+                runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS fonacot_descuento DOUBLE PRECISION") }
+                runCatching { exec("ALTER TABLE payroll_overrides ADD COLUMN IF NOT EXISTS fonacot DOUBLE PRECISION") }
                 runCatching { exec("ALTER TABLE payroll_overrides ADD COLUMN IF NOT EXISTS infonavit DOUBLE PRECISION") }
                 runCatching { exec("ALTER TABLE payroll_overrides ADD COLUMN IF NOT EXISTS fondo_ahorro DOUBLE PRECISION") }
                 runCatching { exec("ALTER TABLE payroll_overrides ADD COLUMN IF NOT EXISTS dias_proyectados INTEGER DEFAULT 0") }
