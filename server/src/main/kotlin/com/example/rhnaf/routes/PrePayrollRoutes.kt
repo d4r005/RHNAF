@@ -267,6 +267,8 @@ fun Route.prePayrollRouting() {
         post("/calcular") {
             val inicioStr = call.request.queryParameters["inicio"] ?: LocalDate.now().withDayOfMonth(1).toString()
             val finStr = call.request.queryParameters["fin"] ?: LocalDate.now().toString()
+            // Grupo de frecuencia de pago: "Semanal", "Quincenal" o vacio = todos
+            val grupo = call.request.queryParameters["grupo"]?.trim()?.takeIf { it.isNotBlank() && it != "Todos" }
             val inicio = LocalDate.parse(inicioStr)
             val fin = LocalDate.parse(finStr)
 
@@ -379,14 +381,21 @@ fun Route.prePayrollRouting() {
                 }
             }
 
-            // Cargar empleados
+            // Cargar empleados (id -> nombre) y su frecuencia de pago
             val employees = DatabaseFactory.dbQuery {
                 EmployeeTable.selectAll().map { it[EmployeeTable.id] to it[EmployeeTable.firstName] + " " + it[EmployeeTable.lastName] }
+            }.toMap()
+            val frecuenciaPorEmpleado = DatabaseFactory.dbQuery {
+                EmployeeTable.selectAll().map { it[EmployeeTable.id] to (it[EmployeeTable.paymentFrequency] ?: "Semanal") }
             }.toMap()
 
             // Calcular por empleado
             val resultados = mutableListOf<PrePayrollRecord>()
-            val allEmpIds = (byEmployeeDay.keys.map { it.first } + assignments.keys + employees.keys).distinct()
+            var allEmpIds = (byEmployeeDay.keys.map { it.first } + assignments.keys + employees.keys).distinct()
+            // Filtrar por grupo semanal/quincenal cuando se pide
+            if (grupo != null) {
+                allEmpIds = allEmpIds.filter { frecuenciaPorEmpleado[it] == grupo }
+            }
 
             for (empId in allEmpIds) {
                 val empName = employees[empId] ?: byEmployeeDay.values.firstOrNull()?.let { "" } ?: ""
@@ -624,6 +633,8 @@ fun Route.prePayrollRouting() {
             val inicioStr = call.request.queryParameters["inicio"] ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "inicio requerido"))
             val finStr = call.request.queryParameters["fin"] ?: return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "fin requerido"))
             val pid = call.request.queryParameters["pid"]
+            // Grupo de frecuencia de pago: "Semanal", "Quincenal" o vacio = todos
+            val grupo = call.request.queryParameters["grupo"]?.trim()?.takeIf { it.isNotBlank() && it != "Todos" }
 
             val records = DatabaseFactory.dbQuery {
                 PrePayrollTable.selectAll()
@@ -653,6 +664,10 @@ fun Route.prePayrollRouting() {
             val employees = DatabaseFactory.dbQuery {
                 EmployeeTable.selectAll().associate { it[EmployeeTable.id] to it }
             }
+            // Filtrar por grupo semanal/quincenal cuando se pide
+            val recordsFiltrados = if (grupo != null) {
+                records.filter { employees[it.employeeId]?.get(EmployeeTable.paymentFrequency) == grupo }
+            } else records
             val overrides = DatabaseFactory.dbQuery {
                 PayrollOverrideTable.selectAll()
                     .filter { it[PayrollOverrideTable.periodoInicio] == inicioStr && it[PayrollOverrideTable.periodoFin] == finStr }
@@ -663,6 +678,8 @@ fun Route.prePayrollRouting() {
 
             val diasPeriodo = try { java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(inicioStr), LocalDate.parse(finStr)).toInt() + 1 } catch (e: Exception) { 7 }
 
+            if (recordsFiltrados.isEmpty()) return@get call.respond(HttpStatusCode.NotFound, mapOf("error" to "No hay pre-nomina del grupo '$grupo' para ese periodo"))
+
             PDDocument().use { doc ->
                     // ---- Paginas: 2 recibos por hoja (mitad superior e inferior) ----
                     data class Recibo(val r: PrePayrollRecord, val emp: org.jetbrains.exposed.sql.ResultRow?, val ov: org.jetbrains.exposed.sql.ResultRow?,
@@ -670,7 +687,7 @@ fun Route.prePayrollRouting() {
                                       val neto: Double, val sueldoDiario: Double?, val sbc: Double?)
 
                     // Primero calcular todos los recibos del periodo...
-                    val recibos = records.map { r ->
+                    val recibos = recordsFiltrados.map { r ->
                         val emp = employees[r.employeeId]
                         val ov = overrides[r.employeeId]
                         val sueldoDiario = emp?.get(EmployeeTable.salary)

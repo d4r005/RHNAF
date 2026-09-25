@@ -63,6 +63,7 @@ object DatabaseFactory {
                 runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS contract_type VARCHAR(60)") }
                 runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS marital_status VARCHAR(40)") }
                 runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS emergency_contact VARCHAR(150)") }
+                runCatching { exec("ALTER TABLE employees ADD COLUMN IF NOT EXISTS payment_frequency VARCHAR(20) DEFAULT 'Semanal'") }
                 runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN device_serial TYPE VARCHAR(150)") }
                 runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN verify_mode TYPE VARCHAR(100)") }
                 runCatching { exec("ALTER TABLE attendance_logs ALTER COLUMN employee_id TYPE VARCHAR(100)") }

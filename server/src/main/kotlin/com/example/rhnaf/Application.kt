@@ -275,7 +275,8 @@ fun Application.module() {
                             supervisor = it[EmployeeTable.supervisor],
                             contractType = it[EmployeeTable.contractType],
                             maritalStatus = it[EmployeeTable.maritalStatus],
-                            emergencyContact = it[EmployeeTable.emergencyContact]
+                            emergencyContact = it[EmployeeTable.emergencyContact],
+                            paymentFrequency = it[EmployeeTable.paymentFrequency]
                         )
                     }
                 }
@@ -360,6 +361,7 @@ fun Application.module() {
                         it[contractType] = emp.contractType
                         it[maritalStatus] = emp.maritalStatus
                         it[emergencyContact] = emp.emergencyContact
+                        it[paymentFrequency] = emp.paymentFrequency ?: "Semanal"
                     }
                 }
                 call.respond(HttpStatusCode.Created, mapOf("status" to "success"))
@@ -390,6 +392,7 @@ fun Application.module() {
                         it[contractType] = emp.contractType
                         it[maritalStatus] = emp.maritalStatus
                         it[emergencyContact] = emp.emergencyContact
+                        it[paymentFrequency] = emp.paymentFrequency ?: "Semanal"
                     }
                 }
                 call.respond(mapOf("status" to "success"))

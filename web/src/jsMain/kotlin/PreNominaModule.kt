@@ -398,6 +398,7 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
     var refreshKey by remember { mutableStateOf(0) }
     var f_inicio by remember { mutableStateOf("") }
     var f_fin by remember { mutableStateOf("") }
+    var f_grupo by remember { mutableStateOf("Todos") }
     var ajusteEmp by remember { mutableStateOf<PrePayrollRecord?>(null) }
     var isDescargandoPdf by remember { mutableStateOf(false) }
     var ajustesExistentes by remember { mutableStateOf<Map<String, Map<String, String?>>>(emptyMap()) }
@@ -424,6 +425,14 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
         // Selector nativo de fecha (calendario), igual que en el modulo de Asistencia.
         Input(InputType.Date) { value(f_inicio); onInput { f_inicio = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
         Input(InputType.Date) { value(f_fin); onInput { f_fin = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        org.jetbrains.compose.web.dom.Select({
+            style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); backgroundColor(Color.white); fontWeight("600") }
+            onChange { f_grupo = it.value ?: "Todos" }
+        }) {
+            org.jetbrains.compose.web.dom.Option("Todos") { Text("Todos") }
+            org.jetbrains.compose.web.dom.Option("Semanal") { Text("Semanal") }
+            org.jetbrains.compose.web.dom.Option("Quincenal") { Text("Quincenal") }
+        }
         Button({
             style { padding(8.px, 16.px); backgroundColor(if (isCalculating) Color.gray else SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
             onClick {
@@ -431,7 +440,7 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
                     isCalculating = true
                     scope.launch {
                         try {
-                            val resp: String = client.post("$BACKEND_URL/api/v1/pre-nomina/calcular?inicio=$f_inicio&fin=$f_fin").body()
+                            val resp: String = client.post("$BACKEND_URL/api/v1/pre-nomina/calcular?inicio=$f_inicio&fin=$f_fin&grupo=$f_grupo").body()
                             println("Calcular response: $resp")
                             refreshKey++
                         } catch (e: Exception) { window.alert("Error: ${e.message}") }
@@ -455,7 +464,7 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
                     scope.launch {
                         isDescargandoPdf = true
                         try {
-                            val resp = client.get("$BACKEND_URL/api/v1/pre-nomina/pdf?inicio=${items.first().periodoInicio}&fin=${items.first().periodoFin}")
+                            val resp = client.get("$BACKEND_URL/api/v1/pre-nomina/pdf?inicio=${items.first().periodoInicio}&fin=${items.first().periodoFin}&grupo=$f_grupo")
                             if (resp.status == HttpStatusCode.OK) {
                                 val bytes = resp.readBytes()
                                 val blob = org.w3c.files.Blob(arrayOf(bytes))

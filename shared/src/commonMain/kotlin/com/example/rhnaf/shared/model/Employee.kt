@@ -25,6 +25,7 @@ data class Employee(
     val seniority: String? = null,
     val contractType: String? = null,
     val salary: Double? = null,
+    val paymentFrequency: String? = null, // Semanal | Quincenal
     
     // Datos Personales
     val maritalStatus: String? = null,

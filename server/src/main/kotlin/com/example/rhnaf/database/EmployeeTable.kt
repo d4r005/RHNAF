@@ -26,6 +26,7 @@ object EmployeeTable : Table("employees") {
     val contractType = varchar("contract_type", 60).nullable()
     val maritalStatus = varchar("marital_status", 40).nullable()
     val emergencyContact = varchar("emergency_contact", 150).nullable()
+    val paymentFrequency = varchar("payment_frequency", 20).default("Semanal") // Semanal | Quincenal
     
     override val primaryKey = PrimaryKey(id)
 }
