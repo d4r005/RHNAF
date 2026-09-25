@@ -9,12 +9,33 @@ import io.ktor.client.call.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.launch
+import kotlinx.browser.document
+import org.w3c.dom.HTMLInputElement
+import kotlin.coroutines.suspendCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Devuelve true si el rol puede editar/eliminar empleados (RH o ADMIN).
  */
 fun canManageEmployees(role: UserRole): Boolean =
     role == UserRole.ADMIN || role == UserRole.RH
+
+// Convierte una imagen elegida por el usuario a un data URI (base64) para
+// guardarla directo en Employee.photoUrl, igual que ya lo hace employee_sync.py
+// cuando trae la foto de la lectora. Asi no se necesita un endpoint nuevo.
+private suspend fun readImageAsDataUrl(file: org.w3c.files.File): String = suspendCoroutine { continuation ->
+    val reader = js("new FileReader()")
+    reader.onload = { _: dynamic ->
+        val result = reader.result
+        if (result != null) continuation.resume(result.toString())
+        else continuation.resumeWithException(IllegalStateException("No se pudo leer la imagen"))
+    }
+    reader.onerror = { _: dynamic ->
+        continuation.resumeWithException(IllegalStateException("No se pudo leer la imagen"))
+    }
+    reader.readAsDataURL(file)
+}
 
 @Composable
 fun EmployeeModule(
@@ -29,6 +50,8 @@ fun EmployeeModule(
     var isLoading by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }
+    var currentPage by remember { mutableStateOf(1) }
+    val pageSize = 50
     var selectedEmployee by remember { mutableStateOf<Employee?>(null) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showBajaDialog by remember { mutableStateOf(false) }
@@ -94,9 +117,11 @@ fun EmployeeModule(
             e.id.contains(searchQuery, ignoreCase = true) ||
             "${e.firstName} ${e.lastName}".contains(searchQuery, ignoreCase = true) ||
             e.department.contains(searchQuery, ignoreCase = true)
-    }
+    }.sortedBy { it.id }
 
     val canManage = canManageEmployees(userRole)
+    val totalPages = (filtered.size / pageSize) + (if (filtered.size % pageSize > 0) 1 else 0)
+    val pagedEmployees = filtered.drop((currentPage - 1) * pageSize).take(pageSize)
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
         H3({ style { margin(0.px, 0.px, 4.px, 0.px) } }) { Text("Plantilla de Empleados") }
@@ -118,7 +143,7 @@ fun EmployeeModule(
                 }
                 placeholder("Buscar por nombre, ID o departamento...")
                 value(searchQuery)
-                onInput { searchQuery = it.value }
+                onInput { searchQuery = it.value; currentPage = 1 }
             }
             Button({
                 style {
@@ -133,7 +158,7 @@ fun EmployeeModule(
         if (withoutPhoto > 0) {
             Div({ style { padding(12.px, 16.px); backgroundColor(Color("#fffbeb")); borderRadius(8.px); marginBottom(20.px); property("border", "1px solid #fde68a") } }) {
                 P({ style { margin(0.px); color(Color("#92400e")); fontSize(13.px) } }) {
-                    Text("$withoutPhoto empleados aun no tienen foto. Corre employee_sync.py desde una PC en la red de la planta para jalar la foto y datos completos directo de la lectora.")
+                    Text("$withoutPhoto empleados aun no tienen foto. Corre employee_sync.py desde una PC en la red de la planta para jalar la foto y datos completos directo de la lectora, o pulsa \"Editar\" en cada uno para subirla a mano.")
                 }
             }
         }
@@ -149,19 +174,26 @@ fun EmployeeModule(
                 P({ style { color(Color.gray); fontSize(16.px) } }) { Text("No hay empleados cargados aun") }
             }
         } else {
-            Div({
-                style {
-                    display(DisplayStyle.Grid)
-                    property("grid-template-columns", "repeat(auto-fill, minmax(220.px, 1fr))")
-                    gap(16.px)
-                }
-            }) {
-                filtered.sortedBy { it.id }.forEach { emp ->
-                    EmployeeCard(emp, canManage,
-                        onEdit = { selectedEmployee = emp; showEditDialog = true },
-                        onBaja = { selectedEmployee = emp; showBajaDialog = true },
-                        onDelete = { selectedEmployee = emp; showDeleteDialog = true }
-                    )
+            // Tabla compacta: una fila por empleado en vez de tarjetas grandes,
+            // asi se ven muchos mas empleados por pantalla sin desperdiciar espacio.
+            Div({ style { overflowX("auto"); property("border", "1px solid #e2e8f0"); borderRadius(6.px) } }) {
+                Table({ style { width(100.percent); property("border-collapse", "collapse"); fontSize(12.px) } }) {
+                    Thead {
+                        Tr({ style { backgroundColor(Color("#f1f5f9")); property("border-bottom", "2px solid #cbd5e1") } }) {
+                            listOf("Foto", "ID", "Nombre", "Departamento", "Puesto", "Estatus", "Acciones").forEach { h ->
+                                Th({ style { padding(8.px, 10.px); textAlign("left"); fontWeight("bold"); color(Color("#475569")); fontSize(11.px); property("white-space", "nowrap") } }) { Text(h) }
+                            }
+                        }
+                    }
+                    Tbody {
+                        pagedEmployees.forEach { emp ->
+                            EmployeeRow(emp, canManage,
+                                onEdit = { selectedEmployee = emp; showEditDialog = true },
+                                onBaja = { selectedEmployee = emp; showBajaDialog = true },
+                                onDelete = { selectedEmployee = emp; showDeleteDialog = true }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -169,17 +201,40 @@ fun EmployeeModule(
                 P({ style { textAlign("center"); color(Color("#94a3b8")); padding(24.px, 0.px) } }) {
                     Text("Ningun empleado coincide con la busqueda.")
                 }
+            } else if (totalPages > 1) {
+                Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.Center); gap(12.px); marginTop(12.px); alignItems(AlignItems.Center); fontSize(12.px) } }) {
+                    Button({
+                        style {
+                            padding(6.px, 12.px); borderRadius(6.px); property("border", "none"); cursor("pointer"); color(Color.white)
+                            val bg = if (currentPage > 1) Color("#3d566e") else Color("#cbd5e1")
+                            backgroundColor(bg)
+                        }
+                        onClick { if (currentPage > 1) currentPage-- }
+                    }) { Text("Anterior") }
+                    Text("Pagina $currentPage de $totalPages")
+                    Button({
+                        style {
+                            padding(6.px, 12.px); borderRadius(6.px); property("border", "none"); cursor("pointer"); color(Color.white)
+                            val bg = if (currentPage < totalPages) Color("#3d566e") else Color("#cbd5e1")
+                            backgroundColor(bg)
+                        }
+                        onClick { if (currentPage < totalPages) currentPage++ }
+                    }) { Text("Siguiente") }
+                }
             }
         }
     }
 
-    // --- DIALOG: Editar empleado ---
+    // --- DIALOG: Editar empleado (incluye cambiar foto) ---
     if (showEditDialog && selectedEmployee != null) {
         val emp = selectedEmployee!!
         var firstName by remember { mutableStateOf(emp.firstName) }
         var lastName by remember { mutableStateOf(emp.lastName) }
         var position by remember { mutableStateOf(emp.position) }
         var department by remember { mutableStateOf(emp.department) }
+        var photoDataUrl by remember { mutableStateOf(emp.photoUrl) }
+        var photoError by remember { mutableStateOf("") }
+        var photoBusy by remember { mutableStateOf(false) }
 
         Div({
             style {
@@ -197,7 +252,58 @@ fun EmployeeModule(
             }) {
                 H3({ style { margin(0.px, 0.px, 20.px, 0.px) } }) { Text("Editar Empleado") }
                 P({ style { fontSize(12.px); color(Color("#64748b")); marginBottom(16.px) } }) { Text("ID: ${emp.id}") }
-                
+
+                // --- Foto ---
+                Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(12.px); marginBottom(16.px) } }) {
+                    val photo = photoDataUrl
+                    if (!photo.isNullOrBlank()) {
+                        Img(src = photo) {
+                            style {
+                                width(56.px); height(56.px); borderRadius(50.percent)
+                                property("object-fit", "cover"); property("border", "2px solid #e2e8f0")
+                            }
+                        }
+                    } else {
+                        Div({
+                            style {
+                                width(56.px); height(56.px); borderRadius(50.percent)
+                                backgroundColor(SidebarActiveColor); color(Color.white)
+                                display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center)
+                                fontSize(18.px); fontWeight("bold")
+                            }
+                        }) { Text("${firstName.take(1)}${lastName.take(1)}".uppercase().ifBlank { "?" }) }
+                    }
+                    Div {
+                        P({ style { fontSize(12.px); color(Color("#475569")); margin(0.px) } }) { Text("Foto") }
+                        Input(InputType.File) {
+                            id("employee-photo-input")
+                            attr("accept", "image/*")
+                            style { display(DisplayStyle.Block); fontSize(11.px); marginTop(4.px) }
+                            onInput {
+                                val file = (document.getElementById("employee-photo-input") as? HTMLInputElement)?.files?.item(0)
+                                if (file != null) {
+                                    if (file.size.toLong() > 3L * 1024 * 1024) {
+                                        photoError = "Maximo 3 MiB por foto."
+                                    } else {
+                                        photoBusy = true; photoError = ""
+                                        scope.launch {
+                                            try {
+                                                photoDataUrl = readImageAsDataUrl(file)
+                                            } catch (e: Exception) {
+                                                photoError = e.message ?: "No se pudo leer la imagen"
+                                            } finally {
+                                                photoBusy = false
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (photoBusy) P({ style { fontSize(11.px); color(Color("#64748b")); margin(4.px, 0.px, 0.px, 0.px) } }) { Text("Leyendo imagen...") }
+                        if (photoError.isNotBlank()) P({ style { fontSize(11.px); color(Color("#dc2626")); margin(4.px, 0.px, 0.px, 0.px) } }) { Text(photoError) }
+                    }
+                }
+
                 EditField("Nombre(s)", firstName) { firstName = it }
                 EditField("Apellidos", lastName) { lastName = it }
                 EditField("Puesto", position) { position = it }
@@ -212,7 +318,8 @@ fun EmployeeModule(
                         onClick {
                             val updated = emp.copy(
                                 firstName = firstName, lastName = lastName,
-                                position = position, department = department
+                                position = position, department = department,
+                                photoUrl = photoDataUrl
                             )
                             updateEmployee(updated)
                             showEditDialog = false
@@ -321,88 +428,85 @@ fun EmployeeModule(
 }
 
 @Composable
-fun EmployeeCard(emp: Employee, canManage: Boolean, onEdit: () -> Unit, onBaja: () -> Unit, onDelete: () -> Unit) {
-    Div({
-        style {
-            padding(16.px); borderRadius(10.px)
-            property("border", "1px solid #e2e8f0")
-            display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); alignItems(AlignItems.Center)
-            gap(8.px)
-            backgroundColor(Color("#f8fafc"))
-        }
-    }) {
-        val photo = emp.photoUrl
-        if (!photo.isNullOrBlank()) {
-            Img(src = photo) {
-                style {
-                    width(72.px); height(72.px); borderRadius(50.percent)
-                    property("object-fit", "cover")
-                    property("border", "2px solid #e2e8f0")
+fun EmployeeRow(emp: Employee, canManage: Boolean, onEdit: () -> Unit, onBaja: () -> Unit, onDelete: () -> Unit) {
+    Tr({ style { property("border-bottom", "1px solid #f1f5f9") } }) {
+        Td({ style { padding(6.px, 10.px) } }) {
+            val photo = emp.photoUrl
+            if (!photo.isNullOrBlank()) {
+                Img(src = photo) {
+                    style {
+                        width(32.px); height(32.px); borderRadius(50.percent)
+                        property("object-fit", "cover"); property("border", "1px solid #e2e8f0")
+                    }
                 }
+            } else {
+                val initials = "${emp.firstName.take(1)}${emp.lastName.take(1)}".uppercase().ifBlank { "?" }
+                Div({
+                    style {
+                        width(32.px); height(32.px); borderRadius(50.percent)
+                        backgroundColor(SidebarActiveColor); color(Color.white)
+                        display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center)
+                        fontSize(11.px); fontWeight("bold")
+                    }
+                }) { Text(initials) }
             }
-        } else {
-            val initials = "${emp.firstName.take(1)}${emp.lastName.take(1)}".uppercase().ifBlank { "?" }
-            Div({
-                style {
-                    width(72.px); height(72.px); borderRadius(50.percent)
-                    backgroundColor(SidebarActiveColor); color(Color.white)
-                    display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center)
-                    fontSize(22.px); fontWeight("bold")
-                }
-            }) { Text(initials) }
         }
-        P({ style { margin(0.px); fontWeight("bold"); fontSize(14.px); textAlign("center") } }) {
+        Td({ style { padding(6.px, 10.px); color(Color("#64748b")); fontSize(12.px); property("white-space", "nowrap") } }) { Text(emp.id) }
+        Td({ style { padding(6.px, 10.px); fontWeight("bold"); fontSize(12.px); property("white-space", "nowrap") } }) {
             Text("${emp.firstName} ${emp.lastName}".trim().ifBlank { emp.id })
         }
-        P({ style { margin(0.px); fontSize(12.px); color(Color("#64748b")) } }) { Text("ID: ${emp.id}") }
-        Span({
-            style {
-                padding(2.px, 10.px); borderRadius(99.px); fontSize(11.px)
-                backgroundColor(Color("#dbeafe")); color(Color("#1e40af"))
-            }
-        }) { Text(emp.department.ifBlank { "Sin depto" }) }
-        P({ style { margin(0.px); fontSize(11.px); color(Color("#94a3b8")) } }) { Text(emp.position) }
-
-        // Chip de estatus
-        val (statusColor, statusBg) = when (emp.status) {
-            EmployeeStatus.ACTIVE -> Color("#166534") to Color("#dcfce7")
-            EmployeeStatus.VACATION -> Color("#854d0e") to Color("#fef9c3")
-            EmployeeStatus.INACTIVE -> Color("#991b1b") to Color("#fee2e2")
-            else -> Color("#475569") to Color("#f1f5f9")
+        Td({ style { padding(6.px, 10.px); fontSize(12.px) } }) {
+            Span({
+                style {
+                    padding(2.px, 8.px); borderRadius(99.px); fontSize(11.px)
+                    backgroundColor(Color("#dbeafe")); color(Color("#1e40af"))
+                }
+            }) { Text(emp.department.ifBlank { "Sin depto" }) }
         }
-        Span({
-            style {
-                padding(2.px, 10.px); borderRadius(99.px); fontSize(10.px); fontWeight("bold")
-                backgroundColor(statusBg); color(statusColor)
+        Td({ style { padding(6.px, 10.px); fontSize(12.px); color(Color("#64748b")) } }) { Text(emp.position) }
+        Td({ style { padding(6.px, 10.px) } }) {
+            val (statusColor, statusBg) = when (emp.status) {
+                EmployeeStatus.ACTIVE -> Color("#166534") to Color("#dcfce7")
+                EmployeeStatus.VACATION -> Color("#854d0e") to Color("#fef9c3")
+                EmployeeStatus.INACTIVE -> Color("#991b1b") to Color("#fee2e2")
+                else -> Color("#475569") to Color("#f1f5f9")
             }
-        }) { Text(emp.status.name) }
-
-        // Botones de gestión (solo RH y ADMIN)
-        if (canManage) {
-            Div({ style { display(DisplayStyle.Flex); gap(6.px); marginTop(8.px) } }) {
-                Button({
-                    style {
-                        padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
-                        property("border", "1px solid #2563eb"); backgroundColor(Color.white); color(Color("#2563eb"))
-                    }
-                    onClick { onEdit() }
-                }) { Text("Editar") }
-                if (emp.status == EmployeeStatus.ACTIVE) {
+            Span({
+                style {
+                    padding(2.px, 8.px); borderRadius(99.px); fontSize(10.px); fontWeight("bold")
+                    backgroundColor(statusBg); color(statusColor)
+                }
+            }) { Text(emp.status.name) }
+        }
+        Td({ style { padding(6.px, 10.px) } }) {
+            if (canManage) {
+                Div({ style { display(DisplayStyle.Flex); gap(6.px); flexWrap(FlexWrap.Wrap) } }) {
                     Button({
                         style {
                             padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
-                            property("border", "1px solid #f59e0b"); backgroundColor(Color.white); color(Color("#f59e0b"))
+                            property("border", "1px solid #2563eb"); backgroundColor(Color.white); color(Color("#2563eb"))
                         }
-                        onClick { onBaja() }
-                    }) { Text("Baja") }
-                }
-                Button({
-                    style {
-                        padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
-                        property("border", "1px solid #ef4444"); backgroundColor(Color.white); color(Color("#ef4444"))
+                        onClick { onEdit() }
+                    }) { Text("Editar") }
+                    if (emp.status == EmployeeStatus.ACTIVE) {
+                        Button({
+                            style {
+                                padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
+                                property("border", "1px solid #f59e0b"); backgroundColor(Color.white); color(Color("#f59e0b"))
+                            }
+                            onClick { onBaja() }
+                        }) { Text("Baja") }
                     }
-                    onClick { onDelete() }
-                }) { Text("Eliminar") }
+                    Button({
+                        style {
+                            padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer")
+                            property("border", "1px solid #ef4444"); backgroundColor(Color.white); color(Color("#ef4444"))
+                        }
+                        onClick { onDelete() }
+                    }) { Text("Eliminar") }
+                }
+            } else {
+                Text("-")
             }
         }
     }
@@ -428,16 +532,11 @@ fun EditField(label: String, value: String, onChange: (String) -> Unit) {
 fun EmpStatCard(label: String, value: String) {
     Div({
         style {
-            flex(1); padding(16.px); borderRadius(8.px)
-            backgroundColor(Color("#f8fafc")); property("border", "1px solid #e2e8f0")
-            minWidth(140.px)
+            padding(16.px, 20.px); borderRadius(8.px); backgroundColor(Color("#f8fafc"))
+            property("border", "1px solid #e2e8f0"); minWidth(140.px)
         }
     }) {
-        P({ style { margin(0.px, 0.px, 4.px, 0.px); fontSize(11.px); color(Color("#94a3b8")); fontWeight("bold"); property("text-transform", "uppercase") } }) {
-            Text(label)
-        }
-        P({ style { margin(0.px); fontSize(24.px); fontWeight("bold"); color(Color("#0f172a")) } }) {
-            Text(value)
-        }
+        P({ style { margin(0.px); fontSize(11.px); color(Color("#64748b")); property("text-transform", "uppercase"); letterSpacing(0.5.px) } }) { Text(label) }
+        P({ style { margin(4.px, 0.px, 0.px, 0.px); fontSize(24.px); fontWeight("bold"); color(Color("#1e293b")) } }) { Text(value) }
     }
 }
