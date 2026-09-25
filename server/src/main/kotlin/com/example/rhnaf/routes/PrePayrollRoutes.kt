@@ -720,7 +720,7 @@ fun Route.prePayrollRouting() {
                                 // pie de pagina, una sola vez por hoja
                                 c.beginText()
                                 c.setFont(PDType1Font.HELVETICA, 7f)
-                                c.newLineAtOffset(306f - PDType1Font.HELVETICA.getStringWidth("Documento informativo de pre-nomina generado por RHNAF") / 100f * 7f / 2f, 30f)
+                                c.newLineAtOffset(306f - PDType1Font.HELVETICA.getStringWidth("Documento informativo de pre-nomina generado por RHNAF") / 1000f * 7f / 2f, 30f)
                                 c.showText("Documento informativo de pre-nomina generado por RHNAF")
                                 c.endText()
                             }
@@ -731,7 +731,7 @@ fun Route.prePayrollRouting() {
                         fun texto(x: Float, y: Float, txt: String, size: Float = 8f, bold: Boolean = false, center: Boolean = false) {
                             stream.beginText()
                             stream.setFont(if (bold) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA, size)
-                            if (center) stream.newLineAtOffset(x - PDType1Font.HELVETICA.getStringWidth(txt) / 100f * size / 2f, y) else stream.newLineAtOffset(x, y)
+                            if (center) stream.newLineAtOffset(x - PDType1Font.HELVETICA.getStringWidth(txt) / 1000f * size / 2f, y) else stream.newLineAtOffset(x, y)
                             stream.showText(txt)
                             stream.endText()
                         }
