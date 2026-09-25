@@ -664,80 +664,95 @@ fun Route.prePayrollRouting() {
             val diasPeriodo = try { java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(inicioStr), LocalDate.parse(finStr)).toInt() + 1 } catch (e: Exception) { 7 }
 
             PDDocument().use { doc ->
-                var folio = 0
-                for (r in records) {
-                    folio++
-                    val emp = employees[r.employeeId]
-                    val ov = overrides[r.employeeId]
-                    val sueldoDiario = emp?.get(EmployeeTable.salary)
-                        ?: (if ((emp?.get(EmployeeTable.position) ?: "").contains("Operador", ignoreCase = true)) 337.31 else null)
-                    val sbc = emp?.get(EmployeeTable.sbc) ?: (sueldoDiario?.times(1.05))
-                    val diasPagados = r.diasTrabajados + r.diasDescansoTrabajados
+                    // ---- Paginas: 2 recibos por hoja (mitad superior e inferior) ----
+                    data class Recibo(val r: PrePayrollRecord, val emp: org.jetbrains.exposed.sql.ResultRow?, val ov: org.jetbrains.exposed.sql.ResultRow?,
+                                      val percepciones: List<Pair<String, Double>>, val deducciones: List<Pair<String, Double>>,
+                                      val neto: Double, val sueldoDiario: Double?, val sbc: Double?)
 
-                    // PERCEPCIONES
-                    val sueldoBase = (sueldoDiario ?: 0.0) * r.diasTrabajados
-                    val horasExtraPesos = r.horasExtra * ((sueldoDiario ?: 0.0) / 8.0) * 2.0
-                    val primaDomPesos = r.primaDominical * (sueldoDiario ?: 0.0) * primaDomPct
-                    val descansoTrabPesos = r.diasDescansoTrabajados.toDouble() * (sueldoDiario ?: 0.0) * 2.0
-                    val percepciones = listOf(
-                        Pair("SUELDO BASE (${r.diasTrabajados} dias)", sueldoBase),
-                        Pair("HORAS EXTRAS (${limpio(r.horasExtra)} h)", horasExtraPesos),
-                        Pair("PRIMA DOMINICAL (${limpio(r.primaDominical)} dias)", primaDomPesos),
-                        Pair("DESCANSOS TRABAJADOS (${r.diasDescansoTrabajados})", descansoTrabPesos)
-                    ).filter { it.second > 0.0 }
-                    val totalPercepciones = percepciones.sumOf { it.second }
+                    // Primero calcular todos los recibos del periodo...
+                    val recibos = records.map { r ->
+                        val emp = employees[r.employeeId]
+                        val ov = overrides[r.employeeId]
+                        val sueldoDiario = emp?.get(EmployeeTable.salary)
+                            ?: (if ((emp?.get(EmployeeTable.position) ?: "").contains("Operador", ignoreCase = true)) 337.31 else null)
+                        val sbc = emp?.get(EmployeeTable.sbc) ?: (sueldoDiario?.times(1.05))
+                        val diasPagados = r.diasTrabajados + r.diasDescansoTrabajados
 
-                    // DEDUCCIONES (automaticas salvo ajuste manual)
-                    val isrAuto = isrPeriodo(totalPercepciones, diasPeriodo)
-                    val imssAuto = imssObrero(sbc ?: 0.0, diasPagados)
-                    val isr = ov?.get(PayrollOverrideTable.isr) ?: isrAuto
-                    val imss = ov?.get(PayrollOverrideTable.imss) ?: imssAuto
-                    val anticipo = ov?.get(PayrollOverrideTable.anticipo) ?: 0.0
-                    val otros = ov?.get(PayrollOverrideTable.otros) ?: 0.0
-                    val deducciones = listOf(
-                        Pair("ISR (RETENCION)", isr),
-                        Pair("IMSS (CUOTA OBRERA)", imss),
-                        Pair("ANTICIPO DE NOMINA", anticipo),
-                        Pair("OTROS DESCUENTOS", otros)
-                    ).filter { it.second > 0.0 }
-                    val totalDeducciones = deducciones.sumOf { it.second }
-                    val neto = totalPercepciones - totalDeducciones
+                        val sueldoBase = (sueldoDiario ?: 0.0) * r.diasTrabajados
+                        val horasExtraPesos = r.horasExtra * ((sueldoDiario ?: 0.0) / 8.0) * 2.0
+                        val primaDomPesos = r.primaDominical * (sueldoDiario ?: 0.0) * primaDomPct
+                        val descansoTrabPesos = r.diasDescansoTrabajados.toDouble() * (sueldoDiario ?: 0.0) * 2.0
+                        val percepciones = listOf(
+                            Pair("SUELDO BASE (${r.diasTrabajados} dias)", sueldoBase),
+                            Pair("HORAS EXTRAS (${limpio(r.horasExtra)} h)", horasExtraPesos),
+                            Pair("PRIMA DOMINICAL (${limpio(r.primaDominical)} dias)", primaDomPesos),
+                            Pair("DESCANSOS TRABAJADOS (${r.diasDescansoTrabajados})", descansoTrabPesos)
+                        ).filter { it.second > 0.0 }
+                        val totalPercepciones = percepciones.sumOf { it.second }
 
-                    // ---- Pagina ----
-                    val page = PDPage(PDRectangle(612f, 792f))
-                    doc.addPage(page)
-                    PDPageContentStream(doc, page).use { cs ->
-                        fun texto(x: Float, y: Float, txt: String, size: Float = 9f, bold: Boolean = false, center: Boolean = false) {
-                            cs.beginText()
-                            cs.setFont(if (bold) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA, size)
-                            if (center) cs.newLineAtOffset(x - PDType1Font.HELVETICA.getStringWidth(txt) / 100f * size / 2f, y) else cs.newLineAtOffset(x, y)
-                            cs.showText(txt)
-                            cs.endText()
+                        val isrAuto = isrPeriodo(totalPercepciones, diasPeriodo)
+                        val imssAuto = imssObrero(sbc ?: 0.0, diasPagados)
+                        val isr = ov?.get(PayrollOverrideTable.isr) ?: isrAuto
+                        val imss = ov?.get(PayrollOverrideTable.imss) ?: imssAuto
+                        val anticipo = ov?.get(PayrollOverrideTable.anticipo) ?: 0.0
+                        val otros = ov?.get(PayrollOverrideTable.otros) ?: 0.0
+                        val deducciones = listOf(
+                            Pair("ISR (RETENCION)", isr),
+                            Pair("IMSS (CUOTA OBRERA)", imss),
+                            Pair("ANTICIPO DE NOMINA", anticipo),
+                            Pair("OTROS DESCUENTOS", otros)
+                        ).filter { it.second > 0.0 }
+                        val totalDeducciones = deducciones.sumOf { it.second }
+                        val neto = totalPercepciones - totalDeducciones
+                        Recibo(r, emp, ov, percepciones, deducciones, neto, sueldoDiario, sbc)
+                    }
+
+                    // ...y luego dibujar dos por hoja, compactando el espacio
+                    var cs: PDPageContentStream? = null
+                    recibos.forEachIndexed { idx, rec ->
+                        val r = rec.r; val emp = rec.emp
+                        if (idx % 2 == 0) {
+                            cs?.close()
+                            val page = PDPage(PDRectangle(612f, 792f))
+                            doc.addPage(page)
+                            cs = PDPageContentStream(doc, page)
+                            cs?.let { c ->
+                                // pie de pagina, una sola vez por hoja
+                                c.beginText()
+                                c.setFont(PDType1Font.HELVETICA, 7f)
+                                c.newLineAtOffset(306f - PDType1Font.HELVETICA.getStringWidth("Documento informativo de pre-nomina generado por RHNAF") / 100f * 7f / 2f, 30f)
+                                c.showText("Documento informativo de pre-nomina generado por RHNAF")
+                                c.endText()
+                            }
+                        }
+                        val stream = cs!!
+                        val yTop = if (idx % 2 == 0) 762f else 386f
+                        val folioNum = idx + 1
+                        fun texto(x: Float, y: Float, txt: String, size: Float = 8f, bold: Boolean = false, center: Boolean = false) {
+                            stream.beginText()
+                            stream.setFont(if (bold) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA, size)
+                            if (center) stream.newLineAtOffset(x - PDType1Font.HELVETICA.getStringWidth(txt) / 100f * size / 2f, y) else stream.newLineAtOffset(x, y)
+                            stream.showText(txt)
+                            stream.endText()
                         }
                         val margenIzq = 40f
-                        var y = 762f
-                        // Encabezado empresa
-                        texto(margenIzq, y, EMPRESA_NOMBRE, 14f, bold = true)
-                        y -= 14f
-                        texto(margenIzq, y, "RFC: $EMPRESA_RFC", 8f)
-                        y -= 11f
-                        texto(margenIzq, y, EMPRESA_DOMICILIO, 7f)
-                        y -= 11f
-                        texto(margenIzq, y, "PERIODO: $inicioStr AL $finStr", 8f, bold = true)
-                        // Titulo derecho
-                        texto(572f, 762f, "RECIBO DE PRE-NOMINA", 12f, bold = true, center = true)
-                        texto(572f, 748f, "FOLIO: PN-${inicioStr.replace("-", "")}-${"%03d".format(folio)}", 9f, center = true)
-                        texto(572f, 736f, "FECHA DE IMPRESION: ${LocalDate.now()}", 7f, center = true)
+                        // Encabezado compacto
+                        texto(margenIzq, yTop, EMPRESA_NOMBRE, 11f, bold = true)
+                        texto(572f, yTop, "RECIBO DE PRE-NOMINA", 10f, bold = true, center = true)
+                        texto(margenIzq, yTop - 12f, "RFC: $EMPRESA_RFC  |  $EMPRESA_DOMICILIO", 6.5f)
+                        texto(572f, yTop - 11f, "FOLIO: PN-${inicioStr.replace("-", "")}-${"%03d".format(folioNum)}", 7.5f, center = true)
+                        texto(margenIzq, yTop - 22f, "PERIODO: $inicioStr AL $finStr", 8f, bold = true)
+                        texto(572f, yTop - 21f, "FECHA DE IMPRESION: ${LocalDate.now()}", 6.5f, center = true)
 
                         // Linea divisoria
-                        cs.moveTo(margenIzq, 726f); cs.lineTo(572f, 726f); cs.stroke()
+                        stream.moveTo(margenIzq, yTop - 30f); stream.lineTo(572f, yTop - 30f); stream.stroke()
 
-                        // Datos del empleado
-                        y = 710f
+                        // Datos del empleado (dos columnas, compacto)
+                        var y = yTop - 42f
                         fun par(etiqueta: String, valor: String?, x: Float) {
                             if (valor.isNullOrBlank()) return
-                            texto(x, y, "$etiqueta $valor", 8f)
-                            y -= 12f
+                            texto(x, y, "$etiqueta $valor", 7.5f)
+                            y -= 9.5f
                         }
                         par("EMPLEADO:", (emp?.get(EmployeeTable.firstName) ?: "") + " " + (emp?.get(EmployeeTable.lastName) ?: r.employeeName), margenIzq)
                         par("NO. EMPLEADO:", r.employeeId, margenIzq)
@@ -746,60 +761,58 @@ fun Route.prePayrollRouting() {
                         par("NSS:", emp?.get(EmployeeTable.nss), margenIzq)
                         par("PUESTO:", emp?.get(EmployeeTable.position), margenIzq)
                         val yIzq = y
-                        y = 710f
+                        y = yTop - 42f
                         par("DEPARTAMENTO:", emp?.get(EmployeeTable.department), 320f)
                         par("FECHA INGRESO:", emp?.get(EmployeeTable.entryDate), 320f)
-                        par("FECHA BAJA:", emp?.get(EmployeeTable.exitDate), 320f)
-                        par("SUELDO DIARIO:", sueldoDiario?.let { dinero(it) }, 320f)
-                        par("SBC (IMSS):", sbc?.let { dinero(it) }, 320f)
+                        par("SUELDO DIARIO:", rec.sueldoDiario?.let { dinero(it) }, 320f)
+                        par("SBC (IMSS):", rec.sbc?.let { dinero(it) }, 320f)
                         par("DIAS TRABAJADOS:", r.diasTrabajados.toString(), 320f)
                         par("FALTAS:", r.faltas.toString(), 320f)
-                        y = minOf(yIzq, y) - 10f
+                        y = minOf(yIzq, y) - 6f
 
-                        if (sueldoDiario == null) {
-                            texto(306f, y, "SIN SUELDO CAPTURADO: capture el sueldo diario en la ficha del empleado", 9f, bold = true, center = true)
-                            y -= 20f
+                        if (rec.sueldoDiario == null) {
+                            texto(306f, y, "SIN SUELDO CAPTURADO: capture el sueldo diario en la ficha del empleado", 8f, bold = true, center = true)
+                            y -= 16f
                         }
 
                         // Encabezados de columnas
-                        cs.moveTo(margenIzq, y + 5f); cs.lineTo(572f, y + 5f); cs.stroke()
-                        y -= 14f
-                        texto(margenIzq, y, "PERCEPCIONES", 10f, bold = true)
-                        texto(320f, y, "DEDUCCIONES", 10f, bold = true)
-                        y -= 14f
-                        cs.moveTo(margenIzq, y + 4f); cs.lineTo(572f, y + 4f); cs.stroke()
-                        y -= 14f
+                        stream.moveTo(margenIzq, y + 4f); stream.lineTo(572f, y + 4f); stream.stroke()
+                        y -= 12f
+                        texto(margenIzq, y, "PERCEPCIONES", 9f, bold = true)
+                        texto(320f, y, "DEDUCCIONES", 9f, bold = true)
+                        y -= 11f
+                        stream.moveTo(margenIzq, y + 4f); stream.lineTo(572f, y + 4f); stream.stroke()
+                        y -= 12f
 
                         var yPer = y
                         var yDed = y
-                        for ((concepto, importe) in percepciones) {
-                            texto(margenIzq, yPer, concepto, 8f)
-                            texto(300f, yPer, dinero(importe), 8f)
-                            yPer -= 13f
+                        for ((concepto, importe) in rec.percepciones) {
+                            texto(margenIzq, yPer, concepto, 7.5f)
+                            texto(300f, yPer, dinero(importe), 7.5f)
+                            yPer -= 11f
                         }
-                        texto(margenIzq, yPer, "TOTAL PERCEPCIONES", 8f, bold = true)
-                        texto(300f, yPer, dinero(totalPercepciones), 8f, bold = true)
+                        texto(margenIzq, yPer, "TOTAL PERCEPCIONES", 7.5f, bold = true)
+                        texto(300f, yPer, dinero(rec.percepciones.sumOf { it.second }), 7.5f, bold = true)
 
-                        for ((concepto, importe) in deducciones) {
-                            texto(320f, yDed, concepto, 8f)
-                            texto(572f, yDed, dinero(importe), 8f)
-                            yDed -= 13f
+                        for ((concepto, importe) in rec.deducciones) {
+                            texto(320f, yDed, concepto, 7.5f)
+                            texto(572f, yDed, dinero(importe), 7.5f)
+                            yDed -= 11f
                         }
-                        texto(320f, yDed, "TOTAL DEDUCCIONES", 8f, bold = true)
-                        texto(572f, yDed, dinero(totalDeducciones), 8f, bold = true)
+                        texto(320f, yDed, "TOTAL DEDUCCIONES", 7.5f, bold = true)
+                        texto(572f, yDed, dinero(rec.deducciones.sumOf { it.second }), 7.5f, bold = true)
 
-                        y = minOf(yPer, yDed) - 20f
-                        texto(320f, y, "NETO A PAGAR: ${dinero(neto)}", 12f, bold = true)
+                        y = minOf(yPer, yDed) - 16f
+                        texto(320f, y, "NETO A PAGAR: ${dinero(rec.neto)}", 10f, bold = true)
 
                         // Firmas
-                        val yFirma = 120f
-                        texto(140f, yFirma, "_______________________", 9f, center = true)
-                        texto(140f, yFirma - 12f, "ELABORO", 8f, center = true)
-                        texto(430f, yFirma, "_______________________", 9f, center = true)
-                        texto(430f, yFirma - 12f, "RECIBI DE CONFORMIDAD: ${emp?.get(EmployeeTable.firstName) ?: ""} ${emp?.get(EmployeeTable.lastName) ?: ""}", 8f, center = true)
-
-                        texto(306f, 60f, "Documento informativo de pre-nomina generado por RHNAF", 7f, center = true)
+                        val yFirma = y - 26f
+                        texto(140f, yFirma, "_______________________", 8f, center = true)
+                        texto(140f, yFirma - 10f, "ELABORO", 7f, center = true)
+                        texto(430f, yFirma, "_______________________", 8f, center = true)
+                        texto(430f, yFirma - 10f, "RECIBI DE CONFORMIDAD: ${emp?.get(EmployeeTable.firstName) ?: ""} ${emp?.get(EmployeeTable.lastName) ?: ""}", 7f, center = true)
                     }
+                    cs?.close()
                 }
                 val out = java.io.ByteArrayOutputStream()
                 doc.save(out)
