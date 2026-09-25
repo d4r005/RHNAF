@@ -282,12 +282,27 @@ fun Route.prePayrollRouting() {
             val primaDom = policyRow?.get(AttendancePolicyTable.primaDominical) ?: 0.25
             val diasDescanso = (policyRow?.get(AttendancePolicyTable.diasDescanso) ?: "6").split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()
 
+            // Los timestamps en la BD llegan en formato ISO con offset, tal cual
+            // los manda la lectora: "2026-09-11T21:00:27-06:00". El parser viejo
+            // asumia un formato con espacio ("YYYY-MM-DD HH:MM:SS") que nunca
+            // coincidia con nada real -> descartaba TODOS los registros en
+            // silencio y por eso el calculo marcaba falta a todo el mundo.
+            fun parseTs(raw: String): java.time.OffsetDateTime? = try {
+                java.time.OffsetDateTime.parse(raw)
+            } catch (e: Exception) {
+                try {
+                    // Compatibilidad con datos viejos sin offset ("YYYY-MM-DD HH:MM:SS")
+                    val norm = raw.substringBefore(".").replace(" ", "T")
+                    java.time.LocalDateTime.parse(norm).atOffset(java.time.ZoneOffset.of("-06:00"))
+                } catch (e2: Exception) { null }
+            }
+
             // Cargar asistencias del periodo
             val logs = DatabaseFactory.dbQuery {
                 AttendanceLogTable.selectAll()
                     .filter { row ->
-                        val ts = row[AttendanceLogTable.timestamp].substringBefore(" ")
-                        try { LocalDate.parse(ts) in inicio..fin } catch (e: Exception) { false }
+                        val dt = parseTs(row[AttendanceLogTable.timestamp]) ?: return@filter false
+                        dt.toLocalDate() in inicio..fin
                     }
             }
 
@@ -297,8 +312,9 @@ fun Route.prePayrollRouting() {
             for (log in logs) {
                 val empId = log[AttendanceLogTable.employeeId]
                 val ts = log[AttendanceLogTable.timestamp]
-                val day = try { LocalDate.parse(ts.substringBefore(" ")) } catch (e: Exception) { continue }
-                val timeStr = ts.substringAfter(" ").substringBefore(".")
+                val dt = parseTs(ts) ?: continue
+                val day = dt.toLocalDate()
+                val timeStr = dt.toLocalTime().toString()
                 val status = log[AttendanceLogTable.attendanceStatus].lowercase()
                 val key = empId to day
                 val pair = byEmployeeDay.getOrPut(key) { CheckPair() }

@@ -296,7 +296,7 @@ fun JustificacionesTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineSc
                 Option("") { Text("Empleado...") }
                 employees.forEach { e -> Option(e.id) { Text("${e.firstName} ${e.lastName}") } }
             }
-            Input(InputType.Text) { placeholder("Fecha YYYY-MM-DD"); value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+            Input(InputType.Date) { value(f_fecha); onInput { f_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
             Select({ style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") }; onChange { f_tipo = (it.target as org.w3c.dom.HTMLSelectElement).value } }) {
                 Option("Falta") { Text("Falta") }; Option("Retardo") { Text("Retardo") }; Option("Salida anticipada") { Text("Salida anticipada") }
                 Option("Permiso") { Text("Permiso") }; Option("Incapacidad") { Text("Incapacidad") }; Option("Vacaciones") { Text("Vacaciones") }
@@ -385,8 +385,9 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
     }
 
     Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); alignItems(AlignItems.Center) } }) {
-        Input(InputType.Text) { placeholder("Inicio YYYY-MM-DD"); value(f_inicio); onInput { f_inicio = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
-        Input(InputType.Text) { placeholder("Fin YYYY-MM-DD"); value(f_fin); onInput { f_fin = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        // Selector nativo de fecha (calendario), igual que en el modulo de Asistencia.
+        Input(InputType.Date) { value(f_inicio); onInput { f_inicio = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+        Input(InputType.Date) { value(f_fin); onInput { f_fin = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
         Button({
             style { padding(8.px, 16.px); backgroundColor(if (isCalculating) Color.gray else SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
             onClick {

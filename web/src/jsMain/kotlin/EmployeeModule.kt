@@ -301,6 +301,20 @@ fun EmployeeModule(
                         }
                         if (photoBusy) P({ style { fontSize(11.px); color(Color("#64748b")); margin(4.px, 0.px, 0.px, 0.px) } }) { Text("Leyendo imagen...") }
                         if (photoError.isNotBlank()) P({ style { fontSize(11.px); color(Color("#dc2626")); margin(4.px, 0.px, 0.px, 0.px) } }) { Text(photoError) }
+                        if (!photoDataUrl.isNullOrBlank()) {
+                            Button({
+                                style {
+                                    marginTop(6.px); padding(3.px, 8.px); fontSize(11.px); borderRadius(4.px)
+                                    property("border", "1px solid #fca5a5"); backgroundColor(Color("#fef2f2")); color(Color("#dc2626")); cursor("pointer")
+                                }
+                                onClick {
+                                    photoDataUrl = null
+                                    photoError = ""
+                                    // Limpiar tambien el <input type=file> para poder re-seleccionar la misma imagen despues
+                                    (document.getElementById("employee-photo-input") as? HTMLInputElement)?.value = ""
+                                }
+                            }) { Text("Eliminar foto") }
+                        }
                     }
                 }
 
