@@ -14,6 +14,9 @@ object PayrollOverrideTable : Table("payroll_overrides") {
     val imss = double("imss").nullable()        // si es null: usar el calculo automatico
     val anticipo = double("anticipo").default(0.0)
     val otros = double("otros").default(0.0)
+    val infonavit = double("infonavit").nullable()          // si es null: usar el descuento fijo del empleado (si tiene)
+    val fondoAhorro = double("fondo_ahorro").nullable()      // si es null: usar el % configurado del empleado (si tiene)
+    val diasProyectados = integer("dias_proyectados").default(0) // dias estimados a añadir cuando la nomina se paga antes de que termine el periodo real
     val updatedBy = varchar("updated_by", 150).nullable()
     override val primaryKey = PrimaryKey(id)
 }

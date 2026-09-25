@@ -545,7 +545,10 @@ fun Route.prePayrollRouting() {
                             "isr" to it[PayrollOverrideTable.isr],
                             "imss" to it[PayrollOverrideTable.imss],
                             "anticipo" to it[PayrollOverrideTable.anticipo],
-                            "otros" to it[PayrollOverrideTable.otros]
+                            "otros" to it[PayrollOverrideTable.otros],
+                            "infonavit" to it[PayrollOverrideTable.infonavit],
+                            "fondoAhorro" to it[PayrollOverrideTable.fondoAhorro],
+                            "diasProyectados" to it[PayrollOverrideTable.diasProyectados]
                         )
                     }
             }
@@ -561,6 +564,7 @@ fun Route.prePayrollRouting() {
             val inicioStr = body["periodoInicio"] ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "periodoInicio requerido"))
             val finStr = body["periodoFin"] ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "periodoFin requerido"))
             fun d(k: String): Double? = body[k]?.takeIf { it.isNotBlank() }?.replace(",", "")?.toDoubleOrNull()
+            val diasProy = body["diasProyectados"]?.takeIf { it.isNotBlank() }?.toIntOrNull() ?: 0
             DatabaseFactory.dbQuery {
                 PayrollOverrideTable.deleteWhere {
                     (PayrollOverrideTable.employeeId eq empId).and(PayrollOverrideTable.periodoInicio eq inicioStr).and(PayrollOverrideTable.periodoFin eq finStr)
@@ -573,6 +577,9 @@ fun Route.prePayrollRouting() {
                     it[imss] = d("imss")
                     it[anticipo] = d("anticipo") ?: 0.0
                     it[otros] = d("otros") ?: 0.0
+                    it[infonavit] = d("infonavit")
+                    it[fondoAhorro] = d("fondoAhorro")
+                    it[diasProyectados] = diasProy
                     it[updatedBy] = body["updatedBy"]
                 }
             }
@@ -612,13 +619,19 @@ fun Route.prePayrollRouting() {
             return maxOf(0.0, semanal * dias / 7.0)
         }
 
-        // IMSS obrero (aproximacion de las cuotas del trabajador).
+        // IMSS obrero (aproximacion de las cuotas del trabajador), separado en dos
+        // renglones para el recibo: IMSS (enfermedad/maternidad + invalidez y vida)
+        // y Cesantia y Vejez, tal como se desglosa en el listado maestro de nomina.
+        val UMA_DIARIA = 113.14
         fun imssObrero(sbc: Double, dias: Int): Double {
             if (sbc <= 0.0 || dias <= 0) return 0.0
-            val umaDiaria = 113.14
-            val excedenteBase = maxOf(0.0, sbc - 3 * umaDiaria)
-            val diario = sbc * (0.00625 + 0.01125) + excedenteBase * 0.01025
+            val excedenteBase = maxOf(0.0, sbc - 3 * UMA_DIARIA)
+            val diario = sbc * 0.00625 + excedenteBase * 0.01025
             return diario * dias
+        }
+        fun cesantiaVejezObrero(sbc: Double, dias: Int): Double {
+            if (sbc <= 0.0 || dias <= 0) return 0.0
+            return sbc * 0.01125 * dias
         }
 
         fun dinero(v: Double): String = String.format("$%,.2f", v)
@@ -684,7 +697,8 @@ fun Route.prePayrollRouting() {
                     // ---- Paginas: 2 recibos por hoja (mitad superior e inferior) ----
                     data class Recibo(val r: PrePayrollRecord, val emp: org.jetbrains.exposed.sql.ResultRow?, val ov: org.jetbrains.exposed.sql.ResultRow?,
                                       val percepciones: List<Pair<String, Double>>, val deducciones: List<Pair<String, Double>>,
-                                      val neto: Double, val sueldoDiario: Double?, val sbc: Double?)
+                                      val neto: Double, val sueldoDiario: Double?, val sbc: Double?,
+                                      val fondoAhorroEmpresa: Double = 0.0, val diasProyectados: Int = 0)
 
                     // Primero calcular todos los recibos del periodo...
                     val recibos = recordsFiltrados.map { r ->
@@ -693,14 +707,23 @@ fun Route.prePayrollRouting() {
                         val sueldoDiario = emp?.get(EmployeeTable.salary)
                             ?: (if ((emp?.get(EmployeeTable.position) ?: "").contains("Operador", ignoreCase = true)) 337.31 else null)
                         val sbc = emp?.get(EmployeeTable.sbc) ?: (sueldoDiario?.times(1.05))
-                        val diasPagados = r.diasTrabajados + r.diasDescansoTrabajados
 
-                        val sueldoBase = (sueldoDiario ?: 0.0) * r.diasTrabajados
+                        // Dias proyectados: cuando la nomina se envia ANTES de que termine el
+                        // periodo real (p.ej. se calcula el 21 pero se paga hasta el 30), se
+                        // pueden capturar dias adicionales estimados (sin faltas) desde el
+                        // dialogo de "Ajustar". No modifica la asistencia real, solo el pago.
+                        val diasProyectados = ov?.get(PayrollOverrideTable.diasProyectados) ?: 0
+                        val diasTrabEfectivos = r.diasTrabajados + diasProyectados
+                        val diasPagados = diasTrabEfectivos + r.diasDescansoTrabajados
+
+                        val sueldoBase = (sueldoDiario ?: 0.0) * diasTrabEfectivos
                         val horasExtraPesos = r.horasExtra * ((sueldoDiario ?: 0.0) / 8.0) * 2.0
                         val primaDomPesos = r.primaDominical * (sueldoDiario ?: 0.0) * primaDomPct
                         val descansoTrabPesos = r.diasDescansoTrabajados.toDouble() * (sueldoDiario ?: 0.0) * 2.0
+                        val etiquetaSueldo = if (diasProyectados > 0)
+                            "SUELDO BASE (${r.diasTrabajados}+$diasProyectados proy. dias)" else "SUELDO BASE (${r.diasTrabajados} dias)"
                         val percepciones = listOf(
-                            Pair("SUELDO BASE (${r.diasTrabajados} dias)", sueldoBase),
+                            Pair(etiquetaSueldo, sueldoBase),
                             Pair("HORAS EXTRAS (${limpio(r.horasExtra)} h)", horasExtraPesos),
                             Pair("PRIMA DOMINICAL (${limpio(r.primaDominical)} dias)", primaDomPesos),
                             Pair("DESCANSOS TRABAJADOS (${r.diasDescansoTrabajados})", descansoTrabPesos)
@@ -709,19 +732,38 @@ fun Route.prePayrollRouting() {
 
                         val isrAuto = isrPeriodo(totalPercepciones, diasPeriodo)
                         val imssAuto = imssObrero(sbc ?: 0.0, diasPagados)
+                        val cesantiaAuto = cesantiaVejezObrero(sbc ?: 0.0, diasPagados)
                         val isr = ov?.get(PayrollOverrideTable.isr) ?: isrAuto
                         val imss = ov?.get(PayrollOverrideTable.imss) ?: imssAuto
+                        val cesantiaVejez = cesantiaAuto
                         val anticipo = ov?.get(PayrollOverrideTable.anticipo) ?: 0.0
                         val otros = ov?.get(PayrollOverrideTable.otros) ?: 0.0
+
+                        // Infonavit: monto fijo por periodo capturado en la ficha del empleado,
+                        // o corregido manualmente en "Ajustar". Se prorratea si hubo faltas.
+                        val infonavitBase = ov?.get(PayrollOverrideTable.infonavit) ?: emp?.get(EmployeeTable.infonavitDescuento) ?: 0.0
+                        val infonavit = if (diasPeriodo > 0) infonavitBase * diasTrabEfectivos / diasPeriodo else infonavitBase
+
+                        // Fondo de ahorro: % configurado en la ficha del empleado sobre el
+                        // sueldo base del periodo. El trabajador se descuenta aqui; la
+                        // aportacion de la empresa se muestra por separado (informativa,
+                        // no se suma al neto porque no se paga en este recibo).
+                        val fondoAhorroPct = emp?.get(EmployeeTable.fondoAhorroPct) ?: 0.0
+                        val fondoAhorroTrabajador = ov?.get(PayrollOverrideTable.fondoAhorro) ?: (sueldoBase * fondoAhorroPct)
+                        val fondoAhorroEmpresa = sueldoBase * fondoAhorroPct
+
                         val deducciones = listOf(
                             Pair("ISR (RETENCION)", isr),
                             Pair("IMSS (CUOTA OBRERA)", imss),
+                            Pair("CESANTIA Y VEJEZ", cesantiaVejez),
+                            Pair("INFONAVIT", infonavit),
+                            Pair("FONDO DE AHORRO (TRABAJADOR)", fondoAhorroTrabajador),
                             Pair("ANTICIPO DE NOMINA", anticipo),
                             Pair("OTROS DESCUENTOS", otros)
                         ).filter { it.second > 0.0 }
                         val totalDeducciones = deducciones.sumOf { it.second }
                         val neto = totalPercepciones - totalDeducciones
-                        Recibo(r, emp, ov, percepciones, deducciones, neto, sueldoDiario, sbc)
+                        Recibo(r, emp, ov, percepciones, deducciones, neto, sueldoDiario, sbc, fondoAhorroEmpresa, diasProyectados)
                     }
 
                     // ...y luego dibujar dos por hoja, compactando el espacio
@@ -745,10 +787,17 @@ fun Route.prePayrollRouting() {
                         val stream = cs!!
                         val yTop = if (idx % 2 == 0) 762f else 386f
                         val folioNum = idx + 1
-                        fun texto(x: Float, y: Float, txt: String, size: Float = 8f, bold: Boolean = false, center: Boolean = false) {
+                        fun texto(x: Float, y: Float, txt: String, size: Float = 8f, bold: Boolean = false, center: Boolean = false, right: Boolean = false) {
                             stream.beginText()
-                            stream.setFont(if (bold) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA, size)
-                            if (center) stream.newLineAtOffset(x - PDType1Font.HELVETICA.getStringWidth(txt) / 1000f * size / 2f, y) else stream.newLineAtOffset(x, y)
+                            val font = if (bold) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA
+                            stream.setFont(font, size)
+                            val ancho = font.getStringWidth(txt) / 1000f * size
+                            val startX = when {
+                                right -> x - ancho
+                                center -> x - ancho / 2f
+                                else -> x
+                            }
+                            stream.newLineAtOffset(startX, y)
                             stream.showText(txt)
                             stream.endText()
                         }
@@ -792,38 +841,61 @@ fun Route.prePayrollRouting() {
                             y -= 16f
                         }
 
-                        // Encabezados de columnas
-                        stream.moveTo(margenIzq, y + 4f); stream.lineTo(572f, y + 4f); stream.stroke()
+                        // Encabezados de columnas.
+                        // Columna de percepciones: concepto en margenIzq..perAmountX (importe
+                        // alineado a la derecha en perAmountX). Columna de deducciones:
+                        // concepto en dedConceptoX..dedAmountX (importe a la derecha en
+                        // dedAmountX). El hueco entre perAmountX y dedConceptoX evita el
+                        // traslape que se veia cuando los importes eran anchos (montos con
+                        // miles) y quedaban encima del texto de la columna de deducciones.
+                        val perAmountX = 300f
+                        val dedConceptoX = 330f
+                        val dedAmountX = 572f
+                        stream.moveTo(margenIzq, y + 4f); stream.lineTo(dedAmountX, y + 4f); stream.stroke()
                         y -= 12f
                         texto(margenIzq, y, "PERCEPCIONES", 9f, bold = true)
-                        texto(320f, y, "DEDUCCIONES", 9f, bold = true)
+                        texto(dedConceptoX, y, "DEDUCCIONES", 9f, bold = true)
                         y -= 11f
-                        stream.moveTo(margenIzq, y + 4f); stream.lineTo(572f, y + 4f); stream.stroke()
+                        stream.moveTo(margenIzq, y + 4f); stream.lineTo(dedAmountX, y + 4f); stream.stroke()
                         y -= 12f
 
                         var yPer = y
                         var yDed = y
                         for ((concepto, importe) in rec.percepciones) {
                             texto(margenIzq, yPer, concepto, 7.5f)
-                            texto(300f, yPer, dinero(importe), 7.5f)
+                            texto(perAmountX, yPer, dinero(importe), 7.5f, right = true)
                             yPer -= 11f
                         }
                         texto(margenIzq, yPer, "TOTAL PERCEPCIONES", 7.5f, bold = true)
-                        texto(300f, yPer, dinero(rec.percepciones.sumOf { it.second }), 7.5f, bold = true)
+                        texto(perAmountX, yPer, dinero(rec.percepciones.sumOf { it.second }), 7.5f, bold = true, right = true)
 
                         for ((concepto, importe) in rec.deducciones) {
-                            texto(320f, yDed, concepto, 7.5f)
-                            texto(572f, yDed, dinero(importe), 7.5f)
+                            texto(dedConceptoX, yDed, concepto, 7.5f)
+                            texto(dedAmountX, yDed, dinero(importe), 7.5f, right = true)
                             yDed -= 11f
                         }
-                        texto(320f, yDed, "TOTAL DEDUCCIONES", 7.5f, bold = true)
-                        texto(572f, yDed, dinero(rec.deducciones.sumOf { it.second }), 7.5f, bold = true)
+                        texto(dedConceptoX, yDed, "TOTAL DEDUCCIONES", 7.5f, bold = true)
+                        texto(dedAmountX, yDed, dinero(rec.deducciones.sumOf { it.second }), 7.5f, bold = true, right = true)
 
                         y = minOf(yPer, yDed) - 16f
-                        texto(320f, y, "NETO A PAGAR: ${dinero(rec.neto)}", 10f, bold = true)
+                        texto(dedConceptoX, y, "NETO A PAGAR: ${dinero(rec.neto)}", 10f, bold = true)
+
+                        // Notas informativas (no afectan el neto): dias proyectados y
+                        // aportacion patronal al fondo de ahorro, cuando aplican.
+                        if (rec.diasProyectados > 0 || rec.fondoAhorroEmpresa > 0.0) {
+                            y -= 12f
+                            if (rec.diasProyectados > 0) {
+                                texto(margenIzq, y, "* Incluye ${rec.diasProyectados} dia(s) proyectado(s) (nomina enviada antes de fin de periodo).", 6.5f)
+                                y -= 9f
+                            }
+                            if (rec.fondoAhorroEmpresa > 0.0) {
+                                texto(margenIzq, y, "* Aportacion patronal fondo de ahorro: ${dinero(rec.fondoAhorroEmpresa)} (informativa, no incluida en el neto).", 6.5f)
+                                y -= 9f
+                            }
+                        }
 
                         // Firmas
-                        val yFirma = y - 26f
+                        val yFirma = y - 18f
                         texto(140f, yFirma, "_______________________", 8f, center = true)
                         texto(140f, yFirma - 10f, "ELABORO", 7f, center = true)
                         texto(430f, yFirma, "_______________________", 8f, center = true)

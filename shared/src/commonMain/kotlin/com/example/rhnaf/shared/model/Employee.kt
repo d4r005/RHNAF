@@ -26,6 +26,8 @@ data class Employee(
     val contractType: String? = null,
     val salary: Double? = null,
     val paymentFrequency: String? = null, // Semanal | Quincenal
+    val infonavitDescuento: Double? = null, // monto fijo por periodo de credito Infonavit
+    val fondoAhorroPct: Double? = null,     // % del sueldo base para fondo de ahorro (trabajador y empresa)
     
     // Datos Personales
     val maritalStatus: String? = null,

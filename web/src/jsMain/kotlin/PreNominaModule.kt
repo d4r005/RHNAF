@@ -545,6 +545,9 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
         var vImss by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("imss") ?: "") }
         var vAnticipo by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("anticipo") ?: "") }
         var vOtros by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("otros") ?: "") }
+        var vInfonavit by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("infonavit") ?: "") }
+        var vFondoAhorro by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("fondoAhorro") ?: "") }
+        var vDiasProyectados by remember(ajusteRec.id) { mutableStateOf(ajEx?.get("diasProyectados")?.takeIf { it != "0" } ?: "") }
         var guardando by remember { mutableStateOf(false) }
         Div({
             style {
@@ -563,8 +566,15 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
                 }
                 EditField("ISR (retencion) - vacio = automatico", vIsr) { vIsr = it }
                 EditField("IMSS (cuota obrera) - vacio = automatico", vImss) { vImss = it }
+                P({ style { fontSize(11.px); color(Color("#64748b")); margin(4.px, 0.px, 8.px, 0.px) } }) { Text("Cesantia y vejez se calcula automaticamente (no se edita aqui).") }
+                EditField("Infonavit - vacio = usa el monto de la ficha del empleado", vInfonavit) { vInfonavit = it }
+                EditField("Fondo de ahorro (trabajador) - vacio = usa % de la ficha", vFondoAhorro) { vFondoAhorro = it }
                 EditField("Anticipo de nomina", vAnticipo) { vAnticipo = it }
                 EditField("Otros descuentos", vOtros) { vOtros = it }
+                P({ style { fontSize(11.px); color(Color("#1e3a8a")); backgroundColor(Color("#dbeafe")); padding(8.px, 10.px); borderRadius(6.px); margin(8.px, 0.px, 0.px, 0.px) } }) {
+                    Text("Si la nomina se envia antes de que termine el periodo (por ejemplo se calcula el 21 pero se paga hasta el 30), agrega aqui los dias estimados restantes para incluirlos en el pago.")
+                }
+                EditField("Dias proyectados a pagar (estimados)", vDiasProyectados) { vDiasProyectados = it }
                 Div({ style { display(DisplayStyle.Flex); gap(12.px); marginTop(20.px) } }) {
                     Button({
                         style { flex(1); padding(10.px); borderRadius(8.px); property("border", "none"); backgroundColor(Color("#2563eb")); color(Color.white); cursor("pointer"); fontWeight("bold") }
@@ -580,7 +590,9 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
                                                 "periodoInicio" to ajusteRec.periodoInicio,
                                                 "periodoFin" to ajusteRec.periodoFin,
                                                 "isr" to vIsr, "imss" to vImss,
-                                                "anticipo" to vAnticipo, "otros" to vOtros
+                                                "anticipo" to vAnticipo, "otros" to vOtros,
+                                                "infonavit" to vInfonavit, "fondoAhorro" to vFondoAhorro,
+                                                "diasProyectados" to vDiasProyectados
                                             ))
                                         }
                                         // refrescar lista de ajustes

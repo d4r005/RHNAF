@@ -276,7 +276,9 @@ fun Application.module() {
                             contractType = it[EmployeeTable.contractType],
                             maritalStatus = it[EmployeeTable.maritalStatus],
                             emergencyContact = it[EmployeeTable.emergencyContact],
-                            paymentFrequency = it[EmployeeTable.paymentFrequency]
+                            paymentFrequency = it[EmployeeTable.paymentFrequency],
+                            infonavitDescuento = it[EmployeeTable.infonavitDescuento],
+                            fondoAhorroPct = it[EmployeeTable.fondoAhorroPct]
                         )
                     }
                 }
@@ -362,6 +364,8 @@ fun Application.module() {
                         it[maritalStatus] = emp.maritalStatus
                         it[emergencyContact] = emp.emergencyContact
                         it[paymentFrequency] = emp.paymentFrequency ?: "Semanal"
+                        it[infonavitDescuento] = emp.infonavitDescuento
+                        it[fondoAhorroPct] = emp.fondoAhorroPct
                     }
                 }
                 call.respond(HttpStatusCode.Created, mapOf("status" to "success"))
@@ -393,6 +397,8 @@ fun Application.module() {
                         it[maritalStatus] = emp.maritalStatus
                         it[emergencyContact] = emp.emergencyContact
                         it[paymentFrequency] = emp.paymentFrequency ?: "Semanal"
+                        it[infonavitDescuento] = emp.infonavitDescuento
+                        it[fondoAhorroPct] = emp.fondoAhorroPct
                     }
                 }
                 call.respond(mapOf("status" to "success"))

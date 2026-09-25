@@ -27,6 +27,8 @@ object EmployeeTable : Table("employees") {
     val maritalStatus = varchar("marital_status", 40).nullable()
     val emergencyContact = varchar("emergency_contact", 150).nullable()
     val paymentFrequency = varchar("payment_frequency", 20).default("Semanal") // Semanal | Quincenal
+    val infonavitDescuento = double("infonavit_descuento").nullable() // monto fijo por periodo de credito Infonavit
+    val fondoAhorroPct = double("fondo_ahorro_pct").nullable()        // % del sueldo base para fondo de ahorro (trabajador y empresa)
     
     override val primaryKey = PrimaryKey(id)
 }
