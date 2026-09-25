@@ -813,7 +813,6 @@ fun Route.prePayrollRouting() {
                         texto(430f, yFirma - 10f, "RECIBI DE CONFORMIDAD: ${emp?.get(EmployeeTable.firstName) ?: ""} ${emp?.get(EmployeeTable.lastName) ?: ""}", 7f, center = true)
                     }
                     cs?.close()
-                }
                 val out = java.io.ByteArrayOutputStream()
                 doc.save(out)
                 val bytes = out.toByteArray()
