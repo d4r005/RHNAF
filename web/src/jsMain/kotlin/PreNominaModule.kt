@@ -405,7 +405,14 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
 
     LaunchedEffect(refreshKey) {
         isLoading = true
-        try { items = client.get("$BACKEND_URL/api/v1/pre-nomina/resultados").body() } catch (e: Exception) { println("Error: ${e.message}") }
+        try {
+            // Filtra siempre por el periodo/grupo actualmente seleccionado, para que la
+            // tabla no mezcle calculos viejos de otros periodos con el recien calculado.
+            val qi = if (f_inicio.isNotBlank()) "&inicio=$f_inicio" else ""
+            val qf = if (f_fin.isNotBlank()) "&fin=$f_fin" else ""
+            val qg = if (f_grupo != "Todos") "&grupo=$f_grupo" else ""
+            items = client.get("$BACKEND_URL/api/v1/pre-nomina/resultados?x=1$qi$qf$qg").body()
+        } catch (e: Exception) { println("Error: ${e.message}") }
         isLoading = false
     }
 
@@ -464,14 +471,14 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
                     scope.launch {
                         isDescargandoPdf = true
                         try {
-                            val resp = client.get("$BACKEND_URL/api/v1/pre-nomina/pdf?inicio=${items.first().periodoInicio}&fin=${items.first().periodoFin}&grupo=$f_grupo")
+                            val resp = client.get("$BACKEND_URL/api/v1/pre-nomina/pdf?inicio=$f_inicio&fin=$f_fin&grupo=$f_grupo")
                             if (resp.status == HttpStatusCode.OK) {
                                 val bytes = resp.readBytes()
                                 val blob = org.w3c.files.Blob(arrayOf(bytes))
                                 val url = window.asDynamic().URL.createObjectURL(blob) as String
                                 val a = document.createElement("a") as org.w3c.dom.HTMLAnchorElement
                                 a.href = url
-                                a.download = "pre_nomina_${items.first().periodoInicio}_a_${items.first().periodoFin}.pdf"
+                                a.download = "pre_nomina_${f_inicio}_a_${f_fin}.pdf"
                                 document.body?.appendChild(a)
                                 a.click()
                                 document.body?.removeChild(a)

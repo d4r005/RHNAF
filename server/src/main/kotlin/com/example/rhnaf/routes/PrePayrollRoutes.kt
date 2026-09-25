@@ -226,28 +226,41 @@ fun Route.prePayrollRouting() {
 
         // ---------- PRE-NÓMINA (resultados calculados) ----------
         route("/resultados") {
+            // GET /resultados[?inicio=2026-09-16&fin=2026-09-30&grupo=Quincenal]
+            // Sin parametros devuelve todo el historico (comportamiento previo). Con
+            // inicio/fin filtra por ese periodo exacto, y con grupo filtra ademas por
+            // la frecuencia de pago del empleado (Semanal/Quincenal). Esto evita que
+            // la tabla de resultados mezcle calculos de periodos/grupos distintos.
             get {
+                val inicioStr = call.request.queryParameters["inicio"]?.trim()?.takeIf { it.isNotBlank() }
+                val finStr = call.request.queryParameters["fin"]?.trim()?.takeIf { it.isNotBlank() }
+                val grupo = call.request.queryParameters["grupo"]?.trim()?.takeIf { it.isNotBlank() && it != "Todos" }
                 val items = DatabaseFactory.dbQuery {
-                    PrePayrollTable.selectAll().map {
-                        PrePayrollRecord(
-                            id = it[PrePayrollTable.id],
-                            employeeId = it[PrePayrollTable.employeeId],
-                            employeeName = it[PrePayrollTable.employeeName],
-                            periodoInicio = it[PrePayrollTable.periodoInicio],
-                            periodoFin = it[PrePayrollTable.periodoFin],
-                            diasTrabajados = it[PrePayrollTable.diasTrabajados],
-                            faltas = it[PrePayrollTable.faltas],
-                            retardosMenores = it[PrePayrollTable.retardosMenores],
-                            retardosMayores = it[PrePayrollTable.retardosMayores],
-                            salidasAnticipadas = it[PrePayrollTable.salidasAnticipadas],
-                            horasTrabajadas = it[PrePayrollTable.horasTrabajadas],
-                            horasExtra = it[PrePayrollTable.horasExtra],
-                            primaDominical = it[PrePayrollTable.primaDominical],
-                            diasDescansoTrabajados = it[PrePayrollTable.diasDescansoTrabajados],
-                            observaciones = it[PrePayrollTable.observaciones],
-                            estado = it[PrePayrollTable.estado]
-                        )
-                    }
+                    val freqPorEmpleado = EmployeeTable.selectAll().associate { it[EmployeeTable.id] to it[EmployeeTable.paymentFrequency] }
+                    PrePayrollTable.selectAll()
+                        .filter { inicioStr == null || it[PrePayrollTable.periodoInicio] == inicioStr }
+                        .filter { finStr == null || it[PrePayrollTable.periodoFin] == finStr }
+                        .filter { grupo == null || freqPorEmpleado[it[PrePayrollTable.employeeId]] == grupo }
+                        .map {
+                            PrePayrollRecord(
+                                id = it[PrePayrollTable.id],
+                                employeeId = it[PrePayrollTable.employeeId],
+                                employeeName = it[PrePayrollTable.employeeName],
+                                periodoInicio = it[PrePayrollTable.periodoInicio],
+                                periodoFin = it[PrePayrollTable.periodoFin],
+                                diasTrabajados = it[PrePayrollTable.diasTrabajados],
+                                faltas = it[PrePayrollTable.faltas],
+                                retardosMenores = it[PrePayrollTable.retardosMenores],
+                                retardosMayores = it[PrePayrollTable.retardosMayores],
+                                salidasAnticipadas = it[PrePayrollTable.salidasAnticipadas],
+                                horasTrabajadas = it[PrePayrollTable.horasTrabajadas],
+                                horasExtra = it[PrePayrollTable.horasExtra],
+                                primaDominical = it[PrePayrollTable.primaDominical],
+                                diasDescansoTrabajados = it[PrePayrollTable.diasDescansoTrabajados],
+                                observaciones = it[PrePayrollTable.observaciones],
+                                estado = it[PrePayrollTable.estado]
+                            )
+                        }
                 }
                 call.respond(items)
             }
