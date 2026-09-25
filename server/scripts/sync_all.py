@@ -97,6 +97,11 @@ TZ_OFFSET = "-06:00"
 BATCH_SIZE = 30
 FACE_SEARCH_SIZE = 5          # FDSearch: la lectora rechaza maxResults>5
 MAX_PAGES_ATTENDANCE = 50
+# En resincronizaciones forzadas (force_since / migraciones / boton "Get" de la
+# web) NO se puede topear en 50 paginas: 50 x 30 = 1500 eventos, y un ano
+# completo tiene muchos mas. Ese tope dejo fuera las checadas del 7 al 24 de
+# septiembre de 2026 (la migracion subio ene->6 sep y se quedo sin paginas).
+MAX_PAGES_FULL_RESYNC = 5000
 MAX_PAGES_EMPLOYEES = 100
 MAX_PAGES_FACES = 250         # mas paginas porque FACE_SEARCH_SIZE es chico
 FACE_LIB_ID = "1"
@@ -704,7 +709,8 @@ def sync_attendance(force_since: str | None = None):
     latest_time_seen = start_time
     device_error = None
 
-    for page in range(MAX_PAGES_ATTENDANCE):
+    max_pages = MAX_PAGES_ATTENDANCE if force_since is None else MAX_PAGES_FULL_RESYNC
+    for page in range(max_pages):
         try:
             data = fetch_events(start_time, end_time, position)
         except requests.RequestException as e:
@@ -772,12 +778,15 @@ def repair_attendance():
 #   3) Lo vuelve a subir tal cual desde el 2026-01-01, ahora con el
 #      attendanceStatus real (checkIn/checkOut) de cada evento crudo
 MIGRATION_KEY = "attendance_status_resync_v2"
+GAPFILL_KEY = "attendance_gapfill_v3"
 
 
 def migrate_attendance_status():
+    """Regresa True si la migracion v2 corrio en este arranque (para no correr
+    la v3 de relleno dos veces seguidas en el mismo proceso)."""
     state = load_state()
     if state.get(MIGRATION_KEY) == "done":
-        return
+        return False
     log("=== MIGRACION: re-etiquetar asistencia con el estado real de la lectora ===")
 
     # 1) La lectora debe estar accesible ANTES de borrar nada en la nube
@@ -810,6 +819,27 @@ def migrate_attendance_status():
     state[MIGRATION_KEY] = "done"
     save_state(state)
     log("=== MIGRACION COMPLETADA: la nube ya refleja las checadas tal cual la lectora ===")
+    return True
+
+
+def migrate_attendance_gapfill():
+    """MIGRACION v3 (relleno de huecos): la v2 subio el historial con un tope
+    de 1500 eventos por corrida, lo que dejo un hueco del ~7 al 24 de
+    septiembre de 2026. Esta pasada re-sube todo el ano SIN tope de paginas.
+    NO borra nada: el servidor ignora duplicados exactos (mismo empleado +
+    mismo timestamp), asi que re-subir el ano completo solo agrega lo faltante."""
+    state = load_state()
+    if state.get(GAPFILL_KEY) == "done":
+        return
+    log("=== MIGRACION v3: rellenar huecos de asistencia con el historial completo de la lectora ===")
+    summary = run_cycle(sin_fotos=True, force_since="2026-01-01T00:00:00")
+    if summary.get("device_error"):
+        log(f"  [MIGRACION v3] lectora inaccesible ({summary['device_error']}); NO se marco como hecha. Se reintentara en el proximo ciclo.")
+        return
+    state = load_state()
+    state[GAPFILL_KEY] = "done"
+    save_state(state)
+    log(f"=== MIGRACION v3 COMPLETADA: checadas vistas {summary['checadas_vistas']}, subidas {summary['checadas_subidas']} ===")
 
 
 # -------------------- CICLO PRINCIPAL --------------------
@@ -1018,7 +1048,10 @@ def main():
         sys.exit(0)
     if args.loop:
         log(f"Modo continuo: cada {args.interval}s. Ctrl+C para detener.")
-        migrate_attendance_status()
+        if migrate_attendance_status():
+            state = load_state(); state[GAPFILL_KEY] = "done"; save_state(state)
+        else:
+            migrate_attendance_gapfill()
         first = True
         while True:
             try:
@@ -1043,7 +1076,10 @@ def main():
             time.sleep(args.interval)
     else:
         # Corrida unica: primero la migracion (si pendiente), luego tarea remota
-        migrate_attendance_status()
+        if migrate_attendance_status():
+            state = load_state(); state[GAPFILL_KEY] = "done"; save_state(state)
+        else:
+            migrate_attendance_gapfill()
         if not poll_and_run_remote_task():
             run_cycle(
                 sin_fotos=args.sin_fotos,
