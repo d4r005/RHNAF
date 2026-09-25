@@ -715,6 +715,11 @@ fun Route.prePayrollRouting() {
                         val diasProyectados = ov?.get(PayrollOverrideTable.diasProyectados) ?: 0
                         val diasTrabEfectivos = r.diasTrabajados + diasProyectados
                         val diasPagados = diasTrabEfectivos + r.diasDescansoTrabajados
+                        // Si se agregan dias proyectados, el periodo tambien se "alarga" para
+                        // efectos de prorrateo de ISR/Infonavit (de lo contrario se sobre-
+                        // tasaria el ISR al anualizar como si fueran solo los dias calendario
+                        // originales cuando en realidad se esta pagando mas dias).
+                        val diasPeriodoEfectivo = diasPeriodo + diasProyectados
 
                         val sueldoBase = (sueldoDiario ?: 0.0) * diasTrabEfectivos
                         val horasExtraPesos = r.horasExtra * ((sueldoDiario ?: 0.0) / 8.0) * 2.0
@@ -730,7 +735,7 @@ fun Route.prePayrollRouting() {
                         ).filter { it.second > 0.0 }
                         val totalPercepciones = percepciones.sumOf { it.second }
 
-                        val isrAuto = isrPeriodo(totalPercepciones, diasPeriodo)
+                        val isrAuto = isrPeriodo(totalPercepciones, diasPeriodoEfectivo)
                         val imssAuto = imssObrero(sbc ?: 0.0, diasPagados)
                         val cesantiaAuto = cesantiaVejezObrero(sbc ?: 0.0, diasPagados)
                         val isr = ov?.get(PayrollOverrideTable.isr) ?: isrAuto
@@ -742,7 +747,7 @@ fun Route.prePayrollRouting() {
                         // Infonavit: monto fijo por periodo capturado en la ficha del empleado,
                         // o corregido manualmente en "Ajustar". Se prorratea si hubo faltas.
                         val infonavitBase = ov?.get(PayrollOverrideTable.infonavit) ?: emp?.get(EmployeeTable.infonavitDescuento) ?: 0.0
-                        val infonavit = if (diasPeriodo > 0) infonavitBase * diasTrabEfectivos / diasPeriodo else infonavitBase
+                        val infonavit = if (diasPeriodoEfectivo > 0) infonavitBase * diasTrabEfectivos / diasPeriodoEfectivo else infonavitBase
 
                         // Fondo de ahorro: % configurado en la ficha del empleado sobre el
                         // sueldo base del periodo. El trabajador se descuenta aqui; la
