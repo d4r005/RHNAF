@@ -227,19 +227,35 @@ fun Route.prePayrollRouting() {
         // ---------- PRE-NÓMINA (resultados calculados) ----------
         route("/resultados") {
             // GET /resultados[?inicio=2026-09-16&fin=2026-09-30&grupo=Quincenal]
-            // Sin parametros devuelve todo el historico (comportamiento previo). Con
-            // inicio/fin filtra por ese periodo exacto, y con grupo filtra ademas por
-            // la frecuencia de pago del empleado (Semanal/Quincenal). Esto evita que
-            // la tabla de resultados mezcle calculos de periodos/grupos distintos.
+            // Sin parametros devuelve todo el historico. Con fechas, el filtro es por
+            // INCLUSION/SOLAPAMIENTO, no coincidencia exacta: se muestran los registros
+            // cuyo periodo calculado cubre la fecha seleccionada, aunque el periodo no
+            // empiece ese dia. Asi, al elegir solo el 16 de sept con grupo "Todos"
+            // aparecen tanto los quincenales (16-30) como los semanales cuyo periodo
+            // incluye ese dia (p.ej. 14-20). Con grupo se filtra ademas por la
+            // frecuencia de pago del empleado (Semanal/Quincenal).
             get {
                 val inicioStr = call.request.queryParameters["inicio"]?.trim()?.takeIf { it.isNotBlank() }
                 val finStr = call.request.queryParameters["fin"]?.trim()?.takeIf { it.isNotBlank() }
                 val grupo = call.request.queryParameters["grupo"]?.trim()?.takeIf { it.isNotBlank() && it != "Todos" }
+                // Rango efectivo: ambas fechas = rango completo; una sola = ese unico dia.
+                val rango = when {
+                    inicioStr != null && finStr != null -> inicioStr!! to finStr!!
+                    inicioStr != null -> inicioStr!! to inicioStr!!
+                    finStr != null -> finStr!! to finStr!!
+                    else -> null
+                }
                 val items = DatabaseFactory.dbQuery {
                     val freqPorEmpleado = EmployeeTable.selectAll().associate { it[EmployeeTable.id] to it[EmployeeTable.paymentFrequency] }
                     PrePayrollTable.selectAll()
-                        .filter { inicioStr == null || it[PrePayrollTable.periodoInicio] == inicioStr }
-                        .filter { finStr == null || it[PrePayrollTable.periodoFin] == finStr }
+                        .filter { row ->
+                            rango == null || run {
+                                val pi = row[PrePayrollTable.periodoInicio]
+                                val pf = row[PrePayrollTable.periodoFin]
+                                // solapamiento del periodo guardado con el rango elegido (fechas ISO comparan bien como texto)
+                                pi <= rango.second && pf >= rango.first
+                            }
+                        }
                         .filter { grupo == null || freqPorEmpleado[it[PrePayrollTable.employeeId]] == grupo }
                         .map {
                             PrePayrollRecord(
