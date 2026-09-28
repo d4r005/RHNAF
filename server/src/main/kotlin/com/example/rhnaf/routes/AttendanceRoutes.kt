@@ -18,6 +18,12 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.pdmodel.PDPage
+import org.apache.pdfbox.pdmodel.PDPageContentStream
+import org.apache.pdfbox.pdmodel.common.PDRectangle
+import org.apache.pdfbox.pdmodel.font.PDType1Font
+import java.io.ByteArrayOutputStream
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 
@@ -510,7 +516,8 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
             call.respondText(csv, contentType = ContentType.Text.CSV)
         }
 
-        // Export PDF: reporte HTML formateado para impresion a PDF
+        // Export PDF: reporte real en PDF (PDFBox), no HTML. El boton de PDF
+        // descarga este binario con fetch+blob usando el token de sesion.
         get("/export/pdf") {
             val today = java.time.LocalDate.now().toString()
             val from = call.parameters["from"] ?: today
@@ -518,54 +525,91 @@ fun Route.attendanceRouting(attendanceUseCase: AttendanceUseCase) {
 
             val summary = attendanceUseCase.exportDailySummary(from + "T00:00:00", to + "T23:59:59")
 
-            val sb = StringBuilder()
-            sb.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>")
-            sb.append("<title>Reporte de Asistencia " + from + " a " + to + "</title>")
-            sb.append("<style>")
-            sb.append("@page { size: A4; margin: 15mm; }")
-            sb.append("body { font-family: 'Helvetica', sans-serif; font-size: 11px; color: #333; }")
-            sb.append("h1 { font-size: 18px; text-align: center; margin-bottom: 5px; }")
-            sb.append("h2 { font-size: 12px; text-align: center; color: #666; font-weight: normal; margin-bottom: 20px; }")
-            sb.append("table { width: 100%; border-collapse: collapse; margin-top: 10px; }")
-            sb.append("th { background: #2c3e50; color: white; padding: 6px 8px; text-align: left; font-size: 10px; }")
-            sb.append("td { padding: 5px 8px; border-bottom: 1px solid #ddd; }")
-            sb.append("tr:nth-child(even) { background: #f9f9f9; }")
-            sb.append(".header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }")
-            sb.append(".logo { font-size: 16px; font-weight: bold; color: #2c3e50; }")
-            sb.append(".date { font-size: 10px; color: #999; }")
-            sb.append(".total { margin-top: 15px; font-weight: bold; text-align: right; }")
-            sb.append("@media print { .no-print { display: none; } }")
-            sb.append(".btn { background: #2c3e50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }")
-            sb.append("</style>")
-            sb.append("</head><body>")
-            sb.append("<div class='header'><span class='logo'>NAF - Reporte de Asistencia</span>")
-            val genDate = java.time.LocalDateTime.now().toString().substring(0, 16).replace("T", " ")
-            sb.append("<span class='date'>Generado: " + genDate + "</span></div>")
-            sb.append("<h1>Reporte de Asistencia</h1>")
-            sb.append("<h2>Periodo: " + from + " a " + to + "</h2>")
-            sb.append("<button class='btn no-print' onclick='window.print()'>Imprimir / Guardar PDF</button>")
-            sb.append("<table><thead><tr>")
-            sb.append("<th>#</th><th>Employee ID</th><th>Nombre</th><th>Departamento</th><th>Fecha</th><th>Check-In</th><th>Check-Out</th><th>Checadas</th>")
-            sb.append("</tr></thead><tbody>")
-            for ((index, row) in summary.withIndex()) {
-                sb.append("<tr>")
-                sb.append("<td>" + (index + 1) + "</td>")
-                sb.append("<td>" + row.employeeId + "</td>")
-                sb.append("<td>" + row.name + "</td>")
-                sb.append("<td>" + row.department + "</td>")
-                sb.append("<td>" + row.date + "</td>")
-                val checkInTime = row.checkIn?.substringAfter("T")?.substring(0, 8) ?: "-"
-                val checkOutTime = row.checkOut?.substringAfter("T")?.substring(0, 8) ?: "-"
-                sb.append("<td>" + checkInTime + "</td>")
-                sb.append("<td>" + checkOutTime + "</td>")
-                sb.append("<td>" + row.totalChecks + "</td>")
-                sb.append("</tr>")
-            }
-            sb.append("</tbody></table>")
-            sb.append("<div class='total'>Total de registros: " + summary.size + "</div>")
-            sb.append("</body></html>")
+            val margenIzq = 30f
+            val margenDer = 762f
+            // Landscape para que quepan bien las 8 columnas (nombre y depto pueden ser largos)
+            val pageWidth = 792f
+            val pageHeight = 612f
+            val filasPorPagina = 34
 
-            call.respondText(sb.toString(), contentType = ContentType.Text.Html)
+            fun PDPageContentStream.texto(x: Float, y: Float, txt: String, size: Float = 8f, bold: Boolean = false) {
+                beginText()
+                setFont(if (bold) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA, size)
+                newLineAtOffset(x, y)
+                // PDFBox no acepta caracteres fuera de WinAnsi (p.ej. emojis); recorta silenciosamente
+                val safe = txt.filter { it.code in 32..255 }
+                showText(safe)
+                endText()
+            }
+
+            val cols = listOf(
+                Triple("#", margenIzq, 22f),
+                Triple("ID", margenIzq + 22f, 45f),
+                Triple("NOMBRE", margenIzq + 67f, 190f),
+                Triple("DEPARTAMENTO", margenIzq + 257f, 130f),
+                Triple("FECHA", margenIzq + 387f, 60f),
+                Triple("ENTRADA", margenIzq + 447f, 60f),
+                Triple("SALIDA", margenIzq + 507f, 60f),
+                Triple("CHECADAS", margenIzq + 567f, 60f)
+            )
+
+            val bytes = PDDocument().use { doc ->
+                val totalPaginas = maxOf(1, kotlin.math.ceil(summary.size / filasPorPagina.toDouble()).toInt())
+                var pagina = 0
+                var cs: PDPageContentStream? = null
+
+                fun nuevaPagina() {
+                    cs?.close()
+                    pagina++
+                    val page = PDPage(PDRectangle(pageWidth, pageHeight))
+                    doc.addPage(page)
+                    cs = PDPageContentStream(doc, page)
+                    cs!!.apply {
+                        texto(margenIzq, 585f, "NAF - Reporte de Asistencia", 13f, bold = true)
+                        texto(margenDer - 140f, 585f, "Generado: ${java.time.LocalDateTime.now().toString().substring(0, 16).replace("T", " ")}", 7f)
+                        texto(margenIzq, 570f, "Periodo: $from a $to", 9f, bold = true)
+                        texto(margenDer - 60f, 570f, "Pag. $pagina/$totalPaginas", 8f)
+                        moveTo(margenIzq, 562f); lineTo(margenDer, 562f); setLineWidth(0.75f); stroke()
+                        var cx = 0
+                        for ((label, x, _) in cols) { texto(x, 550f, label, 7.5f, bold = true); cx++ }
+                        moveTo(margenIzq, 545f); lineTo(margenDer, 545f); setLineWidth(0.5f); stroke()
+                    }
+                }
+
+                nuevaPagina()
+                var y = 534f
+                summary.forEachIndexed { index, row ->
+                    if (index > 0 && index % filasPorPagina == 0) { nuevaPagina(); y = 534f }
+                    val checkInTime = row.checkIn?.substringAfter("T")?.substring(0, 8) ?: "-"
+                    val checkOutTime = row.checkOut?.substringAfter("T")?.substring(0, 8) ?: "-"
+                    val valores = listOf(
+                        (index + 1).toString(), row.employeeId, row.name, row.department,
+                        row.date, checkInTime, checkOutTime, row.totalChecks.toString()
+                    )
+                    cs!!.apply {
+                        cols.forEachIndexed { i, (_, x, ancho) ->
+                            var v = valores[i]
+                            // recorta si excede el ancho aproximado de la columna (7.5pt ~ 4.2px/char)
+                            val maxChars = (ancho / 4.3f).toInt()
+                            if (v.length > maxChars) v = v.take(maxChars)
+                            texto(x, y, v, 7.5f)
+                        }
+                    }
+                    y -= 14f
+                }
+                cs?.let { c ->
+                    c.texto(margenIzq, 30f, "Total de registros: ${summary.size}", 8f, bold = true)
+                    c.texto(margenDer - 220f, 30f, "Documento generado por RHNAF", 7f)
+                }
+                cs?.close()
+
+                val out = ByteArrayOutputStream()
+                doc.save(out)
+                out.toByteArray()
+            }
+
+            call.response.header("Content-Disposition", "attachment; filename=reporte_asistencia_${from}_a_${to}.pdf")
+            call.respondBytes(bytes, contentType = ContentType.Application.Pdf)
         }
 
 
