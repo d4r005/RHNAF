@@ -11,6 +11,7 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.coroutines.launch
 import kotlinx.browser.window
+import kotlinx.browser.document
 import kotlin.js.Date
 
 @Composable
@@ -198,17 +199,59 @@ fun AttendanceModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScop
                 Button({
                     style { IvmsButtonStyle(Color("#27ae60")) }
                     onClick {
+                        // Descarga con el token de la sesion: window.open(url) no sirve
+                        // porque una pestaña nueva no envia el header Authorization y el
+                        // endpoint responde 401 (token requerido).
                         val url = "$BACKEND_URL/api/v1/asistencia/export/raw/csv?" +
                             "from=${startTime}&to=${endTime}&pid=$pidFilter&name=$nameFilter&dept=$deptFilter"
-                        window.open(url, "_blank")
+                        val options = js("({})")
+                        options.method = "GET"
+                        options.headers = js("({})")
+                        options.headers.Authorization = "Bearer $apiAuthToken"
+                        window.asDynamic().fetch(url, options)
+                            .then { response: dynamic ->
+                                if (!response.ok) throw Exception("HTTP " + response.status)
+                                response.blob()
+                            }
+                            .then { blob: dynamic ->
+                                val blobUrl = window.asDynamic().URL.createObjectURL(blob)
+                                val a = document.createElement("a") as org.w3c.dom.HTMLAnchorElement
+                                a.href = blobUrl as String
+                                a.download = "asistencias_raw.csv"
+                                document.body?.appendChild(a)
+                                a.click()
+                                document.body?.removeChild(a)
+                                window.setTimeout({ window.asDynamic().URL.revokeObjectURL(blobUrl) }, 60000)
+                            }
+                            .`catch` { err: dynamic -> window.alert("No se pudo descargar el CSV: " + (err.message ?: "error de descarga")) }
                     }
                 }) { Text("CSV") }
                 Button({
                     style { IvmsButtonStyle(Color("#c0392b")) }
                     onClick {
+                        // Mismo fix que el CSV: descargar con token via fetch + blob.
                         val url = "$BACKEND_URL/api/v1/asistencia/export/pdf?" +
                             "from=${startTime.split("T")[0]}&to=${endTime.split("T")[0]}"
-                        window.open(url, "_blank")
+                        val options = js("({})")
+                        options.method = "GET"
+                        options.headers = js("({})")
+                        options.headers.Authorization = "Bearer $apiAuthToken"
+                        window.asDynamic().fetch(url, options)
+                            .then { response: dynamic ->
+                                if (!response.ok) throw Exception("HTTP " + response.status)
+                                response.blob()
+                            }
+                            .then { blob: dynamic ->
+                                val blobUrl = window.asDynamic().URL.createObjectURL(blob)
+                                val a = document.createElement("a") as org.w3c.dom.HTMLAnchorElement
+                                a.href = blobUrl as String
+                                a.download = "reporte_asistencia_${startTime.split("T")[0]}_a_${endTime.split("T")[0]}.pdf"
+                                document.body?.appendChild(a)
+                                a.click()
+                                document.body?.removeChild(a)
+                                window.setTimeout({ window.asDynamic().URL.revokeObjectURL(blobUrl) }, 60000)
+                            }
+                            .`catch` { err: dynamic -> window.alert("No se pudo descargar el PDF: " + (err.message ?: "error de descarga")) }
                     }
                 }) { Text("PDF") }
                 Button({
