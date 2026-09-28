@@ -403,7 +403,10 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
     var isDescargandoPdf by remember { mutableStateOf(false) }
     var ajustesExistentes by remember { mutableStateOf<Map<String, Map<String, String?>>>(emptyMap()) }
 
-    LaunchedEffect(refreshKey) {
+    // Se relanza tanto al presionar Calcular/Refrescar (refreshKey) como al cambiar
+    // cualquier filtro (fecha inicio/fin o grupo), para que la tabla se actualice de
+    // inmediato al elegir "Quincenal" sin tener que presionar otro boton.
+    LaunchedEffect(refreshKey, f_inicio, f_fin, f_grupo) {
         isLoading = true
         try {
             // Filtra siempre por el periodo/grupo actualmente seleccionado, para que la
