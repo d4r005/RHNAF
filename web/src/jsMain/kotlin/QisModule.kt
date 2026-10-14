@@ -52,14 +52,12 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
     }
 
     fun hoyOrdenable(fecha: String): Boolean {
-        // dd/MM/yyyy -> yyyyMMdd para saber si la revisión ya venció
+        // dd/MM/yyyy -> aaaaMMdd y comparar como texto con el dia de hoy
         val m = Regex("""^(\d{2})/(\d{2})/(\d{4})$""").find(fecha) ?: return false
-        val (_, d, mes, a) = m.groupValues
-        val hoy = js("new Date()")
-        val yy = hoy.getFullYear(); val mm = hoy.getMonth() + 1; val dd = hoy.getDate()
-        val f = a.toInt() * 10000 + mes.toInt() * 100 + d.toInt()
-        val h = yy * 10000 + mm * 100 + dd
-        return f < h
+        val (d, mes, a) = m.destructured
+        val fechaNum = a + mes + d
+        val hoyNum = js("new Date().toISOString().slice(0,10).replace(/-/g, '')").toString()
+        return fechaNum < hoyNum
     }
 
     Div {
