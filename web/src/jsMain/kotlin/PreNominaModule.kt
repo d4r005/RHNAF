@@ -474,6 +474,18 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
             org.jetbrains.compose.web.dom.Option("Quincenal") { Text("Quincenal") }
         }
         Button({
+            style { padding(8.px, 12.px); backgroundColor(Color("#7c3aed")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(11.px); fontWeight("bold") }
+            onClick {
+                scope.launch {
+                    try {
+                        val resp: String = client.post("$BACKEND_URL/api/v1/pre-nomina/frecuencias/auto").body()
+                        window.alert("Frecuencia de pago reasignada por departamento. $resp")
+                        refreshKey++
+                    } catch (e: Exception) { window.alert("Error: ${e.message}") }
+                }
+            }
+        }) { Text("Frec. x dept") }
+        Button({
             style { padding(8.px, 16.px); backgroundColor(if (isCalculating) Color.gray else SidebarActiveColor); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
             onClick {
                 if (f_inicio.isNotBlank() && f_fin.isNotBlank()) {

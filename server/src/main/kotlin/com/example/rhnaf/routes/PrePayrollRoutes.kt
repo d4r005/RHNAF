@@ -23,6 +23,33 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream
 import org.apache.pdfbox.pdmodel.common.PDRectangle
 import org.apache.pdfbox.pdmodel.font.PDType1Font
 
+// ============================================================
+// REGLAS DE NEGOCIO CONFIRMADAS POR RH (Branco/SHELSER, oct-2026)
+// - Frecuencia de pago automatica por departamento:
+//   Oficinas -> Quincenal, Produccion (y cualquier otro) -> Semanal.
+// - Fondo de ahorro por defecto: 13% oficinas/quincenal,
+//   8% produccion/semanal (salvo % distinto en la ficha).
+// ============================================================
+fun frecuenciaPorDepartamento(dept: String?): String {
+    val tokens = (dept ?: "").trim().lowercase().split(Regex("[^a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1\u00fc]+")).filter { it.isNotBlank() }
+    fun tiene(vararg raices: String) = tokens.any { tk -> raices.any { tk.contains(it) } }
+    val esOficina = tiene(
+        "oficina", "admin", "gerenc", "direc", "rh", "recurso", "humano",
+        "sistema", "compra", "contab", "finanz", "comercial", "venta",
+        "import", "export"
+    )
+    return if (esOficina) "Quincenal" else "Semanal"
+}
+
+// Fecha de ingreso en formato ISO (yyyy-MM-dd) o dd/MM/yyyy.
+fun parseFecha(raw: String?): LocalDate? {
+    if (raw.isNullOrBlank()) return null
+    val s = raw.trim().take(10)
+    return try { LocalDate.parse(s) } catch (e: Exception) {
+        try { LocalDate.parse(s, java.time.format.DateTimeFormatter.ofPattern("d/M/yyyy")) } catch (e2: Exception) { null }
+    }
+}
+
 fun Route.prePayrollRouting() {
     route("/api/v1/pre-nomina") {
 
@@ -291,6 +318,27 @@ fun Route.prePayrollRouting() {
             }
         }
 
+        // ---------- FRECUENCIA DE PAGO AUTOMATICA POR DEPARTAMENTO ----------
+        // Regla del cliente: Oficinas = Quincenal, Produccion = Semanal.
+        // POST /frecuencias/auto reasigna la frecuencia de pago de todos los
+        // empleados segun su departamento y devuelve cuantos cambiaron.
+        post("/frecuencias/auto") {
+            val filas = DatabaseFactory.dbQuery {
+                EmployeeTable.selectAll().map { Triple(it[EmployeeTable.id], it[EmployeeTable.department], it[EmployeeTable.paymentFrequency]) }
+            }
+            var cambiados = 0
+            for ((id, dept, actual) in filas) {
+                val esperada = frecuenciaPorDepartamento(dept)
+                if (actual != esperada) {
+                    DatabaseFactory.dbQuery {
+                        EmployeeTable.update({ EmployeeTable.id eq id }) { it[paymentFrequency] = esperada }
+                    }
+                    cambiados++
+                }
+            }
+            call.respond(mapOf("status" to "ok", "empleados" to filas.size.toString(), "cambiados" to cambiados.toString()))
+        }
+
         // ---------- CÁLCULO DE PRE-NÓMINA ----------
         // POST /api/v1/pre-nomina/calcular?inicio=2026-08-01&fin=2026-08-15
         post("/calcular") {
@@ -417,6 +465,13 @@ fun Route.prePayrollRouting() {
             val frecuenciaPorEmpleado = DatabaseFactory.dbQuery {
                 EmployeeTable.selectAll().map { it[EmployeeTable.id] to (it[EmployeeTable.paymentFrequency] ?: "Semanal") }
             }.toMap()
+            // Fecha de ingreso por empleado (para no contar faltas de dias
+            // previos a su contratacion) y "hoy" (para no contar como falta
+            // los dias del periodo que aun no han ocurrido).
+            val fechaIngresoPorEmpleado = DatabaseFactory.dbQuery {
+                EmployeeTable.selectAll().associate { it[EmployeeTable.id] to parseFecha(it[EmployeeTable.entryDate]) }
+            }
+            val hoy = LocalDate.now()
 
             // Calcular por empleado
             val resultados = mutableListOf<PrePayrollRecord>()
@@ -431,6 +486,7 @@ fun Route.prePayrollRouting() {
                 val shiftId = assignments[empId]
                 val shiftRow = shiftId?.let { shifts[it] }
                 val diasLaborales = diasLaboralesDeEmpleado(empId) // null = sin historial suficiente, no filtrar
+                val fechaIngreso = fechaIngresoPorEmpleado[empId]
 
                 var diasTrabajados = 0
                 var faltas = 0
@@ -485,14 +541,14 @@ fun Route.prePayrollRouting() {
                             val horaSalidaStr = shiftRow?.get(ShiftTable.horaSalida) ?: ""
                             if (horaSalidaStr.isNotBlank()) {
                                 val horaSalida = try { LocalTime.parse(horaSalidaStr) } catch (e: Exception) { null }
-                                if (horaSalida != null && checkOutTime.isBefore(horaSalida.minusMinutes(salidaAnt.toLong())) && !esDescanso) {
+                                if (horaSalida != null && checkOutTime.isBefore(horaSalida.minusMinutes(salidaAnt.toLong())) && !esDescanso && !justificada) {
                                     salidasAnticipadas++
                                 }
                             }
                         }
 
                         // Retardos (solo si no es día de descanso y hay turno asignado)
-                        if (!esDescanso && shiftRow != null) {
+                        if (!esDescanso && shiftRow != null && !justificada) {
                             val horaEntrada = try { LocalTime.parse(shiftRow[ShiftTable.horaEntrada]) } catch (e: Exception) { null }
                             val tolMin = shiftRow[ShiftTable.minutoTolerancia]
                             if (horaEntrada != null) {
@@ -507,7 +563,11 @@ fun Route.prePayrollRouting() {
                     } else if (!esDescanso && !justificada && !noLeCorresponde) {
                         // Falta solo si es dia laborable, no hay justificacion Y
                         // le corresponde asistir ese dia segun su patron real.
-                        faltas++
+                        // REGLA DE PAGO (confirmada por RH): los dias FUTUROS del
+                        // periodo (nomina calculada antes de que termine) y los dias
+                        // anteriores a la fecha de ingreso NO cuentan como falta;
+                        // se pagan como dias naturales del periodo.
+                        if (!day.isAfter(hoy) && (fechaIngreso == null || !day.isBefore(fechaIngreso))) faltas++
                     }
 
                     day = day.plusDays(1)
@@ -787,21 +847,29 @@ fun Route.prePayrollRouting() {
                         // periodo real (p.ej. se calcula el 21 pero se paga hasta el 30), se
                         // pueden capturar dias adicionales estimados (sin faltas) desde el
                         // dialogo de "Ajustar". No modifica la asistencia real, solo el pago.
+                        // Dias proyectados manuales: dias EXTRA capturados por RH mas
+                        // alla de los dias naturales del periodo (p.ej. adelantar dias
+                        // del siguiente periodo junto con esta nomina).
                         val diasProyectados = ov?.get(PayrollOverrideTable.diasProyectados) ?: 0
-                        val diasTrabEfectivos = r.diasTrabajados + diasProyectados
-                        val diasPagados = diasTrabEfectivos + r.diasDescansoTrabajados
-                        // Si se agregan dias proyectados, el periodo tambien se "alarga" para
-                        // efectos de prorrateo de ISR/Infonavit (de lo contrario se sobre-
-                        // tasaria el ISR al anualizar como si fueran solo los dias calendario
-                        // originales cuando en realidad se esta pagando mas dias).
-                        val diasPeriodoEfectivo = diasPeriodo + diasProyectados
+                        // REGLA DE PAGO (confirmada por RH, oct-2026): se pagan TODOS los
+                        // dias naturales del periodo MENOS las faltas injustificadas
+                        // (r.faltas ya excluye dias futuros, descanso y justificados).
+                        // Quincenal = 15 dias naturales, Semanal = 7. Si el empleado
+                        // ingreso a mitad del periodo, solo cuentan los dias desde su
+                        // fecha de ingreso.
+                        val fechaIngreso = parseFecha(emp?.get(EmployeeTable.entryDate))
+                        val inicioPago = if (fechaIngreso != null && fechaIngreso.isAfter(LocalDate.parse(inicioStr))) fechaIngreso else LocalDate.parse(inicioStr)
+                        val diasNaturales = java.time.temporal.ChronoUnit.DAYS.between(inicioPago, LocalDate.parse(finStr)).toInt() + 1
+                        val diasPagados = maxOf(0, diasNaturales - r.faltas) + diasProyectados
+                        // Para el prorrateo de ISR/IMSS se usan los dias realmente pagados.
+                        val diasPeriodoEfectivo = diasPagados
 
-                        val sueldoBase = (sueldoDiario ?: 0.0) * diasTrabEfectivos
+                        val sueldoBase = (sueldoDiario ?: 0.0) * diasPagados
                         val horasExtraPesos = r.horasExtra * ((sueldoDiario ?: 0.0) / 8.0) * 2.0
                         val primaDomPesos = r.primaDominical * (sueldoDiario ?: 0.0) * primaDomPct
                         val descansoTrabPesos = r.diasDescansoTrabajados.toDouble() * (sueldoDiario ?: 0.0) * 2.0
                         val etiquetaSueldo = if (diasProyectados > 0)
-                            "SUELDO BASE (${r.diasTrabajados}+$diasProyectados proy. dias)" else "SUELDO BASE (${r.diasTrabajados} dias)"
+                            "SUELDO BASE ($diasPagados dias, ${r.faltas} falta(s), +$diasProyectados proy.)" else "SUELDO BASE ($diasPagados dias)"
                         val percepciones = listOf(
                             Pair(etiquetaSueldo, sueldoBase),
                             Pair("HORAS EXTRAS (${limpio(r.horasExtra)} h)", horasExtraPesos),
@@ -830,7 +898,9 @@ fun Route.prePayrollRouting() {
                         // sueldo base del periodo. El trabajador se descuenta aqui; la
                         // aportacion de la empresa se muestra por separado (informativa,
                         // no se suma al neto porque no se paga en este recibo).
-                        val fondoAhorroPct = emp?.get(EmployeeTable.fondoAhorroPct) ?: 0.0
+                        val pctFicha = emp?.get(EmployeeTable.fondoAhorroPct) ?: 0.0
+                        val frecuenciaEmp = emp?.get(EmployeeTable.paymentFrequency) ?: "Semanal"
+                        val fondoAhorroPct = if (pctFicha > 0.0) pctFicha else if (frecuenciaEmp == "Quincenal") 0.13 else 0.08
                         val fondoAhorroTrabajador = ov?.get(PayrollOverrideTable.fondoAhorro) ?: (sueldoBase * fondoAhorroPct)
                         val fondoAhorroEmpresa = sueldoBase * fondoAhorroPct
 
@@ -887,11 +957,11 @@ fun Route.prePayrollRouting() {
                         val margenIzq = 40f
                         // Encabezado compacto
                         texto(margenIzq, yTop, EMPRESA_NOMBRE, 11f, bold = true)
-                        texto(572f, yTop, "RECIBO DE PRE-NOMINA", 10f, bold = true, center = true)
+                        texto(572f, yTop, "RECIBO DE PRE-NOMINA", 10f, bold = true, right = true)
                         texto(margenIzq, yTop - 12f, "RFC: $EMPRESA_RFC  |  $EMPRESA_DOMICILIO", 6.5f)
-                        texto(572f, yTop - 11f, "FOLIO: PN-${inicioStr.replace("-", "")}-${"%03d".format(folioNum)}", 7.5f, center = true)
+                        texto(572f, yTop - 11f, "FOLIO: PN-${inicioStr.replace("-", "")}-${"%03d".format(folioNum)}", 7.5f, right = true)
                         texto(margenIzq, yTop - 22f, "PERIODO: $inicioStr AL $finStr", 8f, bold = true)
-                        texto(572f, yTop - 21f, "FECHA DE IMPRESION: ${LocalDate.now()}", 6.5f, center = true)
+                        texto(572f, yTop - 21f, "FECHA DE IMPRESION: ${LocalDate.now()}", 6.5f, right = true)
 
                         // Linea divisoria
                         stream.moveTo(margenIzq, yTop - 30f); stream.lineTo(572f, yTop - 30f); stream.stroke()

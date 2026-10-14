@@ -370,7 +370,7 @@ fun Application.module() {
                         it[contractType] = emp.contractType
                         it[maritalStatus] = emp.maritalStatus
                         it[emergencyContact] = emp.emergencyContact
-                        it[paymentFrequency] = emp.paymentFrequency ?: "Semanal"
+                        it[paymentFrequency] = emp.paymentFrequency ?: com.example.rhnaf.routes.frecuenciaPorDepartamento(emp.department)
                         it[infonavitDescuento] = emp.infonavitDescuento
                         it[fondoAhorroPct] = emp.fondoAhorroPct
                         it[fonacotDescuento] = emp.fonacotDescuento
@@ -404,7 +404,7 @@ fun Application.module() {
                         it[contractType] = emp.contractType
                         it[maritalStatus] = emp.maritalStatus
                         it[emergencyContact] = emp.emergencyContact
-                        it[paymentFrequency] = emp.paymentFrequency ?: "Semanal"
+                        it[paymentFrequency] = emp.paymentFrequency ?: com.example.rhnaf.routes.frecuenciaPorDepartamento(emp.department)
                         it[infonavitDescuento] = emp.infonavitDescuento
                         it[fondoAhorroPct] = emp.fondoAhorroPct
                         it[fonacotDescuento] = emp.fonacotDescuento
