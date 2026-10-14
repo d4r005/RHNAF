@@ -103,7 +103,31 @@ class Translations(val lang: Language) {
         "it_security_grc" to "Seguridad SAP / GRC",
         "financial_accounting" to "Contabilidad (FI)",
         "plant_maintenance" to "Mantenimiento Planta (PM)",
-        "recruitment_sap" to "Reclutamiento (HCM)"
+        "recruitment_sap" to "Reclutamiento (HCM)",
+        "nav_employees" to "Empleados",
+        "nav_attendance" to "Asistencia",
+        "pre_nomina" to "Pre-Nómina",
+        "ehs_home" to "Centro EHS",
+        "ehs_seguridad" to "Seguridad",
+        "ehs_salud" to "Salud Ocupacional",
+        "ehs_ambiente" to "Medio Ambiente",
+        "ehs_metrics" to "Indicadores EHS",
+        "ehs_actions" to "Planes de acción",
+        "ehs_contractors" to "Contratistas",
+        "ehs_alerts" to "Avisos EHS",
+        "ehs_rates" to "Tasas EHS",
+        "ehs_documents" to "Evidencia documental",
+        "ehs_calendar" to "Calendario",
+        "legal_matrix" to "Matriz Legal",
+        "stps_normas" to "Normas STPS",
+        "qis_docs" to "QIS · Control de documentos",
+        "group_hr" to "RECURSOS HUMANOS",
+        "group_ehs" to "EHS Y CUMPLIMIENTO",
+        "group_calidad" to "CALIDAD",
+        "group_ops" to "OPERACIONES",
+        "group_supply" to "SUMINISTRO Y LOGÍSTICA",
+        "group_fin" to "FINANZAS",
+        "group_admin" to "ADMINISTRACIÓN"
     )
     private val en = mapOf(
         "dashboard" to "Dashboard",
@@ -139,11 +163,6 @@ class Translations(val lang: Language) {
         "select_avatar" to "Select Professional Avatar",
         "display_name" to "Display Name",
         "select_lang" to "System Language",
-        "real_time" to "Real-time monitoring of Hikonect terminals.",
-        "verified" to "Face Verified",
-        "import_data" to "Import Data (CSV/Excel)",
-        "scan_doc" to "AI Scan",
-        "processing" to "Processing with AI...",
         "ai_analysis" to "AI Analysis",
         "turnover_risk" to "Attrition Risk (AI)",
         "skill_heatmap" to "Skill Heatmap",
@@ -183,7 +202,33 @@ class Translations(val lang: Language) {
         "it_security_grc" to "SAP Security / GRC",
         "financial_accounting" to "Accounting (FI)",
         "plant_maintenance" to "Plant Maintenance (PM)",
-        "recruitment_sap" to "Recruitment (HCM)"
+        "recruitment_sap" to "Recruitment (HCM)",,
+        "nav_employees" to "Employees",
+        "nav_attendance" to "Attendance",
+        "pre_nomina" to "Pre-Payroll",
+        "ehs_home" to "EHS Center",
+        "ehs_seguridad" to "Safety",
+        "ehs_salud" to "Occupational Health",
+        "ehs_ambiente" to "Environment",
+        "ehs_metrics" to "EHS Indicators",
+        "ehs_actions" to "Action Plans",
+        "ehs_contractors" to "Contractors",
+        "ehs_alerts" to "EHS Notices",
+        "ehs_rates" to "EHS Rates",
+        "ehs_documents" to "Documentary Evidence",
+        "ehs_calendar" to "Calendar",
+        "legal_matrix" to "Legal Matrix",
+        "stps_normas" to "STPS Standards",
+        "qis_docs" to "QIS · Document Control",
+        "group_hr" to "HUMAN RESOURCES",
+        "group_ehs" to "EHS & COMPLIANCE",
+        "group_calidad" to "QUALITY",
+        "group_ops" to "OPERATIONS",
+        "group_supply" to "SUPPLY & LOGISTICS",
+        "group_fin" to "FINANCE",
+        "group_admin" to "ADMINISTRATION"
+        "ferreteria" to "Hardware & Supplies",
+        "recepcion_mp" to "Raw Materials Reception"
     )
     private val zh = mapOf(
         "dashboard" to "仪表板",
@@ -219,11 +264,6 @@ class Translations(val lang: Language) {
         "select_avatar" to "选择专业头像",
         "display_name" to "显示名称",
         "select_lang" to "系统语言",
-        "real_time" to "Hikonect 终端实时监控。",
-        "verified" to "人脸验证成功",
-        "import_data" to "批量导入 (CSV)",
-        "scan_doc" to "AI 扫描",
-        "processing" to "AI 处理中...",
         "ai_analysis" to "智能分析",
         "turnover_risk" to "人员离职风险 (AI)",
         "skill_heatmap" to "技能热图",
@@ -262,14 +302,43 @@ class Translations(val lang: Language) {
         "it_security_grc" to "SAP安全 / GRC",
         "financial_accounting" to "财务会计 (FI)",
         "plant_maintenance" to "工厂维护 (PM)",
-        "recruitment_sap" to "招聘 (HCM)"
+        "recruitment_sap" to "招聘 (HCM)",,
+        "nav_employees" to "员工",
+        "nav_attendance" to "考勤",
+        "pre_nomina" to "预工资",
+        "ehs_home" to "EHS 中心",
+        "ehs_seguridad" to "安全",
+        "ehs_salud" to "职业健康",
+        "ehs_ambiente" to "环境",
+        "ehs_metrics" to "EHS 指标",
+        "ehs_actions" to "行动计划",
+        "ehs_contractors" to "承包商",
+        "ehs_alerts" to "EHS 通知",
+        "ehs_rates" to "EHS 比率",
+        "ehs_documents" to "文件证据",
+        "ehs_calendar" to "日历",
+        "legal_matrix" to "法律矩阵",
+        "stps_normas" to "STPS 标准",
+        "qis_docs" to "QIS · 文件控制",
+        "group_hr" to "人力资源",
+        "group_ehs" to "EHS 与合规",
+        "group_calidad" to "质量",
+        "group_ops" to "运营",
+        "group_supply" to "供应链与物流",
+        "group_fin" to "财务",
+        "group_admin" to "管理"
+        "ferreteria" to "五金工具与耗材",
+        "recepcion_mp" to "原材料收货",
+        "gts_trade" to "外贸 (GTS)"
     )
 
     fun get(key: String): String {
+        // Si la clave falta en el idioma activo, cae al espanol antes de
+        // mostrar la clave cruda: nunca mas "recepcion_mp" en pantalla.
         return when(lang) {
             Language.ES -> es[key] ?: key
-            Language.EN -> en[key] ?: key
-            Language.ZH -> zh[key] ?: key
+            Language.EN -> en[key] ?: es[key] ?: key
+            Language.ZH -> zh[key] ?: es[key] ?: key
         }
     }
 }
@@ -461,37 +530,37 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
         Div({ style { flex(1); overflowY("auto"); padding(0.px, 14.px) } }) {
             if (isModuleVisible(Module.DASHBOARD, role)) SidebarLink(t.get("dashboard"), Module.DASHBOARD, active == Module.DASHBOARD, onSelect)
 
-            SidebarGroup("RECURSOS HUMANOS", active, role, onSelect, listOf(
-                Module.EMPLOYEES to "Empleados",
-                Module.ATTENDANCE to "Asistencia",
-                Module.PRE_NOMINA to "Pre-Nómina",
-                Module.RECRUITMENT_SAP to "Reclutamiento"
+            SidebarGroup(t.get("group_hr"), active, role, onSelect, listOf(
+                Module.EMPLOYEES to t.get("nav_employees"),
+                Module.ATTENDANCE to t.get("nav_attendance"),
+                Module.PRE_NOMINA to t.get("pre_nomina"),
+                Module.RECRUITMENT_SAP to t.get("recruitment")
             ))
-            SidebarGroup("EHS Y CUMPLIMIENTO", active, role, onSelect, listOf(
-                Module.EHS_HOME to "Centro EHS",
-                Module.EHS_SEGURIDAD to "Seguridad",
-                Module.EHS_SALUD to "Salud Ocupacional",
-                Module.EHS_AMBIENTE to "Medio Ambiente",
-                Module.EHS_METRICS to "Indicadores EHS",
-                Module.EHS_ACTIONS to "Planes de acción",
-                Module.EHS_CONTRACTORS to "Contratistas",
-                Module.EHS_ALERTS to "Avisos EHS",
-                Module.EHS_RATES to "Tasas EHS",
-                Module.EHS_DOCUMENTS to "Evidencia documental",
-                Module.EHS_CALENDAR to "Calendario",
-                Module.LEGAL_MATRIX to "Matriz Legal",
-                Module.STPS to "Normas STPS",
+            SidebarGroup(t.get("group_ehs"), active, role, onSelect, listOf(
+                Module.EHS_HOME to t.get("ehs_home"),
+                Module.EHS_SEGURIDAD to t.get("ehs_seguridad"),
+                Module.EHS_SALUD to t.get("ehs_salud"),
+                Module.EHS_AMBIENTE to t.get("ehs_ambiente"),
+                Module.EHS_METRICS to t.get("ehs_metrics"),
+                Module.EHS_ACTIONS to t.get("ehs_actions"),
+                Module.EHS_CONTRACTORS to t.get("ehs_contractors"),
+                Module.EHS_ALERTS to t.get("ehs_alerts"),
+                Module.EHS_RATES to t.get("ehs_rates"),
+                Module.EHS_DOCUMENTS to t.get("ehs_documents"),
+                Module.EHS_CALENDAR to t.get("ehs_calendar"),
+                Module.LEGAL_MATRIX to t.get("legal_matrix"),
+                Module.STPS to t.get("stps_normas"),
                 Module.GRC_SECURITY to t.get("it_security_grc")
             ))
-            SidebarGroup("CALIDAD", active, role, onSelect, listOf(
-                Module.QIS_DOCS to "QIS · Control de documentos"
+            SidebarGroup(t.get("group_calidad"), active, role, onSelect, listOf(
+                Module.QIS_DOCS to t.get("qis_docs")
             ))
-            SidebarGroup("OPERACIONES", active, role, onSelect, listOf(
+            SidebarGroup(t.get("group_ops"), active, role, onSelect, listOf(
                 Module.PRODUCTION to t.get("production_planning"),
                 Module.QUALITY to t.get("quality_management"),
                 Module.PLANT_MAINTENANCE to t.get("plant_maintenance")
             ))
-            SidebarGroup("SUMINISTRO Y LOGÍSTICA", active, role, onSelect, listOf(
+            SidebarGroup(t.get("group_supply"), active, role, onSelect, listOf(
                 Module.PURCHASING to t.get("purchasing"),
                 Module.WAREHOUSE to t.get("warehouse"),
                 Module.FERRETERIA to t.get("ferreteria"),
@@ -499,13 +568,13 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
                 Module.SHIPPING to t.get("shipping"),
                 Module.GTS_TRADE to t.get("gts_trade")
             ))
-            SidebarGroup("FINANZAS", active, role, onSelect, listOf(
+            SidebarGroup(t.get("group_fin"), active, role, onSelect, listOf(
                 Module.CONTROLLING to t.get("controlling"),
                 Module.FINANCIAL_ACCOUNTING to t.get("financial_accounting")
             ))
 
             // Gestion de usuarios: FUERA de RH. Solo visible para ADMIN (isModuleVisible).
-            SidebarGroup("ADMINISTRACIÓN", active, role, onSelect, listOf(
+            SidebarGroup(t.get("group_admin"), active, role, onSelect, listOf(
                 Module.USER_MGMT to t.get("user_mgmt")
             ))
 
