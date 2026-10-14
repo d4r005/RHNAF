@@ -259,7 +259,7 @@ fun Route.qisRouting() {
                     }
                     nid
                 }
-                call.respond(HttpStatusCode.Created, mapOf("status" to "ok", "id" to newId))
+                call.respond(HttpStatusCode.Created, mapOf("status" to "ok", "id" to newId.toString()))
             }
         }
 
