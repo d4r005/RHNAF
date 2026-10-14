@@ -51,6 +51,12 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
         } catch (e: Exception) { error = "No se pudieron cargar los documentos: ${e.message ?: "error"}" }
     }
 
+
+    fun etiquetaEstado(estado: String) = when (estado) {
+        "Vigente" -> I18n.get("qis_estado_vigente")
+        "EnRevision" -> I18n.get("qis_estado_revision")
+        else -> I18n.get("qis_estado_obsoleto")
+    }
     fun hoyOrdenable(fecha: String): Boolean {
         // dd/MM/yyyy -> aaaaMMdd y comparar como texto con el dia de hoy
         val m = Regex("""^(\d{2})/(\d{2})/(\d{4})$""").find(fecha) ?: return false
@@ -61,9 +67,9 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
     }
 
     Div {
-        H1({ style { color(Color("#0f172a")) } }) { Text("QIS · Control de documentos") }
+        H1({ style { color(Color("#0f172a")) } }) { Text(I18n.get("qis_docs")) }
         P({ style { color(Color("#475569")) } }) {
-            Text("Sistema de gestión de calidad: alta de documentos controlados con código único y versión, control de vigencias y registro de cambios por trazabilidad. El historial de cada documento es inmutable.")
+            Text(I18n.get("qis_intro"))
         }
         if (error.isNotBlank()) P({ style { color(Color("#b91c1c")) } }) { Text(error) }
         if (notice.isNotBlank()) P({ style { color(Color("#047857")) } }) { Text(notice) }
@@ -71,13 +77,13 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
         // ===================== ALTA DE DOCUMENTO =====================
         if (isAdmin) {
             Div({ style { padding(18.px); backgroundColor(Color.white); borderRadius(10.px); property("border", "1px solid #e2e8f0"); marginBottom(16.px) } }) {
-                H3({ style { margin(0.px, 0.px, 10.px, 0.px); color(Color("#0f172a")) } }) { Text("Dar de alta un documento controlado") }
+                H3({ style { margin(0.px, 0.px, 10.px, 0.px); color(Color("#0f172a")) } }) { Text(I18n.get("qis_alta")) }
                 P({ style { fontSize(13.px); color(Color.gray); marginTop(0.px) } }) {
-                    Text("La versión inicial siempre es 1.0 y queda registrada en el historial como \"Alta del documento\". El código es único (p. ej. PRO-001).")
+                    Text(I18n.get("qis_alta_hint"))
                 }
                 Div({ style { display(DisplayStyle.Flex); flexWrap(FlexWrap.Wrap); gap(8.px) } }) {
-                    Input(InputType.Text) { placeholder("Código * (PRO-001)"); value(f_codigo); onInput { f_codigo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
-                    Input(InputType.Text) { placeholder("Título *"); value(f_titulo); onInput { f_titulo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) } }
+                    Input(InputType.Text) { placeholder(I18n.get("qis_ph_codigo")); value(f_codigo); onInput { f_codigo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+                    Input(InputType.Text) { placeholder(I18n.get("qis_ph_titulo")); value(f_titulo); onInput { f_titulo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) } }
                     Select({
                         style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) }
                         onChange { f_tipo = it.value ?: "Procedimiento" }
@@ -86,20 +92,20 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
                             Option(it) { Text(it) }
                         }
                     }
-                    Input(InputType.Text) { placeholder("Proceso / área"); value(f_proceso); onInput { f_proceso = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
-                    Input(InputType.Text) { placeholder("Emisión (dd/MM/aaaa) *"); value(f_emision); onInput { f_emision = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
-                    Input(InputType.Text) { placeholder("Próxima revisión (dd/MM/aaaa)"); value(f_revision); onInput { f_revision = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
-                    Input(InputType.Text) { placeholder("Elaboró *"); value(f_elab); onInput { f_elab = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
-                    Input(InputType.Text) { placeholder("Aprobó"); value(f_aprob); onInput { f_aprob = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
-                    Input(InputType.Text) { placeholder("URL PDF en Drive (https://...)"); value(f_url); onInput { f_url = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) } }
-                    Input(InputType.Text) { placeholder("Notas"); value(f_notas); onInput { f_notas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+                    Input(InputType.Text) { placeholder(I18n.get("qis_ph_proceso")); value(f_proceso); onInput { f_proceso = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+                    Input(InputType.Text) { placeholder(I18n.get("qis_ph_emision")); value(f_emision); onInput { f_emision = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+                    Input(InputType.Text) { placeholder(I18n.get("qis_ph_revision")); value(f_revision); onInput { f_revision = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+                    Input(InputType.Text) { placeholder(I18n.get("qis_ph_elaboro")); value(f_elab); onInput { f_elab = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+                    Input(InputType.Text) { placeholder(I18n.get("qis_ph_aprobo")); value(f_aprob); onInput { f_aprob = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+                    Input(InputType.Text) { placeholder(I18n.get("qis_ph_url")); value(f_url); onInput { f_url = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) } }
+                    Input(InputType.Text) { placeholder(I18n.get("qis_ph_notas")); value(f_notas); onInput { f_notas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
                 }
                 Button({
                     style { marginTop(10.px); padding(9.px, 18.px); backgroundColor(Color("#0f766e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("600") }
                     onClick {
                         error = ""; notice = ""
                         if (f_codigo.isBlank() || f_titulo.isBlank() || f_emision.isBlank() || f_elab.isBlank()) {
-                            error = "Código, título, fecha de emisión y elaboró son obligatorios."
+                            error = I18n.get("qis_alta_falta")
                         } else {
                             scope.launch {
                                 try {
@@ -115,7 +121,7 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
                                     if (resp.status.value in 200..299) {
                                         f_codigo = ""; f_titulo = ""; f_proceso = ""; f_emision = ""; f_revision = ""
                                         f_elab = ""; f_aprob = ""; f_url = ""; f_notas = ""
-                                        notice = "Documento dado de alta en versión 1.0."
+                                        notice = I18n.get("qis_alta_ok")
                                         refresh()
                                     } else {
                                         val msg = resp.body<Map<String, String>>()
@@ -125,29 +131,29 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
                             }
                         }
                     }
-                }) { Text("+ Dar de alta") }
+                }) { Text(I18n.get("qis_btn_alta")) }
             }
         }
 
         // ===================== LISTADO =====================
         Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(10.px); alignItems(AlignItems.Center) } }) {
-            Span({ style { color(Color("#475569")) } }) { Text("Filtrar por estado:") }
+            Span({ style { color(Color("#475569")) } }) { Text(I18n.get("qis_filtro")) }
             Select({
                 style { padding(6.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") }
                 onChange { filterEstado = it.value ?: ""; refresh() }
             }) {
-                Option("") { Text("Todos") }
-                Option("Vigente") { Text("Vigentes") }
-                Option("EnRevision") { Text("En revisión") }
-                Option("Obsoleto") { Text("Obsoletos") }
+                Option("") { Text(I18n.get("qis_todos")) }
+                Option("Vigente") { Text(I18n.get("qis_vigentes")) }
+                Option("EnRevision") { Text(I18n.get("qis_en_revision")) }
+                Option("Obsoleto") { Text(I18n.get("qis_obsoletos")) }
             }
-            Span({ style { marginLeft(12.px); color(Color.gray); fontSize(13.px) } }) { Text("${docs.size} documentos") }
+            Span({ style { marginLeft(12.px); color(Color.gray); fontSize(13.px) } }) { Text(I18n.get("qis_doc_count").replace("{n}", "${docs.size}")) }
         }
 
         Table({ style { width(100.percent); property("border-collapse", "collapse"); backgroundColor(Color.white); borderRadius(8.px); property("border", "1px solid #e2e8f0") } }) {
             Thead {
                 Tr({ style { property("border-bottom", "2px solid #e2e8f0"); textAlign("left") } }) {
-                    listOf("Código", "Título", "Tipo", "Proceso", "Versión", "Estado", "Emisión", "Próx. revisión", "PDF", "Cambios", "").forEach {
+                    listOf(I18n.get("qis_h_codigo"), I18n.get("qis_h_titulo"), I18n.get("qis_h_tipo"), I18n.get("qis_h_proceso"), I18n.get("qis_h_version"), I18n.get("qis_h_estado"), I18n.get("qis_h_emision"), I18n.get("qis_h_prox"), I18n.get("qis_h_pdf"), I18n.get("qis_h_cambios"), "").forEach {
                         Th({ style { padding(8.px, 10.px); fontSize(12.px); color(Color("#64748b")) } }) { Text(it) }
                     }
                 }
@@ -155,9 +161,9 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
             Tbody {
                 docs.forEach { doc ->
                     val (estadoColor, estadoTexto) = when (doc.estado) {
-                        "Vigente" -> Color("#047857") to "Vigente"
-                        "EnRevision" -> Color("#b45309") to "En revisión"
-                        else -> Color("#6b7280") to "Obsoleto"
+                        "Vigente" -> Color("#047857") to etiquetaEstado("Vigente")
+                        "EnRevision" -> Color("#b45309") to etiquetaEstado("EnRevision")
+                        else -> Color("#6b7280") to etiquetaEstado("Obsoleto")
                     }
                     Tr({ style { property("border-bottom", "1px solid #f1f5f9") } }) {
                         Td({ style { padding(8.px, 10.px); fontWeight("600") } }) { Text(doc.codigo) }
@@ -173,19 +179,19 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
                             Text(if (doc.proximaRevision.isBlank()) "-" else doc.proximaRevision)
                         }
                         Td({ style { padding(8.px, 10.px) } }) {
-                            if (doc.urlArchivo.isNotBlank()) A(href = doc.urlArchivo, { style { color(Color("#2563eb")); fontSize(12.px) } }) { Text("Ver") } else Text("-")
+                            if (doc.urlArchivo.isNotBlank()) A(href = doc.urlArchivo, { style { color(Color("#2563eb")); fontSize(12.px) } }) { Text(I18n.get("qis_ver")) } else Text("-")
                         }
                         Td({ style { padding(8.px, 10.px) } }) {
                             Button({
                                 style { padding(3.px, 8.px); backgroundColor(if (expandedDocId == doc.id) Color("#334155") else Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(11.px) }
                                 onClick { expandedDocId = if (expandedDocId == doc.id) 0 else doc.id }
-                            }) { Text("Historial") }
+                            }) { Text(I18n.get("qis_historial")) }
                         }
                         Td({ style { padding(8.px, 10.px) } }) {
                             if (isAdmin) Button({
                                 style { padding(4.px, 10.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(11.px) }
                                 onClick {
-                                    if (window.confirm("¿Borrar el documento ${doc.codigo}? Borra también su historial. Para retiro oficial usa \"Obsoleto\".")) {
+                                    if (window.confirm(I18n.get("qis_confirm_borrar").replace("{c}", doc.codigo))) {
                                         scope.launch {
                                             try {
                                                 client.delete("$BACKEND_URL/api/v1/qis/documentos/${doc.id}")
@@ -224,7 +230,7 @@ private fun QisDocDetail(client: HttpClient, scope: CoroutineScope, doc: QisDocu
     Div {
         if (isAdmin) {
             Div({ style { display(DisplayStyle.Flex); gap(6.px); alignItems(AlignItems.Center); marginBottom(12.px) } }) {
-                Text("Estado:")
+                Text(I18n.get("qis_estado"))
                 listOf("Vigente", "EnRevision", "Obsoleto").forEach { estado ->
                     Button({
                         style { padding(4.px, 10.px); backgroundColor(if (doc.estado == estado) Color("#0f766e") else Color("#e2e8f0")); color(if (doc.estado == estado) Color.white else Color("#334155")); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(11.px) }
@@ -236,18 +242,18 @@ private fun QisDocDetail(client: HttpClient, scope: CoroutineScope, doc: QisDocu
                                 } catch (e: Exception) { println("QIS estado: ${e.message}") }
                             }
                         }
-                    }) { Text(if (estado == "EnRevision") "En revisión" else estado) }
+                    }) { Text(etiquetaEstado(estado)) }
                 }
             }
             QisNewChangeForm(client, scope, doc, onDone)
         }
 
-        H4({ style { margin(14.px, 0.px, 6.px, 0.px) } }) { Text("Registro de cambios (${cambios.size})") }
-        if (cambios.isEmpty()) P({ style { fontSize(13.px); color(Color.gray) } }) { Text("Sin cambios registrados.") }
+        H4({ style { margin(14.px, 0.px, 6.px, 0.px) } }) { Text(I18n.get("qis_cambios").replace("{n}", "${cambios.size}")) }
+        if (cambios.isEmpty()) P({ style { fontSize(13.px); color(Color.gray) } }) { Text(I18n.get("qis_sin_cambios")) }
         else Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
             Thead {
                 Tr({ style { textAlign("left") } }) {
-                    listOf("Versión", "Fecha", "Descripción", "Cambió", "Aprobó").forEach {
+                    listOf(I18n.get("qis_h_version"), I18n.get("qis_h_fecha"), I18n.get("qis_h_desc"), I18n.get("qis_h_cambio_por"), I18n.get("qis_h_aprobo")).forEach {
                         Th({ style { padding(6.px, 8.px); fontSize(11.px); color(Color("#64748b")); property("border-bottom", "1px solid #e2e8f0") } }) { Text(it) }
                     }
                 }
@@ -279,21 +285,21 @@ private fun QisNewChangeForm(client: HttpClient, scope: CoroutineScope, doc: Qis
     var msg by remember(doc.id) { mutableStateOf("") }
 
     Div({ style { padding(12.px); backgroundColor(Color.white); borderRadius(8.px); property("border", "1px solid #e2e8f0") } }) {
-        H4({ style { margin(0.px, 0.px, 8.px, 0.px) } }) { Text("Registrar nueva versión (actual: ${doc.versionActual})") }
+        H4({ style { margin(0.px, 0.px, 8.px, 0.px) } }) { Text(I18n.get("qis_nueva_version").replace("{v}", doc.versionActual)) }
         Div({ style { display(DisplayStyle.Flex); flexWrap(FlexWrap.Wrap); gap(8.px) } }) {
-            Input(InputType.Text) { placeholder("Nueva versión (N.N) *"); value(c_version); onInput { c_version = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) } }
-            Input(InputType.Text) { placeholder("Fecha (dd/MM/aaaa)"); value(c_fecha); onInput { c_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
-            Input(InputType.Text) { placeholder("Descripción del cambio *"); value(c_desc); onInput { c_desc = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) } }
-            Input(InputType.Text) { placeholder("Realizó el cambio *"); value(c_quien); onInput { c_quien = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
-            Input(InputType.Text) { placeholder("Aprobó"); value(c_aprob); onInput { c_aprob = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
-            Input(InputType.Text) { placeholder("Nueva URL del PDF (opcional)"); value(c_url); onInput { c_url = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("qis_ph_nueva_version")); value(c_version); onInput { c_version = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("qis_ph_fecha")); value(c_fecha); onInput { c_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("qis_ph_desc")); value(c_desc); onInput { c_desc = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("qis_ph_realizo")); value(c_quien); onInput { c_quien = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("qis_ph_aprobo")); value(c_aprob); onInput { c_aprob = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("qis_ph_nueva_url")); value(c_url); onInput { c_url = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
         }
         Button({
             style { marginTop(10.px); padding(8.px, 16.px); backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("600") }
             onClick {
                 msg = ""
                 if (c_version.isBlank() || c_desc.isBlank() || c_quien.isBlank()) {
-                    msg = "Versión, descripción y realizador son obligatorios."
+                    msg = I18n.get("qis_cambio_falta")
                 } else {
                     scope.launch {
                         try {
@@ -314,7 +320,7 @@ private fun QisNewChangeForm(client: HttpClient, scope: CoroutineScope, doc: Qis
                     }
                 }
             }
-        }) { Text("Registrar cambio") }
+        }) { Text(I18n.get("qis_btn_cambio")) }
         if (msg.isNotBlank()) Span({ style { marginLeft(10.px); color(Color("#b91c1c")); fontSize(12.px) } }) { Text(msg) }
     }
 }

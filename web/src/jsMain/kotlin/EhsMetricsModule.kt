@@ -48,10 +48,10 @@ fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope) {
         }
     }
     Div {
-        H1({ style { color(Color("#0f172a")); marginBottom(4.px) } }) { Text("Indicadores EHS") }
-        P({ style { color(Color("#475569")) } }) { Text("Conteos derivados de los registros actuales, no tasas oficiales de accidentabilidad.") }
+        H1({ style { color(Color("#0f172a")); marginBottom(4.px) } }) { Text(I18n.get("met_titulo")) }
+        P({ style { color(Color("#475569")) } }) { Text(I18n.get("met_intro")) }
         if (error.isNotBlank()) P({ style { color(Color("#b91c1c")) } }) { Text(error) }
-        if (data == null && error.isBlank()) P { Text("Cargando indicadores...") }
+        if (data == null && error.isBlank()) P { Text(I18n.get("met_cargando")) }
         data?.let { m ->
             Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fit, minmax(210px, 1fr))"); gap(14.px); marginTop(20.px) } }) {
                 listOf(
@@ -69,13 +69,13 @@ fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope) {
                 }
             }
             P({ style { color(Color("#475569")); marginTop(22.px) } }) {
-                Text("Calidad de datos: ${m.incidentesSinDiasValidos} incidentes sin días perdidos válidos y ${m.capacitacionesSinFechaValida} capacitaciones sin próxima fecha válida.")
+                Text(I18n.get("met_calidad_datos").replace("{a}", "${m.incidentesSinDiasValidos}").replace("{b}", "${m.capacitacionesSinFechaValida}"))
             }
 
             // ==== KPIs de accidentabilidad ====
             Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fit, minmax(210px, 1fr))"); gap(14.px); marginTop(26.px) } }) {
                 Div({ style { backgroundColor(Color.white); property("border", "1px solid #e2e8f0"); borderRadius(10.px); padding(20.px) } }) {
-                    P({ style { color(Color("#475569")); margin(0.px) } }) { Text("Índice de frecuencia (IF)") }
+                    P({ style { color(Color("#475569")); margin(0.px) } }) { Text(I18n.get("met_if")) }
                     H2({ style { color(Color("#0f172a")); marginBottom(2.px) } }) {
                         Text(m.tasaFrecuencia?.let { (kotlin.math.round(it * 100.0) / 100.0).toString() } ?: "—")
                     }
@@ -84,7 +84,7 @@ fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope) {
                     }
                 }
                 Div({ style { backgroundColor(Color.white); property("border", "1px solid #e2e8f0"); borderRadius(10.px); padding(20.px) } }) {
-                    P({ style { color(Color("#475569")); margin(0.px) } }) { Text("Índice de gravedad (IG)") }
+                    P({ style { color(Color("#475569")); margin(0.px) } }) { Text(I18n.get("met_ig")) }
                     H2({ style { color(Color("#0f172a")); marginBottom(2.px) } }) {
                         Text(m.tasaGravedad?.let { (kotlin.math.round(it * 100.0) / 100.0).toString() } ?: "—")
                     }
@@ -93,17 +93,17 @@ fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope) {
                     }
                 }
                 Div({ style { backgroundColor(Color.white); property("border", "1px solid #e2e8f0"); borderRadius(10.px); padding(20.px) } }) {
-                    P({ style { color(Color("#475569")); margin(0.px) } }) { Text("Cumplimiento legal") }
+                    P({ style { color(Color("#475569")); margin(0.px) } }) { Text(I18n.get("met_cumplimiento")) }
                     H2({ style { color(Color("#16a34a")); marginBottom(2.px) } }) { Text("${m.porcentajeCumplimientoLegal.toInt()}%") }
                     P({ style { color(Color("#64748b")); fontSize(12.px); margin(0.px) } }) {
-                        Text("${m.aplicables} obligaciones aplicables en la matriz")
+                        Text(I18n.get("met_aplicables").replace("{n}", "${m.aplicables}"))
                     }
                 }
                 Div({ style { backgroundColor(Color.white); property("border", "1px solid #e2e8f0"); borderRadius(10.px); padding(20.px) } }) {
-                    P({ style { color(Color("#475569")); margin(0.px) } }) { Text("Permisos críticos") }
+                    P({ style { color(Color("#475569")); margin(0.px) } }) { Text(I18n.get("met_permisos")) }
                     H2({ style { color(if (m.criticasVencidas > 0) Color("#dc2626") else Color("#0f172a")); marginBottom(2.px) } }) { Text(m.criticasTotal.toString()) }
                     P({ style { color(Color(if (m.criticasVencidas > 0) "#dc2626" else "#64748b")); fontSize(12.px); margin(0.px) } }) {
-                        Text("${m.criticasVencidas} vencidos · ${m.criticasPorVencer} por vencer")
+                        Text(I18n.get("met_criticos").replace("{v}", "${m.criticasVencidas}").replace("{p}", "${m.criticasPorVencer}"))
                     }
                 }
             }
@@ -112,7 +112,7 @@ fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope) {
             if (m.incidentesPorMes.isNotEmpty()) {
                 val maxInc = (m.incidentesPorMes.maxOf { it.incidentes }).coerceAtLeast(1)
                 Div({ style { marginTop(28.px); backgroundColor(Color.white); property("border", "1px solid #e2e8f0"); borderRadius(12.px); padding(22.px) } }) {
-                    H3({ style { marginTop(0.px); color(Color("#0f172a")) } }) { Text("Incidentes por mes (últimos 12 meses)") }
+                    H3({ style { marginTop(0.px); color(Color("#0f172a")) } }) { Text(I18n.get("met_incidentes_mes")) }
                     Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.FlexEnd); gap(8.px); height(140.px); marginTop(16.px) } }) {
                         m.incidentesPorMes.forEach { mes ->
                             Div({ style { flex(1); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); alignItems(AlignItems.Center); justifyContent(JustifyContent.FlexEnd); height(100.percent) } }) {
@@ -131,7 +131,7 @@ fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope) {
                         }
                     }
                     P({ style { color(Color("#64748b")); fontSize(12.px); marginTop(14.px) } }) {
-                        Text("Incluye ${m.incidentesPorMes.sumOf { it.diasPerdidos }} días perdidos en el período. Si la serie se ve vacía, registra la fecha de tus incidentes.")
+                        Text(I18n.get("met_dias_perdidos").replace("{n}", "${m.incidentesPorMes.sumOf { it.diasPerdidos }}"))
                     }
                 }
             }

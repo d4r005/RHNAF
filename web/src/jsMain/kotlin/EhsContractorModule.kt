@@ -42,15 +42,15 @@ fun EhsContractorModule(client: HttpClient, scope: CoroutineScope) {
     }
     LaunchedEffect(Unit) { refresh() }
     Div {
-        H1({ style { color(Color("#0f172a")) } }) { Text("Contratistas y proveedores") }
-        P({ style { color(Color("#475569")) } }) { Text("Expediente por empresa y centro de trabajo. Aprobar un expediente no concede acceso físico ni sustituye la validación de seguridad.") }
+        H1({ style { color(Color("#0f172a")) } }) { Text(I18n.get("con_titulo")) }
+        P({ style { color(Color("#475569")) } }) { Text(I18n.get("con_intro")) }
         if (error.isNotBlank()) P({ style { color(Color("#b91c1c")) } }) { Text(error) }
         if (notice.isNotBlank()) P { Text(notice) }
         Div({ style { display(DisplayStyle.Flex); flexWrap(FlexWrap.Wrap); gap(10.px); padding(18.px); backgroundColor(Color.white); borderRadius(10.px); property("border", "1px solid #e2e8f0") } }) {
-            Input(InputType.Text) { placeholder("Empresa *"); value(company); onInput { company = it.value }; style { padding(9.px) } }
-            Input(InputType.Text) { placeholder("Actividad *"); value(activity); onInput { activity = it.value }; style { padding(9.px) } }
-            Input(InputType.Text) { placeholder("Centro de trabajo *"); value(site); onInput { site = it.value }; style { padding(9.px) } }
-            Input(InputType.Text) { placeholder("Responsable interno *"); value(owner); onInput { owner = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("con_ph_empresa")); value(company); onInput { company = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("con_ph_actividad")); value(activity); onInput { activity = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("con_ph_centro")); value(site); onInput { site = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("con_ph_resp")); value(owner); onInput { owner = it.value }; style { padding(9.px) } }
             Button({
                 onClick {
                     if (saving) return@onClick
@@ -72,9 +72,9 @@ fun EhsContractorModule(client: HttpClient, scope: CoroutineScope) {
                     }
                 }
                 style { padding(9.px, 18.px); backgroundColor(Color("#2563eb")); color(Color.white); border(0.px); borderRadius(8.px); cursor("pointer") }
-            }) { Text("Crear expediente") }
+            }) { Text(I18n.get("con_crear")) }
         }
-        if (contractors.isEmpty()) P { Text("No hay empresas registradas.") }
+        if (contractors.isEmpty()) P { Text(I18n.get("con_vacio")) }
         contractors.forEach { item ->
             ContractorCard(item) { changed ->
                 scope.launch {
@@ -100,11 +100,11 @@ private fun ContractorCard(item: ContractorView, onSave: (ContractorView) -> Uni
     Div({ style { marginTop(12.px); padding(18.px); backgroundColor(Color.white); borderRadius(10.px); property("border", "1px solid #e2e8f0") } }) {
         H3 { Text("#${item.id} ${item.empresa}") }
         P { Text("${item.actividad} | ${item.centroTrabajo} | Responsable: ${item.responsableInterno} | Expediente: ${item.estado} | Documento: ${item.estadoDocumental}") }
-        Input(InputType.Text) { placeholder("URL HTTPS del documento"); value(documentUrl); onInput { documentUrl = it.value }; style { padding(9.px); property("min-width", "260px") } }
-        Input(InputType.Text) { placeholder("Vigencia AAAA-MM-DD"); value(expiry); onInput { expiry = it.value }; style { padding(9.px); marginLeft(8.px) } }
+        Input(InputType.Text) { placeholder(I18n.get("con_ph_url")); value(documentUrl); onInput { documentUrl = it.value }; style { padding(9.px); property("min-width", "260px") } }
+        Input(InputType.Text) { placeholder(I18n.get("con_ph_vigencia")); value(expiry); onInput { expiry = it.value }; style { padding(9.px); marginLeft(8.px) } }
         Select({ onChange { status = it.value ?: "Pendiente" }; style { padding(9.px); marginLeft(8.px) } }) {
             listOf("Pendiente", "Aprobado", "Suspendido").forEach { Option(it, { if (status == it) selected() }) { Text(it) } }
         }
-        Button({ onClick { onSave(item.copy(documentoUrl = documentUrl.trim(), vigenciaDocumento = expiry.trim(), estado = status)) }; style { padding(9.px); marginLeft(8.px) } }) { Text("Guardar revisión") }
+        Button({ onClick { onSave(item.copy(documentoUrl = documentUrl.trim(), vigenciaDocumento = expiry.trim(), estado = status)) }; style { padding(9.px); marginLeft(8.px) } }) { Text(I18n.get("con_guardar")) }
     }
 }

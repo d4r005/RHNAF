@@ -47,16 +47,16 @@ fun EhsActionModule(client: HttpClient, scope: CoroutineScope) {
     LaunchedEffect(Unit) { refresh() }
 
     Div {
-        H1({ style { color(Color("#0f172a")) } }) { Text("Planes de acción EHS") }
+        H1({ style { color(Color("#0f172a")) } }) { Text(I18n.get("act_titulo")) }
         P({ style { color(Color("#475569")) } }) {
-            Text("Da seguimiento a hallazgos, incidentes y obligaciones. El cierre exige una URL HTTPS de evidencia.")
+            Text(I18n.get("act_intro"))
         }
         if (error.isNotBlank()) P({ style { color(Color("#b91c1c")) } }) { Text(error) }
         if (notice.isNotBlank()) P { Text(notice) }
         Div({ style { display(DisplayStyle.Flex); flexWrap(FlexWrap.Wrap); gap(10.px); padding(18.px); backgroundColor(Color.white); borderRadius(10.px); property("border", "1px solid #e2e8f0") } }) {
-            Input(InputType.Text) { placeholder("Acción correctiva *"); value(title); onInput { title = it.value }; style { padding(9.px); property("min-width", "230px") } }
-            Input(InputType.Text) { placeholder("Responsable *"); value(owner); onInput { owner = it.value }; style { padding(9.px) } }
-            Input(InputType.Text) { placeholder("Fecha límite AAAA-MM-DD *"); value(due); onInput { due = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("act_ph_accion")); value(title); onInput { title = it.value }; style { padding(9.px); property("min-width", "230px") } }
+            Input(InputType.Text) { placeholder(I18n.get("act_ph_resp")); value(owner); onInput { owner = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("act_ph_limite")); value(due); onInput { due = it.value }; style { padding(9.px) } }
             Select({ onChange { priority = it.value ?: "Media" }; style { padding(9.px) } }) {
                 listOf("Media", "Alta", "Baja").forEach { Option(it) { Text(it) } }
             }
@@ -64,7 +64,7 @@ fun EhsActionModule(client: HttpClient, scope: CoroutineScope) {
                 listOf("manual" to "Sin registro origen", "matriz_legal" to "Matriz legal", "inspeccion" to "Inspección", "incidente" to "Incidente").forEach { (key, label) -> Option(key) { Text(label) } }
             }
             if (origin != "manual") Input(InputType.Text) {
-                placeholder("ID del origen *"); value(originId); onInput { originId = it.value }; style { padding(9.px) }
+                placeholder(I18n.get("act_ph_origen")); value(originId); onInput { originId = it.value }; style { padding(9.px) }
             }
             Button({
                 style { padding(9.px, 18.px); backgroundColor(Color("#2563eb")); color(Color.white); border(0.px); borderRadius(8.px); cursor("pointer") }
@@ -90,7 +90,7 @@ fun EhsActionModule(client: HttpClient, scope: CoroutineScope) {
                 }
             }) { Text(if (busy) "Guardando..." else "Crear acción") }
         }
-        if (actions.isEmpty()) P { Text("No hay planes de acción registrados.") }
+        if (actions.isEmpty()) P { Text(I18n.get("act_vacio")) }
         actions.forEach { item ->
             EhsActionCard(item) { changed ->
                 scope.launch {
@@ -115,9 +115,9 @@ private fun EhsActionCard(item: EhsActionView, onSave: (EhsActionView) -> Unit) 
         H3 { Text("#${item.id} ${item.titulo}") }
         P { Text("${item.origenTipo}${if (item.origenId > 0) " #${item.origenId}" else ""} | ${item.prioridad} | ${item.estado} | Responsable: ${item.responsable} | Límite: ${item.fechaLimite}") }
         if (item.estado != "Cerrada") {
-            Input(InputType.Text) { placeholder("URL HTTPS de evidencia para cerrar"); value(evidence); onInput { evidence = it.value }; style { padding(9.px); property("min-width", "260px") } }
-            Button({ onClick { onSave(item.copy(estado = "EnProgreso", evidenciaUrl = evidence)) }; style { marginLeft(8.px); padding(9.px) } }) { Text("En progreso") }
-            Button({ onClick { onSave(item.copy(estado = "Cerrada", evidenciaUrl = evidence)) }; style { marginLeft(8.px); padding(9.px) } }) { Text("Cerrar con evidencia") }
-        } else P { Text("Cerrada ${item.fechaCierre}. Evidencia: ${item.evidenciaUrl}") }
+            Input(InputType.Text) { placeholder(I18n.get("act_ph_evidencia")); value(evidence); onInput { evidence = it.value }; style { padding(9.px); property("min-width", "260px") } }
+            Button({ onClick { onSave(item.copy(estado = "EnProgreso", evidenciaUrl = evidence)) }; style { marginLeft(8.px); padding(9.px) } }) { Text(I18n.get("act_en_progreso")) }
+            Button({ onClick { onSave(item.copy(estado = "Cerrada", evidenciaUrl = evidence)) }; style { marginLeft(8.px); padding(9.px) } }) { Text(I18n.get("act_cerrar")) }
+        } else P { Text(I18n.get("act_cerrada").replace("{fecha}", "${item.fechaCierre}").replace("{url}", "${item.evidenciaUrl}")) }
     }
 }

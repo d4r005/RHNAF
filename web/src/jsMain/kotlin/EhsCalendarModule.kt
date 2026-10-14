@@ -133,9 +133,9 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
         // Encabezado + navegacion de mes
         Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center); marginBottom(20.px) } }) {
             Div {
-                H1({ style { margin(0.px); fontSize(26.px); color(Color("#0f172a")) } }) { Text("Calendario de vencimientos") }
+                H1({ style { margin(0.px); fontSize(26.px); color(Color("#0f172a")) } }) { Text(I18n.get("cal_titulo")) }
                 P({ style { margin(4.px, 0.px, 0.px, 0.px); color(Color("#64748b")) } }) {
-                    Text("Obligaciones legales, capacitaciones, simulacros, acciones, auditorías internas y contratistas. Da clic en un día para agregar un evento propio. Los permisos críticos se muestran en rojo.")
+                    Text(I18n.get("cal_intro"))
                 }
             }
             Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(8.px) } }) {
@@ -153,7 +153,7 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
                 Button({
                     style { padding(8.px, 14.px); borderRadius(8.px); border(0.px); backgroundColor(Color("#2563eb")); color(Color.white); cursor("pointer") }
                     onClick { refresh("") }
-                }) { Text("Hoy") }
+                }) { Text(I18n.get("cal_hoy")) }
                 Button({
                     style { padding(8.px, 14.px); borderRadius(8.px); border(0.px); backgroundColor(Color("#64748b")); color(Color.white); cursor("pointer") }
                     onClick {
@@ -173,14 +173,14 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
                                 a.asDynamic().click()
                                 window.setTimeout({ window.asDynamic().URL.revokeObjectURL(blobUrl) }, 60000)
                             }
-                            .`catch` { err: dynamic -> window.alert("No se pudo exportar: " + (err.message ?: "error")) }
+                            .`catch` { err: dynamic -> window.alert(I18n.get("cal_exportar_error").replace("{e}", (err.message ?: "error").toString())) }
                     }
-                }) { Text("⤓ Outlook (.ics)") }
+                }) { Text(I18n.get("cal_outlook")) }
             }
         }
 
         if (error.isNotBlank()) P({ style { color(Color("#dc2626")); padding(12.px); backgroundColor(Color("#fef2f2")); borderRadius(8.px) } }) { Text(error) }
-        if (loading) P { Text("Cargando calendario...") }
+        if (loading) P { Text(I18n.get("cal_cargando")) }
 
         resp?.let { r ->
             val eventosPorDia = r.eventos.groupBy { it.fecha }
@@ -245,7 +245,7 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
                                 }
                             }) { Text(if (ev.esCritico) "⚠ ${ev.titulo}" else ev.titulo) }
                         }
-                        if (eventos.size > 3) Span({ style { fontSize(10.px); color(Color("#64748b")) } }) { Text("+${eventos.size - 3} más") }
+                        if (eventos.size > 3) Span({ style { fontSize(10.px); color(Color("#64748b")) } }) { Text(I18n.get("cal_mas").replace("{n}", "${eventos.size - 3}")) }
                     }
                 }
             }
@@ -255,11 +255,11 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
                 val delDia = eventosPorDia[selectedFecha] ?: emptyList()
                 Div({ style { marginTop(16.px); padding(14.px); borderRadius(10.px); property("border", "1px solid #d1fae5"); backgroundColor(Color("#f0fdf4") ) } }) {
                     Div({ style { display(DisplayStyle.Flex); justifyContent(JustifyContent.SpaceBetween); alignItems(AlignItems.Center) } }) {
-                        H2({ style { margin(0.px); fontSize(15.px); color(Color("#065f46")) } }) { Text("Eventos del $selectedFecha") }
+                        H2({ style { margin(0.px); fontSize(15.px); color(Color("#065f46")) } }) { Text(I18n.get("cal_eventos_dia").replace("{fecha}", "$selectedFecha")) }
                         Button({
                             style { padding(4.px, 10.px); borderRadius(6.px); border(0.px); backgroundColor(Color("#e2e8f0")); cursor("pointer") }
                             onClick { selectedFecha = "" }
-                        }) { Text("Cerrar") }
+                        }) { Text(I18n.get("cal_cerrar")) }
                     }
                     if (delDia.isNotEmpty()) {
                         Div({ style { marginTop(8.px) } }) {
@@ -267,7 +267,7 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
                                 Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(8.px); marginTop(4.px); fontSize(13.px); flexWrap(FlexWrap.Wrap) } }) {
                                     Div({ style { width(8.px); height(8.px); borderRadius(50.percent); backgroundColor(Color(colorEvento(ev))) } })
                                     Text("${etiquetaTipo(ev.tipo)}: ${ev.titulo}")
-                                    if (ev.tipo == "obligacion" && ev.tareasAbiertas > 0) Span({ style { backgroundColor(Color("#ffedd5")); color(Color("#9a3412")); padding(1.px, 7.px); borderRadius(10.px); fontSize(11.px) } }) { Text("${ev.tareasAbiertas} tarea(s)") }
+                                    if (ev.tipo == "obligacion" && ev.tareasAbiertas > 0) Span({ style { backgroundColor(Color("#ffedd5")); color(Color("#9a3412")); padding(1.px, 7.px); borderRadius(10.px); fontSize(11.px) } }) { Text(I18n.get("cal_tareas").replace("{n}", "${ev.tareasAbiertas}")) }
                                     if (ev.detalle.isNotBlank()) Span({ style { color(Color("#64748b")) } }) { Text(" — ${ev.detalle}") }
                                     Button({
                                         style { padding(1.px, 7.px); fontSize(11.px); backgroundColor(Color.white); color(Color("#1d4ed8")); property("border", "1px solid #bfdbfe"); borderRadius(4.px); cursor("pointer") }
@@ -286,21 +286,21 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
                                     if (ev.tipo == "evento") Button({
                                         style { padding(2.px, 8.px); borderRadius(4.px); border(0.px); backgroundColor(Color("#ef4444")); color(Color.white); cursor("pointer"); fontSize(11.px) }
                                         onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/ehs/calendario/eventos/${ev.id}"); refresh(mes) } }
-                                    }) { Text("Borrar") }
+                                    }) { Text(I18n.get("cal_borrar")) }
                                 }
                             }
                         }
                     } else {
-                        P({ style { margin(8.px, 0.px, 0.px, 0.px); fontSize(13.px); color(Color("#64748b")) } }) { Text("Sin eventos ese día todavía.") }
+                        P({ style { margin(8.px, 0.px, 0.px, 0.px); fontSize(13.px); color(Color("#64748b")) } }) { Text(I18n.get("cal_sin_eventos")) }
                     }
                     Div({ style { display(DisplayStyle.Flex); gap(8.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center); marginTop(10.px) } }) {
-                        Input(InputType.Text) { placeholder("Título del evento *"); value(evTitulo); onInput { evTitulo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
-                        Input(InputType.Text) { placeholder("Detalle"); value(evDetalle); onInput { evDetalle = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
-                        Input(InputType.Text) { placeholder("Responsable"); value(evResponsable); onInput { evResponsable = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+                        Input(InputType.Text) { placeholder(I18n.get("cal_ph_titulo")); value(evTitulo); onInput { evTitulo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+                        Input(InputType.Text) { placeholder(I18n.get("cal_ph_detalle")); value(evDetalle); onInput { evDetalle = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+                        Input(InputType.Text) { placeholder(I18n.get("cal_ph_resp")); value(evResponsable); onInput { evResponsable = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
                         Button({
                             style { padding(8.px, 16.px); borderRadius(6.px); border(0.px); backgroundColor(Color("#059669")); color(Color.white); cursor("pointer") }
                             onClick {
-                                if (evTitulo.isBlank()) { window.alert("El título es obligatorio.") }
+                                if (evTitulo.isBlank()) { window.alert(I18n.get("cal_titulo_obligatorio")) }
                                 else {
                                     scope.launch {
                                         client.post("$BACKEND_URL/api/v1/ehs/calendario/eventos") {
@@ -311,7 +311,7 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
                                     }
                                 }
                             }
-                        }) { Text("+ Agregar evento") }
+                        }) { Text(I18n.get("cal_agregar")) }
                     }
                 }
             }
@@ -319,7 +319,7 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
             // Detalle del mes (lista legible)
             val delMes = r.eventos
             if (delMes.isNotEmpty()) {
-                H2({ style { marginTop(26.px); marginBottom(12.px); color(Color("#0f172a")); fontSize(18.px) } }) { Text("Detalles de ${nombreMes(r.mes)}") }
+                H2({ style { marginTop(26.px); marginBottom(12.px); color(Color("#0f172a")); fontSize(18.px) } }) { Text(I18n.get("cal_detalles").replace("{mes}", "${nombreMes(r.mes)}")) }
                 Div({ style { backgroundColor(Color.white); borderRadius(12.px); property("border", "1px solid #e2e8f0"); overflow("hidden") } }) {
                     Table({ style { width(100.percent); property("border-collapse", "collapse"); fontSize(13.px) } }) {
                         Thead { Tr { listOf("Día", "Tipo", "Título", "Estado", "Crítico").forEach { Th({ style { padding(10.px, 12.px); textAlign("left"); backgroundColor(Color("#f8fafc")); color(Color("#475569")); property("border-bottom", "1px solid #e2e8f0") } }) { Text(it) } } } }
@@ -336,7 +336,7 @@ fun EhsCalendarModule(client: HttpClient, scope: CoroutineScope) {
                                         Text(ev.estado.ifBlank { "-" })
                                     }
                                     Td({ style { padding(10.px, 12.px); property("border-bottom", "1px solid #f1f5f9") } }) {
-                                        if (ev.esCritico) Span({ style { color(Color("#dc2626")); fontWeight("700") } }) { Text("⚠ Sí") } else Text("—")
+                                        if (ev.esCritico) Span({ style { color(Color("#dc2626")); fontWeight("700") } }) { Text(I18n.get("cal_si")) } else Text("—")
                                     }
                                 }
                             }

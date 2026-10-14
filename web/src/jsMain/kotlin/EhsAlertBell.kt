@@ -75,7 +75,7 @@ fun EhsAlertBell(client: HttpClient, canSeeEhs: Boolean, onOpenAvisos: () -> Uni
                     Text(if (total == 0) "Sin vencimientos próximos" else "$total avisos${if (criticos > 0) " · $criticos críticos" else ""}")
                 }
                 if (total == 0) {
-                    P({ style { margin(6.px, 4.px); fontSize(13.px); color(Color("#64748b")) } }) { Text("Nada vencido ni por vencer en los próximos días.") }
+                    P({ style { margin(6.px, 4.px); fontSize(13.px); color(Color("#64748b")) } }) { Text(I18n.get("bell_vacio")) }
                 }
                 avisos.take(8).forEach { a ->
                     Div({
@@ -101,7 +101,7 @@ fun EhsAlertBell(client: HttpClient, canSeeEhs: Boolean, onOpenAvisos: () -> Uni
                     Button({
                         style { margin(6.px, 4.px); fontSize(12.px); color(Color("#2563eb")); border(0.px); backgroundColor(Color.white); cursor("pointer") }
                         onClick { abierto = false; onOpenAvisos() }
-                    }) { Text("Ver todos los avisos →") }
+                    }) { Text(I18n.get("bell_ver_todos")) }
                 }
             }
         }

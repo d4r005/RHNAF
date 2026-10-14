@@ -28,14 +28,14 @@ fun EhsAlertsModule(client: HttpClient) {
         finally { loading = false }
     }
     Div {
-        H1({ style { color(Color("#0f172a")) } }) { Text("Avisos de vencimiento EHS") }
-        P({ style { color(Color("#475569")) } }) { Text("Avisos dentro de la aplicación, para registros vencidos o que vencen en 30 días. No se han enviado correos.") }
+        H1({ style { color(Color("#0f172a")) } }) { Text(I18n.get("alert_titulo")) }
+        P({ style { color(Color("#475569")) } }) { Text(I18n.get("alert_intro")) }
         if (error.isNotBlank()) P({ style { color(Color("#b91c1c")) } }) { Text(error) }
-        if (loading) P { Text("Cargando avisos...") }
-        else if (alerts.isEmpty()) P { Text("No hay vencimientos registrados dentro de los próximos 30 días.") }
+        if (loading) P { Text(I18n.get("alert_cargando")) }
+        else if (alerts.isEmpty()) P { Text(I18n.get("alert_vacio")) }
         val criticos = alerts.count { it.esCritico }
         if (criticos > 0) P({ style { padding(12.px); backgroundColor(Color("#fef2f2")); property("border", "1px solid #fecaca"); borderRadius(8.px); color(Color("#b91c1c")); fontWeight("600") } }) {
-            Text("⚠ $criticos permisos críticos requieren atención inmediata (riesgo de clausura o multa).")
+            Text(I18n.get("alert_criticos").replace("{n}", "$criticos"))
         }
         else alerts.forEach { alert ->
             Div({

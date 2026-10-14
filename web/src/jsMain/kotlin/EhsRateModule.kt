@@ -47,18 +47,18 @@ fun EhsRateModule(client: HttpClient, scope: CoroutineScope) {
     }
     LaunchedEffect(showHistory) { refresh() }
     Div {
-        H1({ style { color(Color("#0f172a")) } }) { Text("Tasas internas de accidentabilidad") }
-        P({ style { color(Color("#475569")) } }) { Text("Carga horas reales y accidentes registrables validados por cada mes. Frecuencia = accidentes × 1,000,000 / horas; gravedad = días perdidos × 1,000,000 / horas. No son tasas oficiales ni se obtienen automáticamente de pre-nómina.") }
+        H1({ style { color(Color("#0f172a")) } }) { Text(I18n.get("rate_titulo")) }
+        P({ style { color(Color("#475569")) } }) { Text(I18n.get("rate_intro")) }
         if (error.isNotBlank()) P({ style { color(Color("#b91c1c")) } }) { Text(error) }
         if (notice.isNotBlank()) P { Text(notice) }
         Div({ style { display(DisplayStyle.Flex); flexWrap(FlexWrap.Wrap); gap(10.px); padding(18.px); backgroundColor(Color.white); borderRadius(10.px); property("border", "1px solid #e2e8f0") } }) {
-            Input(InputType.Text) { placeholder("Periodo AAAA-MM *"); value(period); onInput { period = it.value }; style { padding(9.px) } }
-            Input(InputType.Text) { placeholder("Horas reales *"); value(hours); onInput { hours = it.value }; style { padding(9.px) } }
-            Input(InputType.Text) { placeholder("Accidentes registrables *"); value(accidents); onInput { accidents = it.value }; style { padding(9.px) } }
-            Input(InputType.Text) { placeholder("Días perdidos *"); value(days); onInput { days = it.value }; style { padding(9.px) } }
-            Input(InputType.Text) { placeholder("Fuente de las horas *"); value(source); onInput { source = it.value }; style { padding(9.px) } }
-            Input(InputType.Text) { placeholder("Validado por *"); value(validator); onInput { validator = it.value }; style { padding(9.px) } }
-            Input(InputType.Text) { placeholder("Motivo de revisión (si corrige el periodo)"); value(reason); onInput { reason = it.value }; style { padding(9.px); property("min-width", "280px") } }
+            Input(InputType.Text) { placeholder(I18n.get("rate_ph_periodo")); value(period); onInput { period = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("rate_ph_horas")); value(hours); onInput { hours = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("rate_ph_accidentes")); value(accidents); onInput { accidents = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("rate_ph_dias")); value(days); onInput { days = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("rate_ph_fuente")); value(source); onInput { source = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("rate_ph_validado")); value(validator); onInput { validator = it.value }; style { padding(9.px) } }
+            Input(InputType.Text) { placeholder(I18n.get("rate_ph_motivo")); value(reason); onInput { reason = it.value }; style { padding(9.px); property("min-width", "280px") } }
             Button({
                 onClick {
                     if (saving) return@onClick
@@ -84,15 +84,15 @@ fun EhsRateModule(client: HttpClient, scope: CoroutineScope) {
                     }
                 }
                 style { padding(9.px, 18.px); backgroundColor(Color("#2563eb")); color(Color.white); border(0.px); borderRadius(8.px) }
-            }) { Text("Guardar periodo") }
+            }) { Text(I18n.get("rate_guardar")) }
         }
         Button({ onClick { showHistory = !showHistory }; style { padding(9.px); marginTop(12.px) } }) { Text(if (showHistory) "Ver última versión" else "Ver historial de revisiones") }
-        if (periods.isEmpty()) P { Text("Sin horas validadas. No es posible calcular tasas todavía.") }
+        if (periods.isEmpty()) P { Text(I18n.get("rate_sin_horas")) }
         periods.forEach { row ->
             Div({ style { marginTop(12.px); padding(16.px); backgroundColor(Color.white); property("border", "1px solid #e2e8f0"); borderRadius(8.px) } }) {
-                H3 { Text("${row.periodo} | revisión ${row.version}") }
-                P { Text("Horas: ${row.horasTrabajadas} | Accidentes registrables: ${row.accidentesRegistrables} | Días perdidos: ${row.diasPerdidos}") }
-                P { Text("Frecuencia: ${row.frecuenciaPorMillon} por millón de horas | Gravedad: ${row.gravedadPorMillon} días por millón de horas") }
+                H3 { Text("${row.periodo} | " + I18n.get("rate_version") + " ${row.version}") }
+                P { Text(I18n.get("rate_horas").replace("{h}", "${row.horasTrabajadas}").replace("{a}", "${row.accidentesRegistrables}").replace("{d}", "${row.diasPerdidos}")) }
+                P { Text(I18n.get("rate_frecuencia").replace("{f}", "${row.frecuenciaPorMillon}").replace("{g}", "${row.gravedadPorMillon}")) }
                 P { Text("Fuente: ${row.fuenteHoras} | Validado por: ${row.validadoPor}${if (row.motivoRevision.isNotBlank()) " | Cambio: ${row.motivoRevision}" else ""}") }
             }
         }

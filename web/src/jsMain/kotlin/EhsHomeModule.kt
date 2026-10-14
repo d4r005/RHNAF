@@ -8,11 +8,11 @@ import io.ktor.client.HttpClient
 @Composable
 fun EhsHomeModule(role: UserRole, onSelect: (Module) -> Unit) {
     Div {
-        H1({ style { marginBottom(4.px); color(Color("#0f172a")) } }) { Text("Centro EHS y cumplimiento") }
+        H1({ style { marginBottom(4.px); color(Color("#0f172a")) } }) { Text(I18n.get("home_titulo")) }
         P({ style { color(Color("#475569")); marginBottom(24.px) } }) {
-            Text("Seguridad, salud, ambiente y control documental en una sola operación.")
+            Text(I18n.get("home_intro"))
         }
-        H2({ style { margin(0.px, 0.px, 10.px, 0.px); fontSize(18.px); color(Color("#0f172a")) } }) { Text("Operación por pilar") }
+        H2({ style { margin(0.px, 0.px, 10.px, 0.px); fontSize(18.px); color(Color("#0f172a")) } }) { Text(I18n.get("home_pilares")) }
         Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fit, minmax(230px, 1fr))"); gap(16.px); marginBottom(26.px) } }) {
             listOf(
                 Triple(Module.EHS_SEGURIDAD, "Seguridad", "Auditorías internas, incidentes, permisos de trabajo, EPP, capacitación interna, simulacros, matriz de riesgos, químicos, DC-3, dictámenes y normativa."),
@@ -33,7 +33,7 @@ fun EhsHomeModule(role: UserRole, onSelect: (Module) -> Unit) {
                 }
             }
         }
-        H2({ style { margin(0.px, 0.px, 10.px, 0.px); fontSize(18.px); color(Color("#0f172a")) } }) { Text("Gestión y cumplimiento") }
+        H2({ style { margin(0.px, 0.px, 10.px, 0.px); fontSize(18.px); color(Color("#0f172a")) } }) { Text(I18n.get("home_gestion")) }
         Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fit, minmax(230px, 1fr))"); gap(16.px) } }) {
             listOf(
                 Triple(Module.EHS_CALENDAR, "Calendario", "Vencimientos de obligaciones, capacitaciones y simulacros."),
@@ -62,7 +62,7 @@ fun EhsHomeModule(role: UserRole, onSelect: (Module) -> Unit) {
             }
         }
         P({ style { color(Color("#64748b")); marginTop(22.px); fontSize(13.px) } }) {
-            Text("La matriz es una herramienta de seguimiento; no determina por sí sola el cumplimiento legal.")
+            Text(I18n.get("home_matriz_nota"))
         }
     }
 }
@@ -70,14 +70,14 @@ fun EhsHomeModule(role: UserRole, onSelect: (Module) -> Unit) {
 @Composable
 fun EhsDocumentsModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, role: UserRole) {
     Div {
-        H1({ style { marginBottom(4.px); color(Color("#0f172a")) } }) { Text("Evidencia documental") }
+        H1({ style { marginBottom(4.px); color(Color("#0f172a")) } }) { Text(I18n.get("home_evidencia")) }
         P({ style { color(Color("#475569")); marginBottom(20.px) } }) {
-            Text("Archivos en Google Drive, metadatos y vínculos con auditorías internas, simulacros y capacitación.")
+            Text(I18n.get("home_evidencia_intro"))
         }
         if (role == UserRole.ADMIN || role == UserRole.SEGURIDAD) {
             EhsDocumentsTab(client, scope)
         } else {
-            P { Text("Solo el personal de Seguridad puede cargar o gestionar evidencia documental.") }
+            P { Text(I18n.get("home_evidencia_permiso")) }
         }
     }
 }
