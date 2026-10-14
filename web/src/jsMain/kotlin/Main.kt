@@ -376,7 +376,7 @@ class Translations(val lang: Language) {
         // ===== QIS =====
         "qis_intro" to "Quality management system: register controlled documents with a unique code and version, validity tracking and an immutable change log for traceability.",
         "qis_alta" to "Register a controlled document",
-        "qis_alta_hint" to "The initial version is always 1.0 and is recorded in the history as "Register document". The code is unique (e.g. PRO-001)."Alta del documento\". El código es único (p. ej. PRO-001).",
+        "qis_alta_hint" to "The initial version is always 1.0 and is recorded in the history as \"Register document\". The code is unique (e.g. PRO-001).",
         "qis_btn_alta" to "+ Register",
         "qis_filtro" to "Filter by status:",
         "qis_todos" to "All",
@@ -619,7 +619,7 @@ class Translations(val lang: Language) {
         // ===== QIS =====
         "qis_intro" to "质量管理体系：登记具有唯一编码和版本的受控文件，跟踪有效期并通过变更记录实现可追溯性。文件历史不可修改。",
         "qis_alta" to "登记受控文件",
-        "qis_alta_hint" to "初始版本始终为 1.0，并以"登记文件"记入历史。编码唯一（如 PRO-001）。"Alta del documento\". El código es único (p. ej. PRO-001).",
+        "qis_alta_hint" to "初始版本始终为 1.0，并以\"登记文件\"记入历史。编码唯一（如 PRO-001）。",
         "qis_btn_alta" to "+ 登记",
         "qis_filtro" to "按状态筛选：",
         "qis_todos" to "全部",
