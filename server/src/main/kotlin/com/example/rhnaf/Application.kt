@@ -28,6 +28,7 @@ import com.example.rhnaf.routes.dc3Routing
 import com.example.rhnaf.routes.ehsChecklistRouting
 import com.example.rhnaf.routes.ehsIdMaintenanceRouting
 import com.example.rhnaf.routes.qisRouting
+import com.example.rhnaf.routes.lockerRouting
 import com.example.rhnaf.routes.ehsRateRouting
 import com.example.rhnaf.routes.ehsAlertsRouting
 import com.example.rhnaf.routes.ehsCalendarRouting
@@ -212,6 +213,7 @@ fun Application.module() {
         ehsChecklistRouting()
         ehsIdMaintenanceRouting()
         qisRouting()
+        lockerRouting()
         // Evitar registrar rutas de documentos cuando esa tabla no se migra.
         if (System.getenv("OMIT_EHS_DOCUMENTS") != "true") {
             ehsDocumentRouting()

@@ -264,6 +264,7 @@ class Translations(val lang: Language) {
         "legal_matrix" to "Matriz Legal",
         "stps_normas" to "Normas STPS",
         "qis_docs" to "QIS · Control de documentos",
+        "lockers" to "Listado de Lockers",
         "group_hr" to "RECURSOS HUMANOS",
         "group_ehs" to "EHS Y CUMPLIMIENTO",
         "group_calidad" to "CALIDAD",
@@ -363,6 +364,7 @@ class Translations(val lang: Language) {
         "legal_matrix" to "Legal Matrix",
         "stps_normas" to "STPS Standards",
         "qis_docs" to "QIS · Document Control",
+        "lockers" to "Locker List",
         "group_hr" to "HUMAN RESOURCES",
         "group_ehs" to "EHS & COMPLIANCE",
         "group_calidad" to "QUALITY",
@@ -606,6 +608,7 @@ class Translations(val lang: Language) {
         "legal_matrix" to "法律矩阵",
         "stps_normas" to "STPS 标准",
         "qis_docs" to "QIS · 文件控制",
+        "lockers" to "储物柜清单",
         "group_hr" to "人力资源",
         "group_ehs" to "EHS 与合规",
         "group_calidad" to "质量",
@@ -785,18 +788,18 @@ enum class Module {
     DASHBOARD, EHS_HOME, EHS_SEGURIDAD, EHS_SALUD, EHS_AMBIENTE, EHS_METRICS, EHS_CALENDAR, EHS_ACTIONS, EHS_CONTRACTORS, EHS_ALERTS, EHS_RATES, LEGAL_MATRIX, STPS, EHS_DOCUMENTS, GRC_SECURITY,
     CONTROLLING, PURCHASING, PRODUCTION, QUALITY, GTS_TRADE,
     FINANCIAL_ACCOUNTING, PLANT_MAINTENANCE, RECRUITMENT_SAP, EMPLOYEES, ATTENDANCE, PRE_NOMINA,
-    WAREHOUSE, SHIPPING, FERRETERIA, RECEPCION_MP, SETTINGS, USER_MGMT, QIS_DOCS
+    WAREHOUSE, SHIPPING, FERRETERIA, RECEPCION_MP, SETTINGS, USER_MGMT, QIS_DOCS, LOCKERS
 }
 
 enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, ALMACEN, IMPORT_EXPORT, FINANZAS }
 
 fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
-    if (role == UserRole.RH) return module in listOf(Module.DASHBOARD, Module.RECRUITMENT_SAP, Module.EMPLOYEES, Module.ATTENDANCE, Module.PRE_NOMINA, Module.QIS_DOCS, Module.SETTINGS)
+    if (role == UserRole.RH) return module in listOf(Module.DASHBOARD, Module.RECRUITMENT_SAP, Module.EMPLOYEES, Module.ATTENDANCE, Module.PRE_NOMINA, Module.LOCKERS, Module.QIS_DOCS, Module.SETTINGS)
     if (role == UserRole.ALMACEN) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
     if (role == UserRole.IMPORT_EXPORT) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
     if (role == UserRole.FINANZAS) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
-    if (role == UserRole.SEGURIDAD) return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_METRICS, Module.EHS_CALENDAR, Module.EHS_ACTIONS, Module.EHS_CONTRACTORS, Module.EHS_ALERTS, Module.EHS_RATES, Module.LEGAL_MATRIX, Module.STPS, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
+    if (role == UserRole.SEGURIDAD) return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_METRICS, Module.EHS_CALENDAR, Module.EHS_ACTIONS, Module.EHS_CONTRACTORS, Module.EHS_ALERTS, Module.EHS_RATES, Module.LEGAL_MATRIX, Module.STPS, Module.EHS_DOCUMENTS, Module.LOCKERS, Module.QIS_DOCS, Module.SETTINGS)
     return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
 }
 
@@ -913,6 +916,7 @@ fun main() {
                             Module.LEGAL_MATRIX -> LegalMatrixModule(client, scope)
                             Module.GRC_SECURITY -> GrcSecurityModule(client, scope, t)
                             Module.QIS_DOCS -> QisModule(client, scope, userRole == UserRole.ADMIN)
+                            Module.LOCKERS -> LockerModule(client, scope, userRole == UserRole.ADMIN || userRole == UserRole.RH || userRole == UserRole.SEGURIDAD)
                             Module.CONTROLLING -> ControllingModule(client, scope, t)
                             Module.PURCHASING -> PurchasingModule(client, scope, t)
                             Module.PRODUCTION -> ProductionModule(client, scope, t)
@@ -973,6 +977,7 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
                 Module.EMPLOYEES to t.get("nav_employees"),
                 Module.ATTENDANCE to t.get("nav_attendance"),
                 Module.PRE_NOMINA to t.get("pre_nomina"),
+                Module.LOCKERS to t.get("lockers"),
                 Module.RECRUITMENT_SAP to t.get("recruitment")
             ))
             SidebarGroup(t.get("group_ehs"), active, role, onSelect, listOf(
@@ -986,6 +991,7 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
                 Module.EHS_ALERTS to t.get("ehs_alerts"),
                 Module.EHS_RATES to t.get("ehs_rates"),
                 Module.EHS_DOCUMENTS to t.get("ehs_documents"),
+                Module.LOCKERS to t.get("lockers"),
                 Module.EHS_CALENDAR to t.get("ehs_calendar"),
                 Module.LEGAL_MATRIX to t.get("legal_matrix"),
                 Module.STPS to t.get("stps_normas"),
