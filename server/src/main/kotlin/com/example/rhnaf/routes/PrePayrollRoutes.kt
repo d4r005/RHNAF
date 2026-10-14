@@ -617,6 +617,48 @@ fun Route.prePayrollRouting() {
             call.respond(mapOf("status" to "success"))
         }
 
+        // Aplica los dias proyectados a todos los empleados de un periodo de
+        // una sola vez (o solo a los employeeIds enviados). Conserva el resto
+        // de los ajustes ya capturados de cada empleado.
+        post("/ajuste-masivo") {
+            val body = call.receive<Map<String, String>>()
+            val inicioStr = body["periodoInicio"] ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "periodoInicio requerido"))
+            val finStr = body["periodoFin"] ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "periodoFin requerido"))
+            val diasProy = body["diasProyectados"]?.trim()?.toIntOrNull()
+                ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "diasProyectados requerido"))
+            val ids = body["employeeIds"]?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+            val objetivos = if (ids.isNotEmpty()) ids else DatabaseFactory.dbQuery {
+                PrePayrollTable.selectAll()
+                    .filter { it[PrePayrollTable.periodoInicio] == inicioStr && it[PrePayrollTable.periodoFin] == finStr }
+                    .map { it[PrePayrollTable.employeeId] }
+            }
+            DatabaseFactory.dbQuery {
+                objetivos.forEach { empId ->
+                    val previo = PayrollOverrideTable.selectAll()
+                        .filter { it[PayrollOverrideTable.employeeId] == empId && it[PayrollOverrideTable.periodoInicio] == inicioStr && it[PayrollOverrideTable.periodoFin] == finStr }
+                        .firstOrNull()
+                    PayrollOverrideTable.deleteWhere {
+                        (PayrollOverrideTable.employeeId eq empId).and(PayrollOverrideTable.periodoInicio eq inicioStr).and(PayrollOverrideTable.periodoFin eq finStr)
+                    }
+                    PayrollOverrideTable.insert {
+                        it[employeeId] = empId
+                        it[periodoInicio] = inicioStr
+                        it[periodoFin] = finStr
+                        it[isr] = previo?.get(PayrollOverrideTable.isr)
+                        it[imss] = previo?.get(PayrollOverrideTable.imss)
+                        it[anticipo] = previo?.get(PayrollOverrideTable.anticipo) ?: 0.0
+                        it[otros] = previo?.get(PayrollOverrideTable.otros) ?: 0.0
+                        it[infonavit] = previo?.get(PayrollOverrideTable.infonavit)
+                        it[fondoAhorro] = previo?.get(PayrollOverrideTable.fondoAhorro)
+                        it[fonacot] = previo?.get(PayrollOverrideTable.fonacot)
+                        it[diasProyectados] = diasProy
+                        it[updatedBy] = body["updatedBy"]
+                    }
+                }
+            }
+            call.respond(mapOf("status" to "success", "aplicados" to objetivos.size.toString()))
+        }
+
         // ---------- DATOS FISCALES / CALCULO DE DINERO ----------
         // Datos de la empresa (de la guia de configuracion del cliente).
         val EMPRESA_NOMBRE = "SHELSER"

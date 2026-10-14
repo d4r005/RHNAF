@@ -401,6 +401,7 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
     var f_grupo by remember { mutableStateOf("Todos") }
     var ajusteEmp by remember { mutableStateOf<PrePayrollRecord?>(null) }
     var isDescargandoPdf by remember { mutableStateOf(false) }
+    var f_diasTodos by remember { mutableStateOf("") }
     var ajustesExistentes by remember { mutableStateOf<Map<String, Map<String, String?>>>(emptyMap()) }
 
     // Se relanza tanto al presionar Calcular/Refrescar (refreshKey) como al cambiar
@@ -429,6 +430,35 @@ fun CalculoTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, can
         StatCard("Total de faltas", totalFaltas.toString(), "Sin justificar", Color("#ef4444"))
         StatCard("Total de retardos", totalRetardos.toString(), "Menores + mayores", Color("#f59e0b"))
         StatCard("Horas extra total", fmt1(totalHorasExtra), "Acumuladas", Color("#10b981"))
+    }
+
+    Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(8.px); alignItems(AlignItems.Center); padding(10.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px); property("border", "1px solid #e2e8f0") } }) {
+        Text("Dias proyectados a pagar, aplicar a todos los empleados del periodo:")
+        Input(InputType.Number) {
+            placeholder("Dias (ej. 7 o 15)")
+            onInput { f_diasTodos = it.value?.toString() ?: "" }
+            style { padding(6.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) }
+        }
+        Button({
+            style { padding(6.px, 14.px); backgroundColor(Color("#0f766e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
+            onClick {
+                if (f_inicio.isNotBlank() && f_fin.isNotBlank() && f_diasTodos.isNotBlank()) {
+                    scope.launch {
+                        try {
+                            client.post("$BACKEND_URL/api/v1/pre-nomina/ajuste-masivo") {
+                                contentType(ContentType.Application.Json)
+                                setBody(mapOf(
+                                    "periodoInicio" to f_inicio, "periodoFin" to f_fin,
+                                    "diasProyectados" to f_diasTodos, "updatedBy" to "RH"
+                                ))
+                            }
+                            window.alert("Dias proyectados aplicados a todos los empleados del periodo.")
+                            refreshKey++
+                        } catch (e: Exception) { window.alert("Error: ${e.message}") }
+                    }
+                } else { window.alert("Primero elige el periodo (fechas) y captura los dias.") }
+            }
+        }) { Text("Aplicar a todos") }
     }
 
     Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); alignItems(AlignItems.Center) } }) {
