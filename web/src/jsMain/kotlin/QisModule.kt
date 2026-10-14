@@ -8,7 +8,12 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.browser.window
+import kotlinx.browser.document
 import kotlinx.coroutines.launch
+import kotlin.coroutines.suspendCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import org.w3c.dom.HTMLInputElement
 import com.example.rhnaf.shared.model.*
 
 /**
@@ -20,6 +25,48 @@ import com.example.rhnaf.shared.model.*
  * nueva versión se registra con autor y aprobador (trazabilidad ISO 9001).
  * La escritura es de ADMIN; el resto de los roles solo consulta.
  */
+
+/** Sube un archivo por multipart (FormData) a un endpoint del backend QIS. */
+private suspend fun subirArchivoQis(file: org.w3c.files.File, urlDestino: String): dynamic =
+    suspendCoroutine { cont ->
+        val form = js("new FormData()")
+        form.append("file", file, file.name)
+        val options = js("({})")
+        options.method = "POST"
+        options.headers = js("({})")
+        options.headers.Authorization = "Bearer $apiAuthToken"
+        options.body = form
+        window.asDynamic().fetch(urlDestino, options).then(
+            { response: dynamic ->
+                response.json().then(
+                    { result: dynamic ->
+                        if (response.ok) cont.resume(result)
+                        else cont.resumeWithException(IllegalStateException(result.message?.toString() ?: "HTTP ${response.status}"))
+                    },
+                    { _: dynamic -> cont.resumeWithException(IllegalStateException("Respuesta ilegible")) }
+                )
+            },
+            { _: dynamic -> cont.resumeWithException(IllegalStateException("Error de red al subir")) }
+        )
+    }
+
+/** Abre en otra pestana el archivo de un documento QIS (puntero de Drive). */
+private fun abrirArchivoQis(url: String) {
+    val options = js("({})")
+    options.headers = js("({})")
+    options.headers.Authorization = "Bearer $apiAuthToken"
+    window.asDynamic().fetch(url, options).then(
+        { response: dynamic ->
+            response.blob().then({ blob: dynamic ->
+                val blobUrl = window.asDynamic().URL.createObjectURL(blob)
+                window.open(blobUrl as String, "_blank")
+                window.setTimeout({ window.asDynamic().URL.revokeObjectURL(blobUrl) }, 60000)
+            })
+        },
+        { err: dynamic -> window.alert("No se pudo abrir el archivo: " + (err.message ?: "error")) }
+    )
+}
+
 /** Etiqueta visible del estado segun el idioma activo. */
 private fun etiquetaEstado(estado: String) = when (estado) {
     "Vigente" -> I18n.get("qis_estado_vigente")
@@ -102,6 +149,11 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
                     Input(InputType.Text) { placeholder(I18n.get("qis_ph_url")); value(f_url); onInput { f_url = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) } }
                     Input(InputType.Text) { placeholder(I18n.get("qis_ph_notas")); value(f_notas); onInput { f_notas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
                 }
+                Div({ style { display(DisplayStyle.Flex); gap(8.px); marginTop(8.px); alignItems(AlignItems.Center) } }) {
+                    Text(I18n.get("qis_archivo"))
+                    Input(InputType.File) { id("qis-alta-file"); attr("accept", ".pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg") }
+                    Span({ style { fontSize(11.px); color(Color.gray) } }) { Text(I18n.get("qis_archivo_hint")) }
+                }
                 Button({
                     style { marginTop(10.px); padding(9.px, 18.px); backgroundColor(Color("#0f766e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("600") }
                     onClick {
@@ -121,9 +173,22 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
                                         ))
                                     }
                                     if (resp.status.value in 200..299) {
+                                        val creado = resp.body<Map<String, String>>()
+                                        val nuevoId = creado["id"]
+                                        val archivo = (document.getElementById("qis-alta-file") as? HTMLInputElement)?.files?.item(0)
+                                        var subidaDrive = true
+                                        if (archivo != null && nuevoId != null) {
+                                            try {
+                                                val resDrive = subirArchivoQis(archivo, "$BACKEND_URL/api/v1/qis/documentos/$nuevoId/archivo")
+                                                if (resDrive.status != "ok") {
+                                                    subidaDrive = false
+                                                    error = (resDrive.message ?: I18n.get("qis_archivo_fallo"))
+                                                }
+                                            } catch (e: Exception) { subidaDrive = false; error = I18n.get("qis_archivo_fallo") + ": " + (e.message ?: "") }
+                                        }
                                         f_codigo = ""; f_titulo = ""; f_proceso = ""; f_emision = ""; f_revision = ""
                                         f_elab = ""; f_aprob = ""; f_url = ""; f_notas = ""
-                                        notice = I18n.get("qis_alta_ok")
+                                        notice = I18n.get("qis_alta_ok") + (if (subidaDrive && archivo != null) " " + I18n.get("qis_archivo_ok") else "")
                                         refresh()
                                     } else {
                                         val msg = resp.body<Map<String, String>>()
@@ -134,6 +199,42 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
                         }
                     }
                 }) { Text(I18n.get("qis_btn_alta")) }
+            }
+        }
+
+        // ===================== IMPORTAR LISTADO MAESTRO =====================
+        if (isAdmin) {
+            Div({ style { padding(18.px); backgroundColor(Color.white); borderRadius(10.px); property("border", "1px solid #e2e8f0"); marginBottom(16.px) } }) {
+                H3({ style { margin(0.px, 0.px, 10.px, 0.px); color(Color("#0f172a")) } }) { Text(I18n.get("qis_import_listado")) }
+                P({ style { fontSize(13.px); color(Color.gray); marginTop(0.px) } }) { Text(I18n.get("qis_import_hint")) }
+                Div({ style { display(DisplayStyle.Flex); gap(8.px); alignItems(AlignItems.Center) } }) {
+                    Input(InputType.File) { id("qis-import-listado"); attr("accept", ".xlsx,.xls") }
+                    Button({
+                        style { padding(8.px, 16.px); backgroundColor(Color("#0f766e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("600") }
+                        onClick {
+                            error = ""; notice = ""
+                            val file = (document.getElementById("qis-import-listado") as? HTMLInputElement)?.files?.item(0)
+                            if (file == null) {
+                                error = I18n.get("qis_import_sin_archivo")
+                            } else {
+                                scope.launch {
+                                    try {
+                                        val res = subirArchivoQis(file, "$BACKEND_URL/api/v1/qis/documentos/importar-listado")
+                                        if (res.status == "ok") {
+                                            notice = I18n.get("qis_import_ok")
+                                                .replace("{n}", res.creados?.toString() ?: "0")
+                                                .replace("{d}", res.omitidos?.toString() ?: "0")
+                                            if (res.drive == "error") notice += " " + I18n.get("qis_import_drive_error")
+                                            refresh()
+                                        } else {
+                                            error = res.message ?: I18n.get("qis_import_error")
+                                        }
+                                    } catch (e: Exception) { error = I18n.get("qis_import_error") + ": " + (e.message ?: "") }
+                                }
+                            }
+                        }
+                    }) { Text(I18n.get("qis_import_btn")) }
+                }
             }
         }
 
@@ -181,7 +282,14 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
                             Text(if (doc.proximaRevision.isBlank()) "-" else doc.proximaRevision)
                         }
                         Td({ style { padding(8.px, 10.px) } }) {
-                            if (doc.urlArchivo.isNotBlank()) A(href = doc.urlArchivo, { style { color(Color("#2563eb")); fontSize(12.px) } }) { Text(I18n.get("qis_ver")) } else Text("-")
+                            if (doc.urlArchivo.isNotBlank()) {
+                                if (doc.urlArchivo.startsWith("gdrive:")) {
+                                    A(href = "#", {
+                                        style { color(Color("#2563eb")); fontSize(12.px) }
+                                        onClick { ev -> ev.preventDefault(); abrirArchivoQis("$BACKEND_URL/api/v1/qis/documentos/${doc.id}/archivo") }
+                                    }) { Text(I18n.get("qis_ver")) }
+                                } else A(href = doc.urlArchivo, { style { color(Color("#2563eb")); fontSize(12.px) } }) { Text(I18n.get("qis_ver")) }
+                            } else Text("-")
                         }
                         Td({ style { padding(8.px, 10.px) } }) {
                             Button({
@@ -246,6 +354,23 @@ private fun QisDocDetail(client: HttpClient, scope: CoroutineScope, doc: QisDocu
                         }
                     }) { Text(etiquetaEstado(estado)) }
                 }
+            }
+            // Subir o actualizar el archivo controlado en Drive
+            Div({ style { display(DisplayStyle.Flex); gap(8.px); alignItems(AlignItems.Center); marginBottom(12.px) } }) {
+                Text(I18n.get("qis_subir_archivo"))
+                Input(InputType.File) { id("qis-doc-file-${doc.id}"); attr("accept", ".pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg") }
+                Button({
+                    style { padding(5.px, 12.px); backgroundColor(Color("#0f766e")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(11.px) }
+                    onClick {
+                        val file = (document.getElementById("qis-doc-file-${doc.id}") as? HTMLInputElement)?.files?.item(0)
+                        if (file != null) scope.launch {
+                            try {
+                                val res = subirArchivoQis(file, "$BACKEND_URL/api/v1/qis/documentos/${doc.id}/archivo")
+                                if (res.status == "ok") onDone()
+                            } catch (e: Exception) { println("QIS archivo: ${e.message}") }
+                        }
+                    }
+                }) { Text("OK") }
             }
             QisNewChangeForm(client, scope, doc, onDone)
         }
