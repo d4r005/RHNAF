@@ -202,7 +202,7 @@ class Translations(val lang: Language) {
         "it_security_grc" to "SAP Security / GRC",
         "financial_accounting" to "Accounting (FI)",
         "plant_maintenance" to "Plant Maintenance (PM)",
-        "recruitment_sap" to "Recruitment (HCM)",,
+        "recruitment_sap" to "Recruitment (HCM)",
         "nav_employees" to "Employees",
         "nav_attendance" to "Attendance",
         "pre_nomina" to "Pre-Payroll",
@@ -226,7 +226,7 @@ class Translations(val lang: Language) {
         "group_ops" to "OPERATIONS",
         "group_supply" to "SUPPLY & LOGISTICS",
         "group_fin" to "FINANCE",
-        "group_admin" to "ADMINISTRATION"
+        "group_admin" to "ADMINISTRATION",
         "ferreteria" to "Hardware & Supplies",
         "recepcion_mp" to "Raw Materials Reception"
     )
@@ -302,7 +302,7 @@ class Translations(val lang: Language) {
         "it_security_grc" to "SAP安全 / GRC",
         "financial_accounting" to "财务会计 (FI)",
         "plant_maintenance" to "工厂维护 (PM)",
-        "recruitment_sap" to "招聘 (HCM)",,
+        "recruitment_sap" to "招聘 (HCM)",
         "nav_employees" to "员工",
         "nav_attendance" to "考勤",
         "pre_nomina" to "预工资",
@@ -326,7 +326,7 @@ class Translations(val lang: Language) {
         "group_ops" to "运营",
         "group_supply" to "供应链与物流",
         "group_fin" to "财务",
-        "group_admin" to "管理"
+        "group_admin" to "管理",
         "ferreteria" to "五金工具与耗材",
         "recepcion_mp" to "原材料收货",
         "gts_trade" to "外贸 (GTS)"
