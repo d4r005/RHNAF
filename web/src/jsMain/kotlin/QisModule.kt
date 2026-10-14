@@ -20,6 +20,13 @@ import com.example.rhnaf.shared.model.*
  * nueva versión se registra con autor y aprobador (trazabilidad ISO 9001).
  * La escritura es de ADMIN; el resto de los roles solo consulta.
  */
+/** Etiqueta visible del estado segun el idioma activo. */
+private fun etiquetaEstado(estado: String) = when (estado) {
+    "Vigente" -> I18n.get("qis_estado_vigente")
+    "EnRevision" -> I18n.get("qis_estado_revision")
+    else -> I18n.get("qis_estado_obsoleto")
+}
+
 @Composable
 fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
     var docs by remember { mutableStateOf(emptyList<QisDocument>()) }
@@ -52,11 +59,6 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
     }
 
 
-    fun etiquetaEstado(estado: String) = when (estado) {
-        "Vigente" -> I18n.get("qis_estado_vigente")
-        "EnRevision" -> I18n.get("qis_estado_revision")
-        else -> I18n.get("qis_estado_obsoleto")
-    }
     fun hoyOrdenable(fecha: String): Boolean {
         // dd/MM/yyyy -> aaaaMMdd y comparar como texto con el dia de hoy
         val m = Regex("""^(\d{2})/(\d{2})/(\d{4})$""").find(fecha) ?: return false
