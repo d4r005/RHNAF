@@ -36,7 +36,7 @@ fun frecuenciaPorDepartamento(dept: String?): String {
     val esOficina = tiene(
         "oficina", "admin", "gerenc", "direc", "rh", "recurso", "humano",
         "sistema", "compra", "contab", "finanz", "comercial", "venta",
-        "import", "export"
+        "import", "export", "seguridad"
     )
     return if (esOficina) "Quincenal" else "Semanal"
 }
