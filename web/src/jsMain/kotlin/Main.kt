@@ -278,19 +278,19 @@ enum class Module {
     DASHBOARD, EHS_HOME, EHS_SEGURIDAD, EHS_SALUD, EHS_AMBIENTE, EHS_METRICS, EHS_CALENDAR, EHS_ACTIONS, EHS_CONTRACTORS, EHS_ALERTS, EHS_RATES, LEGAL_MATRIX, STPS, EHS_DOCUMENTS, GRC_SECURITY,
     CONTROLLING, PURCHASING, PRODUCTION, QUALITY, GTS_TRADE,
     FINANCIAL_ACCOUNTING, PLANT_MAINTENANCE, RECRUITMENT_SAP, EMPLOYEES, ATTENDANCE, PRE_NOMINA,
-    WAREHOUSE, SHIPPING, FERRETERIA, RECEPCION_MP, SETTINGS, USER_MGMT
+    WAREHOUSE, SHIPPING, FERRETERIA, RECEPCION_MP, SETTINGS, USER_MGMT, QIS_DOCS
 }
 
 enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, ALMACEN, IMPORT_EXPORT, FINANZAS }
 
 fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
-    if (role == UserRole.RH) return module in listOf(Module.DASHBOARD, Module.RECRUITMENT_SAP, Module.EMPLOYEES, Module.ATTENDANCE, Module.PRE_NOMINA, Module.SETTINGS)
-    if (role == UserRole.ALMACEN) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.SETTINGS)
-    if (role == UserRole.IMPORT_EXPORT) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.SETTINGS)
-    if (role == UserRole.FINANZAS) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.SETTINGS)
-    if (role == UserRole.SEGURIDAD) return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_METRICS, Module.EHS_CALENDAR, Module.EHS_ACTIONS, Module.EHS_CONTRACTORS, Module.EHS_ALERTS, Module.EHS_RATES, Module.LEGAL_MATRIX, Module.STPS, Module.EHS_DOCUMENTS, Module.SETTINGS)
-    return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.SETTINGS)
+    if (role == UserRole.RH) return module in listOf(Module.DASHBOARD, Module.RECRUITMENT_SAP, Module.EMPLOYEES, Module.ATTENDANCE, Module.PRE_NOMINA, Module.QIS_DOCS, Module.SETTINGS)
+    if (role == UserRole.ALMACEN) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
+    if (role == UserRole.IMPORT_EXPORT) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
+    if (role == UserRole.FINANZAS) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
+    if (role == UserRole.SEGURIDAD) return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_METRICS, Module.EHS_CALENDAR, Module.EHS_ACTIONS, Module.EHS_CONTRACTORS, Module.EHS_ALERTS, Module.EHS_RATES, Module.LEGAL_MATRIX, Module.STPS, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
+    return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
 }
 
 // CONFIGURACIÓN DE URL DE BACKEND
@@ -404,6 +404,7 @@ fun main() {
                             Module.STPS -> LegalMatrixModule(client, scope, fixedCategory = "STPS")
                             Module.LEGAL_MATRIX -> LegalMatrixModule(client, scope)
                             Module.GRC_SECURITY -> GrcSecurityModule(client, scope, t)
+                            Module.QIS_DOCS -> QisModule(client, scope, userRole == UserRole.ADMIN)
                             Module.CONTROLLING -> ControllingModule(client, scope, t)
                             Module.PURCHASING -> PurchasingModule(client, scope, t)
                             Module.PRODUCTION -> ProductionModule(client, scope, t)
@@ -481,6 +482,9 @@ fun Sidebar(active: Module, t: Translations, role: UserRole, onSelect: (Module) 
                 Module.LEGAL_MATRIX to "Matriz Legal",
                 Module.STPS to "Normas STPS",
                 Module.GRC_SECURITY to t.get("it_security_grc")
+            ))
+            SidebarGroup("CALIDAD", active, role, onSelect, listOf(
+                Module.QIS_DOCS to "QIS · Control de documentos"
             ))
             SidebarGroup("OPERACIONES", active, role, onSelect, listOf(
                 Module.PRODUCTION to t.get("production_planning"),

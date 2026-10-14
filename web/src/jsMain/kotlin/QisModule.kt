@@ -1,0 +1,322 @@
+import androidx.compose.runtime.*
+import org.jetbrains.compose.web.dom.*
+import org.jetbrains.compose.web.css.*
+import org.jetbrains.compose.web.attributes.*
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.*
+import io.ktor.http.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.browser.window
+import kotlinx.coroutines.launch
+import com.example.rhnaf.shared.model.*
+
+/**
+ * QIS - Quality Information System: control de documentos.
+ *
+ * Alta de documentos controlados (código único + versión), cambio de estado
+ * (Vigente/EnRevision/Obsoleto) y registro de cambios con historial por
+ * documento. El alta siempre genera la primera entrada del historial y cada
+ * nueva versión se registra con autor y aprobador (trazabilidad ISO 9001).
+ * La escritura es de ADMIN; el resto de los roles solo consulta.
+ */
+@Composable
+fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
+    var docs by remember { mutableStateOf(emptyList<QisDocument>()) }
+    var error by remember { mutableStateOf("") }
+    var notice by remember { mutableStateOf("") }
+    var filterEstado by remember { mutableStateOf("") }
+    var expandedDocId by remember { mutableStateOf(0) }
+    var refreshKey by remember { mutableStateOf(0) }
+
+    // Estados de formulario del alta
+    var f_codigo by remember { mutableStateOf("") }
+    var f_titulo by remember { mutableStateOf("") }
+    var f_tipo by remember { mutableStateOf("Procedimiento") }
+    var f_proceso by remember { mutableStateOf("") }
+    var f_emision by remember { mutableStateOf("") }
+    var f_revision by remember { mutableStateOf("") }
+    var f_elab by remember { mutableStateOf("") }
+    var f_aprob by remember { mutableStateOf("") }
+    var f_url by remember { mutableStateOf("") }
+    var f_notas by remember { mutableStateOf("") }
+
+    fun refresh() { refreshKey++ }
+    LaunchedEffect(refreshKey) {
+        try {
+            val url = if (filterEstado.isBlank()) "$BACKEND_URL/api/v1/qis/documentos"
+                      else "$BACKEND_URL/api/v1/qis/documentos?estado=$filterEstado"
+            docs = client.get(url).body()
+            error = ""
+        } catch (e: Exception) { error = "No se pudieron cargar los documentos: ${e.message ?: "error"}" }
+    }
+
+    fun hoyOrdenable(fecha: String): Boolean {
+        // dd/MM/yyyy -> yyyyMMdd para saber si la revisión ya venció
+        val m = Regex("""^(\d{2})/(\d{2})/(\d{4})$""").find(fecha) ?: return false
+        val (_, d, mes, a) = m.groupValues
+        val hoy = js("new Date()")
+        val yy = hoy.getFullYear(); val mm = hoy.getMonth() + 1; val dd = hoy.getDate()
+        val f = a.toInt() * 10000 + mes.toInt() * 100 + d.toInt()
+        val h = yy * 10000 + mm * 100 + dd
+        return f < h
+    }
+
+    Div {
+        H1({ style { color(Color("#0f172a")) } }) { Text("QIS · Control de documentos") }
+        P({ style { color(Color("#475569")) } }) {
+            Text("Sistema de gestión de calidad: alta de documentos controlados con código único y versión, control de vigencias y registro de cambios por trazabilidad. El historial de cada documento es inmutable.")
+        }
+        if (error.isNotBlank()) P({ style { color(Color("#b91c1c")) } }) { Text(error) }
+        if (notice.isNotBlank()) P({ style { color(Color("#047857")) } }) { Text(notice) }
+
+        // ===================== ALTA DE DOCUMENTO =====================
+        if (isAdmin) {
+            Div({ style { padding(18.px); backgroundColor(Color.white); borderRadius(10.px); property("border", "1px solid #e2e8f0"); marginBottom(16.px) } }) {
+                H3({ style { margin(0.px, 0.px, 10.px, 0.px); color(Color("#0f172a")) } }) { Text("Dar de alta un documento controlado") }
+                P({ style { fontSize(13.px); color(Color.gray); marginTop(0.px) } }) {
+                    Text("La versión inicial siempre es 1.0 y queda registrada en el historial como \"Alta del documento\". El código es único (p. ej. PRO-001).")
+                }
+                Div({ style { display(DisplayStyle.Flex); flexWrap(FlexWrap.Wrap); gap(8.px) } }) {
+                    Input(InputType.Text) { placeholder("Código * (PRO-001)"); value(f_codigo); onInput { f_codigo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
+                    Input(InputType.Text) { placeholder("Título *"); value(f_titulo); onInput { f_titulo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) } }
+                    Select({
+                        style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) }
+                        onChange { f_tipo = it.value ?: "Procedimiento" }
+                    }) {
+                        listOf("Procedimiento", "Instructivo", "Formato", "Politica", "Manual", "Plan", "Registro", "Otro").forEach {
+                            Option(it) { Text(it) }
+                        }
+                    }
+                    Input(InputType.Text) { placeholder("Proceso / área"); value(f_proceso); onInput { f_proceso = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+                    Input(InputType.Text) { placeholder("Emisión (dd/MM/aaaa) *"); value(f_emision); onInput { f_emision = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+                    Input(InputType.Text) { placeholder("Próxima revisión (dd/MM/aaaa)"); value(f_revision); onInput { f_revision = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(160.px) } }
+                    Input(InputType.Text) { placeholder("Elaboró *"); value(f_elab); onInput { f_elab = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+                    Input(InputType.Text) { placeholder("Aprobó"); value(f_aprob); onInput { f_aprob = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+                    Input(InputType.Text) { placeholder("URL PDF en Drive (https://...)"); value(f_url); onInput { f_url = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) } }
+                    Input(InputType.Text) { placeholder("Notas"); value(f_notas); onInput { f_notas = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(200.px) } }
+                }
+                Button({
+                    style { marginTop(10.px); padding(9.px, 18.px); backgroundColor(Color("#0f766e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("600") }
+                    onClick {
+                        error = ""; notice = ""
+                        if (f_codigo.isBlank() || f_titulo.isBlank() || f_emision.isBlank() || f_elab.isBlank()) {
+                            error = "Código, título, fecha de emisión y elaboró son obligatorios."
+                        } else {
+                            scope.launch {
+                                try {
+                                    val resp = client.post("$BACKEND_URL/api/v1/qis/documentos") {
+                                        contentType(ContentType.Application.Json)
+                                        setBody(QisDocumentRequest(
+                                            codigo = f_codigo.trim(), titulo = f_titulo.trim(), tipo = f_tipo,
+                                            proceso = f_proceso.trim(), fechaEmision = f_emision.trim(),
+                                            proximaRevision = f_revision.trim(), elaboradoPor = f_elab.trim(),
+                                            aprobadoPor = f_aprob.trim(), urlArchivo = f_url.trim(), notas = f_notas.trim()
+                                        ))
+                                    }
+                                    if (resp.status.value in 200..299) {
+                                        f_codigo = ""; f_titulo = ""; f_proceso = ""; f_emision = ""; f_revision = ""
+                                        f_elab = ""; f_aprob = ""; f_url = ""; f_notas = ""
+                                        notice = "Documento dado de alta en versión 1.0."
+                                        refresh()
+                                    } else {
+                                        val msg = resp.body<Map<String, String>>()
+                                        error = msg["message"] ?: "No se pudo dar de alta (${resp.status.value})"
+                                    }
+                                } catch (e: Exception) { error = "Error: ${e.message}" }
+                            }
+                        }
+                    }
+                }) { Text("+ Dar de alta") }
+            }
+        }
+
+        // ===================== LISTADO =====================
+        Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(10.px); alignItems(AlignItems.Center) } }) {
+            Span({ style { color(Color("#475569")) } }) { Text("Filtrar por estado:") }
+            Select({
+                style { padding(6.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") }
+                onChange { filterEstado = it.value ?: ""; refresh() }
+            }) {
+                Option("") { Text("Todos") }
+                Option("Vigente") { Text("Vigentes") }
+                Option("EnRevision") { Text("En revisión") }
+                Option("Obsoleto") { Text("Obsoletos") }
+            }
+            Span({ style { marginLeft(12.px); color(Color.gray); fontSize(13.px) } }) { Text("${docs.size} documentos") }
+        }
+
+        Table({ style { width(100.percent); property("border-collapse", "collapse"); backgroundColor(Color.white); borderRadius(8.px); property("border", "1px solid #e2e8f0") } }) {
+            Thead {
+                Tr({ style { property("border-bottom", "2px solid #e2e8f0"); textAlign("left") } }) {
+                    listOf("Código", "Título", "Tipo", "Proceso", "Versión", "Estado", "Emisión", "Próx. revisión", "PDF", "Cambios", "").forEach {
+                        Th({ style { padding(8.px, 10.px); fontSize(12.px); color(Color("#64748b")) } }) { Text(it) }
+                    }
+                }
+            }
+            Tbody {
+                docs.forEach { doc ->
+                    val (estadoColor, estadoTexto) = when (doc.estado) {
+                        "Vigente" -> Color("#047857") to "Vigente"
+                        "EnRevision" -> Color("#b45309") to "En revisión"
+                        else -> Color("#6b7280") to "Obsoleto"
+                    }
+                    Tr({ style { property("border-bottom", "1px solid #f1f5f9") } }) {
+                        Td({ style { padding(8.px, 10.px); fontWeight("600") } }) { Text(doc.codigo) }
+                        Td({ style { padding(8.px, 10.px) } }) { Text(doc.titulo) }
+                        Td({ style { padding(8.px, 10.px) } }) { Text(doc.tipo) }
+                        Td({ style { padding(8.px, 10.px) } }) { Text(doc.proceso) }
+                        Td({ style { padding(8.px, 10.px); fontWeight("600") } }) { Text(doc.versionActual) }
+                        Td({ style { padding(8.px, 10.px) } }) {
+                            Span({ style { backgroundColor(estadoColor); color(Color.white); padding(2.px, 8.px); borderRadius(10.px); fontSize(11.px) } }) { Text(estadoTexto) }
+                        }
+                        Td({ style { padding(8.px, 10.px); fontSize(13.px) } }) { Text(doc.fechaEmision) }
+                        Td({ style { padding(8.px, 10.px); fontSize(13.px); color(if (hoyOrdenable(doc.proximaRevision)) Color("#dc2626") else Color("#334155")) } }) {
+                            Text(if (doc.proximaRevision.isBlank()) "-" else doc.proximaRevision)
+                        }
+                        Td({ style { padding(8.px, 10.px) } }) {
+                            if (doc.urlArchivo.isNotBlank()) A(href = doc.urlArchivo, { style { color(Color("#2563eb")); fontSize(12.px) } }) { Text("Ver") } else Text("-")
+                        }
+                        Td({ style { padding(8.px, 10.px) } }) {
+                            Button({
+                                style { padding(3.px, 8.px); backgroundColor(if (expandedDocId == doc.id) Color("#334155") else Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(11.px) }
+                                onClick { expandedDocId = if (expandedDocId == doc.id) 0 else doc.id }
+                            }) { Text("Historial") }
+                        }
+                        Td({ style { padding(8.px, 10.px) } }) {
+                            if (isAdmin) Button({
+                                style { padding(4.px, 10.px); backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(11.px) }
+                                onClick {
+                                    if (window.confirm("¿Borrar el documento ${doc.codigo}? Borra también su historial. Para retiro oficial usa \"Obsoleto\".")) {
+                                        scope.launch {
+                                            try {
+                                                client.delete("$BACKEND_URL/api/v1/qis/documentos/${doc.id}")
+                                                refresh()
+                                            } catch (e: Exception) { error = "Error al borrar: ${e.message}" }
+                                        }
+                                    }
+                                }
+                            }) { Text("X") } else Text("")
+                        }
+                    }
+                    // Fila expandible: estado, historial y (ADMIN) nuevo cambio
+                    if (expandedDocId == doc.id) {
+                        Tr {
+                            Td({ attr("colspan", "11"); style { padding(14.px, 16.px); backgroundColor(Color("#f8fafc")) } }) {
+                                QisDocDetail(client, scope, doc, isAdmin) { expandedDocId = 0; refresh() }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Detalle expandido: control de estado, historial de cambios y nuevo cambio de versión.
+@Composable
+private fun QisDocDetail(client: HttpClient, scope: CoroutineScope, doc: QisDocument, isAdmin: Boolean, onDone: () -> Unit) {
+    var cambios by remember(doc.id) { mutableStateOf(emptyList<QisChangeRecord>()) }
+    LaunchedEffect(doc.id, doc.versionActual) {
+        try {
+            cambios = client.get("$BACKEND_URL/api/v1/qis/documentos/${doc.id}/cambios").body()
+        } catch (e: Exception) { println("QIS cambios: ${e.message}") }
+    }
+
+    Div {
+        if (isAdmin) {
+            Div({ style { display(DisplayStyle.Flex); gap(6.px); alignItems(AlignItems.Center); marginBottom(12.px) } }) {
+                Text("Estado:")
+                listOf("Vigente", "EnRevision", "Obsoleto").forEach { estado ->
+                    Button({
+                        style { padding(4.px, 10.px); backgroundColor(if (doc.estado == estado) Color("#0f766e") else Color("#e2e8f0")); color(if (doc.estado == estado) Color.white else Color("#334155")); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(11.px) }
+                        onClick {
+                            scope.launch {
+                                try {
+                                    client.patch("$BACKEND_URL/api/v1/qis/documentos/${doc.id}/estado?estado=$estado")
+                                    onDone()
+                                } catch (e: Exception) { println("QIS estado: ${e.message}") }
+                            }
+                        }
+                    }) { Text(if (estado == "EnRevision") "En revisión" else estado) }
+                }
+            }
+            QisNewChangeForm(client, scope, doc, onDone)
+        }
+
+        H4({ style { margin(14.px, 0.px, 6.px, 0.px) } }) { Text("Registro de cambios (${cambios.size})") }
+        if (cambios.isEmpty()) P({ style { fontSize(13.px); color(Color.gray) } }) { Text("Sin cambios registrados.") }
+        else Table({ style { width(100.percent); property("border-collapse", "collapse") } }) {
+            Thead {
+                Tr({ style { textAlign("left") } }) {
+                    listOf("Versión", "Fecha", "Descripción", "Cambió", "Aprobó").forEach {
+                        Th({ style { padding(6.px, 8.px); fontSize(11.px); color(Color("#64748b")); property("border-bottom", "1px solid #e2e8f0") } }) { Text(it) }
+                    }
+                }
+            }
+            Tbody {
+                cambios.forEach { c ->
+                    Tr {
+                        Td({ style { padding(6.px, 8.px); fontSize(13.px); property("white-space", "nowrap") } }) { Text("${c.versionAnterior} → ${c.versionNueva}") }
+                        Td({ style { padding(6.px, 8.px); fontSize(13.px); property("white-space", "nowrap") } }) { Text(c.fechaCambio) }
+                        Td({ style { padding(6.px, 8.px); fontSize(13.px) } }) { Text(c.descripcion) }
+                        Td({ style { padding(6.px, 8.px); fontSize(13.px) } }) { Text(c.cambiadoPor) }
+                        Td({ style { padding(6.px, 8.px); fontSize(13.px) } }) { Text(c.aprobadoPor) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Registro de nueva versión: actualiza la vigente y guarda la fila del historial.
+@Composable
+private fun QisNewChangeForm(client: HttpClient, scope: CoroutineScope, doc: QisDocument, onDone: () -> Unit) {
+    var c_version by remember(doc.id) { mutableStateOf("") }
+    var c_fecha by remember(doc.id) { mutableStateOf("") }
+    var c_desc by remember(doc.id) { mutableStateOf("") }
+    var c_quien by remember(doc.id) { mutableStateOf("") }
+    var c_aprob by remember(doc.id) { mutableStateOf("") }
+    var c_url by remember(doc.id) { mutableStateOf("") }
+    var msg by remember(doc.id) { mutableStateOf("") }
+
+    Div({ style { padding(12.px); backgroundColor(Color.white); borderRadius(8.px); property("border", "1px solid #e2e8f0") } }) {
+        H4({ style { margin(0.px, 0.px, 8.px, 0.px) } }) { Text("Registrar nueva versión (actual: ${doc.versionActual})") }
+        Div({ style { display(DisplayStyle.Flex); flexWrap(FlexWrap.Wrap); gap(8.px) } }) {
+            Input(InputType.Text) { placeholder("Nueva versión (N.N) *"); value(c_version); onInput { c_version = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) } }
+            Input(InputType.Text) { placeholder("Fecha (dd/MM/aaaa)"); value(c_fecha); onInput { c_fecha = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(140.px) } }
+            Input(InputType.Text) { placeholder("Descripción del cambio *"); value(c_desc); onInput { c_desc = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(260.px) } }
+            Input(InputType.Text) { placeholder("Realizó el cambio *"); value(c_quien); onInput { c_quien = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+            Input(InputType.Text) { placeholder("Aprobó"); value(c_aprob); onInput { c_aprob = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(150.px) } }
+            Input(InputType.Text) { placeholder("Nueva URL del PDF (opcional)"); value(c_url); onInput { c_url = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+        }
+        Button({
+            style { marginTop(10.px); padding(8.px, 16.px); backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("600") }
+            onClick {
+                msg = ""
+                if (c_version.isBlank() || c_desc.isBlank() || c_quien.isBlank()) {
+                    msg = "Versión, descripción y realizador son obligatorios."
+                } else {
+                    scope.launch {
+                        try {
+                            val resp = client.post("$BACKEND_URL/api/v1/qis/documentos/${doc.id}/cambios") {
+                                contentType(ContentType.Application.Json)
+                                setBody(QisChangeRequest(
+                                    versionNueva = c_version.trim(), fechaCambio = c_fecha.trim(),
+                                    descripcion = c_desc.trim(), cambiadoPor = c_quien.trim(),
+                                    aprobadoPor = c_aprob.trim(), nuevaUrlArchivo = c_url.trim()
+                                ))
+                            }
+                            if (resp.status.value in 200..299) onDone()
+                            else {
+                                val m = resp.body<Map<String, String>>()
+                                msg = m["message"] ?: "No se pudo registrar el cambio (${resp.status.value})"
+                            }
+                        } catch (e: Exception) { msg = "Error: ${e.message}" }
+                    }
+                }
+            }
+        }) { Text("Registrar cambio") }
+        if (msg.isNotBlank()) Span({ style { marginLeft(10.px); color(Color("#b91c1c")); fontSize(12.px) } }) { Text(msg) }
+    }
+}
