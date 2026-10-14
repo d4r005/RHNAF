@@ -569,16 +569,18 @@ fun Route.prePayrollRouting() {
                 PayrollOverrideTable.selectAll()
                     .filter { it[PayrollOverrideTable.periodoInicio] == inicioStr && it[PayrollOverrideTable.periodoFin] == finStr }
                     .map {
+                        // Todos los valores como texto: kotlinx no puede serializar
+                        // colecciones con tipos mezclados (String/Double/Int).
                         mapOf(
                             "employeeId" to it[PayrollOverrideTable.employeeId],
-                            "isr" to it[PayrollOverrideTable.isr],
-                            "imss" to it[PayrollOverrideTable.imss],
-                            "anticipo" to it[PayrollOverrideTable.anticipo],
-                            "otros" to it[PayrollOverrideTable.otros],
-                            "infonavit" to it[PayrollOverrideTable.infonavit],
-                            "fondoAhorro" to it[PayrollOverrideTable.fondoAhorro],
-                            "fonacot" to it[PayrollOverrideTable.fonacot],
-                            "diasProyectados" to it[PayrollOverrideTable.diasProyectados]
+                            "isr" to (it[PayrollOverrideTable.isr]?.toString() ?: ""),
+                            "imss" to (it[PayrollOverrideTable.imss]?.toString() ?: ""),
+                            "anticipo" to it[PayrollOverrideTable.anticipo].toString(),
+                            "otros" to it[PayrollOverrideTable.otros].toString(),
+                            "infonavit" to (it[PayrollOverrideTable.infonavit]?.toString() ?: ""),
+                            "fondoAhorro" to (it[PayrollOverrideTable.fondoAhorro]?.toString() ?: ""),
+                            "fonacot" to (it[PayrollOverrideTable.fonacot]?.toString() ?: ""),
+                            "diasProyectados" to it[PayrollOverrideTable.diasProyectados].toString()
                         )
                     }
             }
