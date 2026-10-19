@@ -91,6 +91,24 @@ fun Route.prePayrollRouting() {
                 }
                 call.respond(mapOf("status" to "ok"))
             }
+            put("/{id}") {
+                val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest)
+                val item = call.receive<Shift>()
+                DatabaseFactory.dbQuery {
+                    ShiftTable.update({ ShiftTable.id eq id }) {
+                        it[nombre] = item.nombre
+                        it[horaEntrada] = item.horaEntrada
+                        it[horaSalida] = item.horaSalida
+                        it[minutoTolerancia] = item.minutoTolerancia
+                        it[minutosComida] = item.minutosComida
+                        it[tipoTurno] = item.tipoTurno
+                        it[horaEntrada2] = item.horaEntrada2
+                        it[horaSalida2] = item.horaSalida2
+                        it[activo] = item.activo
+                    }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
             delete("/{id}") {
                 val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
                 DatabaseFactory.dbQuery { ShiftTable.deleteWhere { ShiftTable.id eq id } }

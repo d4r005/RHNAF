@@ -85,6 +85,7 @@ fun TurnosTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canE
     var f_tolerancia by remember { mutableStateOf("0") }
     var f_comida by remember { mutableStateOf("60") }
     var f_tipo by remember { mutableStateOf("Fijo") }
+    var editando by remember { mutableStateOf<Shift?>(null) }
 
     if (canEdit) {
         Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
@@ -123,11 +124,65 @@ fun TurnosTab(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope, canE
                         Td { Text(s.nombre) }; Td { Text(s.horaEntrada) }; Td { Text(s.horaSalida) }
                         Td { Text("${s.minutoTolerancia} min") }; Td { Text("${s.minutosComida} min") }; Td { Text(s.tipoTurno) }
                         if (canEdit) Td {
+                            Button({ style { backgroundColor(Color("#337ab7")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer"); marginRight(4.px) }
+                                onClick { editando = s }
+                            }) { Text("Editar") }
                             Button({ style { backgroundColor(Color("#ef4444")); color(Color.white); property("border", "none"); borderRadius(4.px); padding(4.px, 10.px); cursor("pointer") }
                                 onClick { scope.launch { client.delete("$BACKEND_URL/api/v1/pre-nomina/turnos/${s.id}"); refreshKey++ } }
                             }) { Text("Eliminar") }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // --- DIALOG: Editar turno ---
+    editando?.let { s ->
+        var e_nombre by remember(s.id) { mutableStateOf(s.nombre) }
+        var e_entrada by remember(s.id) { mutableStateOf(s.horaEntrada) }
+        var e_salida by remember(s.id) { mutableStateOf(s.horaSalida) }
+        var e_tolerancia by remember(s.id) { mutableStateOf(s.minutoTolerancia.toString()) }
+        var e_comida by remember(s.id) { mutableStateOf(s.minutosComida.toString()) }
+        var e_tipo by remember(s.id) { mutableStateOf(if (s.tipoTurno.isBlank()) "Fijo" else s.tipoTurno) }
+        Div({
+            style {
+                position(Position.Fixed); top(0.px); left(0.px); width(100.vw); height(100.vh)
+                backgroundColor(Color("rgba(0,0,0,0.5)")); display(DisplayStyle.Flex)
+                alignItems(AlignItems.Center); justifyContent(JustifyContent.Center); property("z-index", "999")
+            }
+        }) {
+            Div({ style { backgroundColor(Color.white); borderRadius(12.px); padding(28.px); width(440.px); maxWidth("90vw") } }) {
+                H4({ style { margin(0.px, 0.px, 4.px, 0.px) } }) { Text("Editar Turno") }
+                P({ style { color(Color.gray); margin(0.px, 0.px, 16.px, 0.px); fontSize(13.px) } }) {
+                    Text("Los cambios aplican al c\u00e1lculo de pre-n\u00f3mina en el siguiente rec\u00e1lculo del periodo.")
+                }
+                Input(InputType.Text) { placeholder("Nombre"); value(e_nombre); onInput { e_nombre = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.percent); marginBottom(8.px) } }
+                Input(InputType.Text) { placeholder("Entrada HH:MM"); value(e_entrada); onInput { e_entrada = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.percent); marginBottom(8.px) } }
+                Input(InputType.Text) { placeholder("Salida HH:MM"); value(e_salida); onInput { e_salida = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.percent); marginBottom(8.px) } }
+                Input(InputType.Text) { placeholder("Tolerancia min"); value(e_tolerancia); onInput { e_tolerancia = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.percent); marginBottom(8.px) } }
+                Input(InputType.Text) { placeholder("Comida min"); value(e_comida); onInput { e_comida = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.percent); marginBottom(8.px) } }
+                Input(InputType.Text) { placeholder("Tipo (Fijo/Quebrado/Rotativo/24h)"); value(e_tipo); onInput { e_tipo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.percent); marginBottom(8.px) } }
+                Div({ style { display(DisplayStyle.Flex); gap(8.px); justifyContent(JustifyContent.End); marginTop(16.px) } }) {
+                    Button({ style { padding(8.px, 16.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); backgroundColor(Color.white); color(Color("#334155")); cursor("pointer") }
+                        onClick { editando = null }
+                    }) { Text("Cancelar") }
+                    Button({ style { padding(8.px, 16.px); borderRadius(6.px); property("border", "none"); backgroundColor(SidebarActiveColor); color(Color.white); cursor("pointer"); fontWeight("bold") }
+                        onClick {
+                            if (e_nombre.isNotBlank() && e_entrada.isNotBlank() && e_salida.isNotBlank()) {
+                                scope.launch {
+                                    try {
+                                        client.put("$BACKEND_URL/api/v1/pre-nomina/turnos/${s.id}") {
+                                            contentType(ContentType.Application.Json)
+                                            setBody(Shift(id = s.id, nombre = e_nombre, horaEntrada = e_entrada, horaSalida = e_salida, minutoTolerancia = e_tolerancia.toIntOrNull() ?: 0, minutosComida = e_comida.toIntOrNull() ?: 60, tipoTurno = e_tipo))
+                                        }
+                                    } catch (e: Exception) { println("Error editando turno: ${e.message}") }
+                                    editando = null
+                                    refreshKey++
+                                }
+                            }
+                        }
+                    }) { Text("Guardar Cambios") }
                 }
             }
         }
