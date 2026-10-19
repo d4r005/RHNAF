@@ -60,6 +60,7 @@ class Translations(val lang: Language) {
         "back" to "Regresar",
         "profile_settings" to "Configuración de Perfil",
         "select_avatar" to "Seleccionar Avatar Profesional",
+        "employee_photo" to "Foto del Personal",
         "display_name" to "Nombre a mostrar",
         "select_lang" to "Idioma del Sistema",
         "ai_analysis" to "Análisis Inteligente",
@@ -317,6 +318,7 @@ class Translations(val lang: Language) {
         "back" to "Go Back",
         "profile_settings" to "Profile Settings",
         "select_avatar" to "Select Professional Avatar",
+        "employee_photo" to "Employee Photo",
         "display_name" to "Display Name",
         "select_lang" to "System Language",
         "ai_analysis" to "AI Analysis",
@@ -574,6 +576,7 @@ class Translations(val lang: Language) {
         "back" to "返回",
         "profile_settings" to "个人资料设置",
         "select_avatar" to "选择专业头像",
+        "employee_photo" to "员工照片",
         "display_name" to "显示名称",
         "select_lang" to "系统语言",
         "ai_analysis" to "智能分析",
@@ -969,10 +972,18 @@ fun main() {
                             Module.FERRETERIA -> FerreteriaModule(client, scope, t)
                             Module.RECEPCION_MP -> RecepcionMpModule(client, scope, t)
                             Module.USER_MGMT -> UserMgmtModule(client, scope, t, authToken)
-                            Module.SETTINGS -> SettingsView(userName, userAvatar, currentLang, { userName = it }, { userAvatar = it }, { 
-                                currentLang = it
-                                window.localStorage.setItem("naf_lang", it.name)
-                            }, t)
+                            Module.SETTINGS -> {
+                                // Foto real del empleado (sincronizada de la lectora Hikvision)
+                                val empActual = employees.firstOrNull {
+                                    ("${it.firstName} ${it.lastName}").equals(userName, ignoreCase = true)
+                                } ?: employees.firstOrNull {
+                                    userName.isNotBlank() && ("${it.firstName} ${it.lastName}").contains(userName, ignoreCase = true)
+                                }
+                                SettingsView(userName, userAvatar, currentLang, empActual?.photoUrl, { userName = it }, { userAvatar = it }, {
+                                    currentLang = it
+                                    window.localStorage.setItem("naf_lang", it.name)
+                                }, t)
+                            }
                         }
                     }
                 }
@@ -1419,9 +1430,10 @@ fun LoginScreen(t: Translations, onLogin: (String, String, Boolean) -> Unit) {
 }
 
 @Composable
-fun SettingsView(name: String, avatar: String, lang: Language, onNameChange: (String) -> Unit, onAvatarChange: (String) -> Unit, onLangChange: (Language) -> Unit, t: Translations) {
+fun SettingsView(name: String, avatar: String, lang: Language, photoUrl: String?, onNameChange: (String) -> Unit, onAvatarChange: (String) -> Unit, onLangChange: (Language) -> Unit, t: Translations) {
     var tempName by remember { mutableStateOf(name) }
-    var tempAvatar by remember { mutableStateOf(avatar) }
+    // Foto real del personal; el avatar solo es respaldo si no hay foto registrada
+    val fotoPerfil = photoUrl?.takeIf { it.isNotBlank() } ?: avatar
     var tempLang by remember { mutableStateOf(lang) }
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(16.px); property("box-shadow", CardShadow) } }) {
@@ -1431,7 +1443,7 @@ fun SettingsView(name: String, avatar: String, lang: Language, onNameChange: (St
         Div({ style { display(DisplayStyle.Flex); gap(40.px); alignItems(AlignItems.Center) } }) {
             // Avatar Actual
             Div({ style { textAlign("center") } }) {
-                Img(src = tempAvatar) {
+                Img(src = fotoPerfil) {
                     style { width(120.px); height(120.px); borderRadius(50.percent); property("border", "4px solid $SidebarActiveColor"); marginBottom(16.px) }
                 }
                 P({ style { fontWeight("bold"); margin(0.px) } }) { Text(tempName) }
@@ -1439,21 +1451,18 @@ fun SettingsView(name: String, avatar: String, lang: Language, onNameChange: (St
             
             // Selector de Avatares
             Div({ style { flex(1) } }) {
-                H4 { Text(t.get("select_avatar")) }
-                Div({ style { display(DisplayStyle.Flex); gap(12.px); flexWrap(FlexWrap.Wrap) } }) {
-                    val avatars = listOf(
-                        "Felix", "Jace", "Jack", "Aneka", "Caleb", "Aiden", "Liza", "Mia", "Zoey", "Max", "Toby", "Coco"
-                    ).map { "https://api.dicebear.com/7.x/avataaars/svg?seed=$it" }
-
-                    avatars.forEach { url ->
-                        Img(src = url) {
-                            style { 
-                                width(52.px); height(52.px); borderRadius(50.percent); cursor("pointer")
-                                property("border", if (url == tempAvatar) "3px solid $SidebarActiveColor" else "1px solid #ddd")
-                                property("transition", "all 0.2s")
-                                if (url == tempAvatar) property("transform", "scale(1.1)")
-                            }
-                            onClick { tempAvatar = url }
+                H4 { Text(t.get("employee_photo")) }
+                Div({ style { display(DisplayStyle.Flex); gap(16.px); alignItems(AlignItems.Center); padding(12.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px); property("border", "1px solid #e2e8f0") } }) {
+                    if (photoUrl.isNullOrBlank()) {
+                        P({ style { color(Color.gray); fontSize(13.px); margin(0.px) } }) {
+                            Text("Sin foto registrada para este usuario. La foto se obtiene automaticamente de la lectora Hikvision al enrolar al personal.")
+                        }
+                    } else {
+                        Img(src = fotoPerfil) {
+                            style { width(72.px); height(72.px); borderRadius(8.px); property("object-fit", "cover"); property("border", "2px solid $SidebarActiveColor") }
+                        }
+                        P({ style { color(Color.gray); fontSize(13.px); margin(0.px) } }) {
+                            Text("Fotografia oficial registrada en la lectora Hikvision.")
                         }
                     }
                 }
@@ -1488,10 +1497,10 @@ fun SettingsView(name: String, avatar: String, lang: Language, onNameChange: (St
                     }
                     onClick {
                         onNameChange(tempName)
-                        onAvatarChange(tempAvatar)
+                        onAvatarChange(fotoPerfil)
                         onLangChange(tempLang)
                         window.localStorage.setItem("naf_user_name", tempName)
-                        window.localStorage.setItem("naf_user_avatar", tempAvatar)
+                        window.localStorage.setItem("naf_user_avatar", fotoPerfil)
                         window.localStorage.setItem("naf_lang", tempLang.name)
                         window.alert("Configuración guardada exitosamente.")
                     }
