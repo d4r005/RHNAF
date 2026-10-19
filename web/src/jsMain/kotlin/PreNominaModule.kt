@@ -32,7 +32,7 @@ fun PreNominaModule(client: HttpClient, scope: kotlinx.coroutines.CoroutineScope
     var tab by remember { mutableStateOf(PreNominaTab.TURNOS) }
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(12.px); property("box-shadow", CardShadow) } }) {
-        H3({ style { margin(0.px, 0.px, 4.px, 0.px) } }) { Text("Pre-Nómina (estilo PreAsyst)") }
+        H3({ style { margin(0.px, 0.px, 4.px, 0.px) } }) { Text("Pre-Nómina") }
         P({ style { color(Color.gray); margin(0.px, 0.px, 16.px, 0.px); fontSize(14.px) } }) {
             Text("Gestión de turnos, políticas, incidencias y cálculo de pre-nómina")
         }

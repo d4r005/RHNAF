@@ -50,6 +50,7 @@ fun EmployeeModule(
     var isLoading by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }
+    var statusFilter by remember { mutableStateOf("Activos") }
     var currentPage by remember { mutableStateOf(1) }
     val pageSize = 50
     var selectedEmployee by remember { mutableStateOf<Employee?>(null) }
@@ -91,6 +92,11 @@ fun EmployeeModule(
         }
     }
 
+    // REINGRESO: reactivar un empleado que estaba inactivo conservando su ficha
+    fun reactivateEmployee(emp: Employee) {
+        updateEmployee(emp.copy(status = EmployeeStatus.ACTIVE))
+    }
+
     fun deleteEmployee(id: String) {
         scope.launch {
             try {
@@ -112,11 +118,14 @@ fun EmployeeModule(
     val withPhoto = employees.count { !it.photoUrl.isNullOrBlank() }
     val withoutPhoto = employees.size - withPhoto
 
+    val inactiveCount = employees.count { it.status == EmployeeStatus.INACTIVE }
+    val activeCount = employees.size - inactiveCount
     val filtered = employees.filter { e ->
-        searchQuery.isBlank() ||
+        val porEstatus = if (statusFilter == "Inactivos") e.status == EmployeeStatus.INACTIVE else e.status != EmployeeStatus.INACTIVE
+        porEstatus && (searchQuery.isBlank() ||
             e.id.contains(searchQuery, ignoreCase = true) ||
             "${e.firstName} ${e.lastName}".contains(searchQuery, ignoreCase = true) ||
-            e.department.contains(searchQuery, ignoreCase = true)
+            e.department.contains(searchQuery, ignoreCase = true))
     }.sortedBy { it.id }
 
     val canManage = canManageEmployees(userRole)
@@ -133,6 +142,22 @@ fun EmployeeModule(
             EmpStatCard("Total Empleados", employees.size.toString())
             EmpStatCard("Con Foto", withPhoto.toString())
             EmpStatCard("Sin Foto", withoutPhoto.toString())
+        }
+
+        // Panel de estatus: ver solo Activos o solo Inactivos (reingresos)
+        Div({ style { display(DisplayStyle.Flex); gap(8.px); marginBottom(16.px); alignItems(AlignItems.Center) } }) {
+            listOf("Activos" to activeCount, "Inactivos" to inactiveCount).forEach { (tab, n) ->
+                val activo = statusFilter == tab
+                Button({
+                    style {
+                        padding(7.px, 14.px); borderRadius(6.px); cursor("pointer"); fontWeight("bold"); fontSize(12.px)
+                        property("border", if (activo) "none" else "1px solid #cbd5e1")
+                        backgroundColor(if (activo) SidebarActiveColor else Color("#f1f5f9"))
+                        color(if (activo) Color.white else Color("#475569"))
+                    }
+                    onClick { statusFilter = tab; currentPage = 1 }
+                }) { Text("$tab ($n)") }
+            }
         }
 
         Div({ style { display(DisplayStyle.Flex); gap(12.px); marginBottom(20.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.Center) } }) {
@@ -190,6 +215,7 @@ fun EmployeeModule(
                             EmployeeRow(emp, canManage,
                                 onEdit = { selectedEmployee = emp; showEditDialog = true },
                                 onBaja = { selectedEmployee = emp; showBajaDialog = true },
+                                onReactivar = { reactivateEmployee(emp) },
                                 onDelete = { selectedEmployee = emp; showDeleteDialog = true }
                             )
                         }
@@ -498,7 +524,7 @@ fun EmployeeModule(
 }
 
 @Composable
-fun EmployeeRow(emp: Employee, canManage: Boolean, onEdit: () -> Unit, onBaja: () -> Unit, onDelete: () -> Unit) {
+fun EmployeeRow(emp: Employee, canManage: Boolean, onEdit: () -> Unit, onBaja: () -> Unit, onReactivar: () -> Unit, onDelete: () -> Unit) {
     Tr({
         style {
             property("border-bottom", "1px solid #f1f5f9")
@@ -573,6 +599,14 @@ fun EmployeeRow(emp: Employee, canManage: Boolean, onEdit: () -> Unit, onBaja: (
                             }
                             onClick { onBaja() }
                         }) { Text("Baja") }
+                    } else if (emp.status == EmployeeStatus.INACTIVE) {
+                        Button({
+                            style {
+                                padding(4.px, 10.px); borderRadius(6.px); fontSize(11.px); cursor("pointer"); fontWeight("bold")
+                                property("border", "1px solid #16a34a"); backgroundColor(Color.white); color(Color("#16a34a"))
+                            }
+                            onClick { onReactivar() }
+                        }) { Text("Reactivar") }
                     }
                     Button({
                         style {
