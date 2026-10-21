@@ -446,13 +446,18 @@ fun Route.lockerRouting() {
                         }
                     }
                 }
-                call.respond(mapOf(
-                    "status" to "ok",
-                    "actualizadosPorId" to res.porId.toString(),
-                    "actualizadosPorNombre" to res.porNombre.toString(),
-                    "sinCambio" to res.sinCambio.toString(),
-                    "noEncontrados" to noEncontrados
-                ))
+                call.respond(kotlinx.serialization.json.JsonObject(mapOf(
+                    "status" to kotlinx.serialization.json.JsonPrimitive("ok"),
+                    "actualizadosPorId" to kotlinx.serialization.json.JsonPrimitive(res.porId.toString()),
+                    "actualizadosPorNombre" to kotlinx.serialization.json.JsonPrimitive(res.porNombre.toString()),
+                    "sinCambio" to kotlinx.serialization.json.JsonPrimitive(res.sinCambio.toString()),
+                    "noEncontrados" to kotlinx.serialization.json.JsonArray(noEncontrados.map {
+                        kotlinx.serialization.json.JsonObject(mapOf(
+                            "numero" to kotlinx.serialization.json.JsonPrimitive(it["numero"] ?: ""),
+                            "nombre" to kotlinx.serialization.json.JsonPrimitive(it["nombre"] ?: "")
+                        ))
+                    })
+                )))
             }
         }
 
