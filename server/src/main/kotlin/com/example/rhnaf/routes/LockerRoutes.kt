@@ -13,6 +13,7 @@ import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.*
@@ -388,6 +389,43 @@ fun Route.lockerRouting() {
                     LockerTable.deleteWhere { LockerTable.numero eq numero }
                 }
                 call.respond(mapOf("status" to "ok"))
+            }
+        }
+
+
+        // ---------- CORREGIR TITULAR (sin tocar bitacora) ----------
+        // Correccion de datos de un casillero ASIGNADO: sustituye nombre y
+        // numero de empleado por los del padron. No abre ni cierra filas de
+        // bitacora; solo actualiza la fila abierta para que quede consistente.
+        put("/{numero}/corregir") {
+            safeApiCall(call) {
+                requireRoleOr403(call, LOCKER_WRITE) ?: return@safeApiCall
+                val numero = call.parameters["numero"]?.toIntOrNull()
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Numero invalido"))
+                val body = call.receive<Map<String, String>>()
+                val empId = body["employeeId"]?.trim().orEmpty()
+                if (empId.isBlank()) return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "employeeId requerido"))
+                val emp = DatabaseFactory.dbQuery {
+                    EmployeeTable.selectAll().where { EmployeeTable.id eq empId }.singleOrNull()
+                } ?: return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("status" to "error", "message" to "Empleado $empId no encontrado en el padron"))
+                val locker = DatabaseFactory.dbQuery {
+                    LockerTable.selectAll().where { LockerTable.numero eq numero }.singleOrNull()?.let(::lockerFrom)
+                } ?: return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("status" to "error", "message" to "El casillero $numero no existe"))
+                if (locker.estado != "Asignado") return@safeApiCall call.respond(HttpStatusCode.Conflict, mapOf("status" to "error", "message" to "El casillero $numero esta libre; use asignar"))
+                val nombreCompleto = (emp[EmployeeTable.firstName] + " " + emp[EmployeeTable.lastName]).trim()
+                DatabaseFactory.dbQuery {
+                    LockerTable.update({ LockerTable.numero eq numero }) {
+                        it[LockerTable.nombre] = nombreCompleto
+                        it[LockerTable.employeeId] = empId
+                    }
+                    LockerHistoryTable.update({
+                        (LockerHistoryTable.numero eq numero).and(LockerHistoryTable.fechaFin eq "")
+                    }) {
+                        it[LockerHistoryTable.nombre] = nombreCompleto
+                        it[LockerHistoryTable.employeeId] = empId
+                    }
+                }
+                call.respond(mapOf("status" to "ok", "nombre" to nombreCompleto))
             }
         }
 
