@@ -5,6 +5,7 @@ import com.example.rhnaf.auth.requireRoleOr403
 import com.example.rhnaf.database.DatabaseFactory
 import com.example.rhnaf.database.EhsDocumentTable
 import com.example.rhnaf.database.LockerHistoryTable
+import com.example.rhnaf.database.EmployeeTable
 import com.example.rhnaf.database.LockerTable
 import com.example.rhnaf.service.GoogleDriveService
 import com.example.rhnaf.shared.model.*
@@ -188,6 +189,13 @@ private fun aplicarImportacion(filas: List<LockerImportRow>, fecha: String, usua
         "liberados" to liberados.toString(), "sinCambio" to sinCambio.toString())
 }
 
+// Normaliza un nombre para comparar: mayusculas, sin acentos, espacios simples.
+private fun normalizar(txt: String): String {
+    val sinAcentos = java.text.Normalizer.normalize(txt, java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{M}"), "")
+    return sinAcentos.uppercase().replace(Regex("\\s+"), " ").trim()
+}
+
 fun Route.lockerRouting() {
     route("/api/v1/lockers") {
 
@@ -357,6 +365,94 @@ fun Route.lockerRouting() {
                     f.orderBy(LockerHistoryTable.id to SortOrder.DESC).limit(2000).map(::historyFrom)
                 }
                 call.respond(items)
+            }
+        }
+
+
+        // ---------- ELIMINAR CASILLERO ----------
+        // Solo se permite borrar casilleros LIBRES (sin asignacion vigente).
+        // El registro del casillero y su bitacora se eliminan juntos; se usa
+        // para retirar numeros que no existen fisicamente en la planta.
+        delete("/{numero}") {
+            safeApiCall(call) {
+                requireRoleOr403(call, LOCKER_WRITE) ?: return@safeApiCall
+                val numero = call.parameters["numero"]?.toIntOrNull()
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Numero invalido"))
+                val locker = DatabaseFactory.dbQuery {
+                    LockerTable.selectAll().where { LockerTable.numero eq numero }.singleOrNull()?.let(::lockerFrom)
+                }
+                if (locker == null) return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("status" to "error", "message" to "El casillero $numero no existe"))
+                if (locker.estado != "Libre") return@safeApiCall call.respond(HttpStatusCode.Conflict, mapOf("status" to "error", "message" to "El casillero $numero esta asignado; liberelo antes de borrarlo"))
+                DatabaseFactory.dbQuery {
+                    LockerHistoryTable.deleteWhere { LockerHistoryTable.numero eq numero }
+                    LockerTable.deleteWhere { LockerTable.numero eq numero }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+        }
+
+        // ---------- SINCRONIZAR NOMBRES CON EL PADRON DE EMPLEADOS ----------
+        // Los nombres del listado maestro vienen escritos a mano y con
+        // mayusculas inconsistentes. Este proceso sustituye el nombre de cada
+        // casillero asignado por el nombre completo del padron de empleados:
+        // 1) por numero de empleado exacto (employee_id), si coincide;
+        // 2) si no, comparando el nombre normalizado (sin acentos ni
+        //    mayusculas) contra el nombre completo del padron.
+        // La bitacora abierta de cada casillero se actualiza en paralelo para
+        // que listado e historial queden consistentes. Las asignaciones ya
+        // cerradas no se tocan (son registro historico).
+        post("/sincronizar-nombres") {
+            safeApiCall(call) {
+                requireRoleOr403(call, LOCKER_WRITE) ?: return@safeApiCall
+                val empleados = DatabaseFactory.dbQuery {
+                    EmployeeTable.selectAll().map {
+                        Triple(it[EmployeeTable.id], (it[EmployeeTable.firstName] + " " + it[EmployeeTable.lastName]).trim(), it[EmployeeTable.status])
+                    }
+                }
+                val porId = empleados.associateBy { it.first }
+                val porNombre = empleados.groupBy { normalizar(it.second) }
+                data class Res(var porId: Int = 0, var porNombre: Int = 0, var sinCambio: Int = 0)
+                val res = Res()
+                val noEncontrados = mutableListOf<Map<String, String>>()
+                DatabaseFactory.dbQuery {
+                    LockerTable.selectAll().where { LockerTable.estado eq "Asignado" }.forEach { row ->
+                        val numero = row[LockerTable.numero]
+                        val empId = row[LockerTable.employeeId]
+                        val nombreActual = row[LockerTable.nombre]
+                        val empleado = when {
+                            empId.isNotBlank() -> porId[empId]
+                            else -> null
+                        } ?: porNombre[normalizar(nombreActual)]?.let { candidatos ->
+                            // Solo si el match por nombre es unico entre empleados ACTIVOS
+                            val activos = candidatos.filter { it.third == EmployeeStatus.ACTIVE }
+                            when (activos.size) { 1 -> activos[0]; else -> null }
+                        }
+                        if (empleado == null) {
+                            noEncontrados.add(mapOf("numero" to numero.toString(), "nombre" to nombreActual))
+                        } else {
+                            val nombreCompleto = empleado.second
+                            if (nombreCompleto.equals(nombreActual, ignoreCase = true)) {
+                                res.sinCambio++
+                            } else {
+                                LockerTable.update({ LockerTable.numero eq numero }) {
+                                    it[nombre] = nombreCompleto
+                                    if (empleado.first.isNotBlank() && empId.isBlank()) it[employeeId] = empleado.first
+                                }
+                                LockerHistoryTable.update({
+                                    (LockerHistoryTable.numero eq numero).and(LockerHistoryTable.fechaFin eq "")
+                                }) { it[nombre] = nombreCompleto }
+                                if (empId.isNotBlank()) res.porId++ else res.porNombre++
+                            }
+                        }
+                    }
+                }
+                call.respond(mapOf(
+                    "status" to "ok",
+                    "actualizadosPorId" to res.porId.toString(),
+                    "actualizadosPorNombre" to res.porNombre.toString(),
+                    "sinCambio" to res.sinCambio.toString(),
+                    "noEncontrados" to noEncontrados
+                ))
             }
         }
 
