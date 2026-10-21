@@ -64,6 +64,9 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
     var notice by remember { mutableStateOf("") }
     var cargando by remember { mutableStateOf(false) }
     var refreshKey by remember { mutableStateOf(0) }
+    var r_inicio by remember { mutableStateOf(js("new Date().toISOString().slice(0,10)").toString()) }
+    var r_fin by remember { mutableStateOf(js("new Date().toISOString().slice(0,10)").toString()) }
+    var retiradosCount by remember { mutableStateOf(-1) }
 
     // Edicion en linea de un casillero
     var asignandoA by remember { mutableStateOf(0) }
@@ -86,6 +89,16 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
             docs = client.get("$BACKEND_URL/api/v1/lockers/documentos").body()
             if (historialDe > 0) historial = client.get("$BACKEND_URL/api/v1/lockers/$historialDe/historial").body()
         } catch (e: Exception) { error = "No se pudo cargar: ${e.message}" }
+    }
+
+    LaunchedEffect(r_inicio, r_fin, refreshKey) {
+        retiradosCount = -1
+        if (r_inicio.isNotBlank() && r_fin.isNotBlank()) {
+            try {
+                val lista: List<LockerHistoryRecord> = client.get("$BACKEND_URL/api/v1/lockers/retirados?inicio=$r_inicio&fin=$r_fin").body()
+                retiradosCount = lista.size
+            } catch (e: Exception) { retiradosCount = -1 }
+        }
     }
 
     val total = lockers.size
@@ -118,6 +131,42 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                     Div({ style { fontSize(12.px); color(Color("#64748b")) } }) { Text(t) }
                     Div({ style { fontSize(28.px); fontWeight("700"); color(Color(c)) } }) { Text(n.toString()) }
                 }
+            }
+        }
+
+        // ===================== LOCKERS RETIRADOS POR PERIODO =====================
+        Div({ style { padding(16.px); backgroundColor(Color.white); borderRadius(10.px); property("border", "1px solid #e2e8f0"); marginBottom(16.px) } }) {
+            H3({ style { margin(0.px, 0.px, 6.px, 0.px); color(Color("#0f172a")) } }) { Text("Lockers retirados por periodo") }
+            P({ style { fontSize(13.px); color(Color("#64748b")); margin(0.px, 0.px, 10.px, 0.px) } }) {
+                Text("Elige el rango con el calendario y descarga el listado de casilleros liberados en ese periodo, con el nombre de quien lo tenia.")
+            }
+            Div({ style { display(DisplayStyle.Flex); gap(8.px); alignItems(AlignItems.Center); flexWrap(FlexWrap.Wrap) } }) {
+                Text("Del:")
+                Input(InputType.Date) { value(r_inicio); onInput { r_inicio = it.value }; style { padding(6.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") } }
+                Text("al:")
+                Input(InputType.Date) { value(r_fin); onInput { r_fin = it.value }; style { padding(6.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") } }
+                if (retiradosCount >= 0) Span({ style { fontSize(13.px); color(Color("#64748b")) } }) { Text("$retiradosCount liberados en el rango") }
+                Button({
+                    style { padding(6.px, 14.px); backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(13.px) }
+                    onClick {
+                        if (r_inicio.isNotBlank() && r_fin.isNotBlank()) {
+                        val opts = js("({})"); opts.headers = js("({})"); opts.headers.Authorization = "Bearer $apiAuthToken"
+                        window.asDynamic().fetch("$BACKEND_URL/api/v1/lockers/retirados/csv?inicio=$r_inicio&fin=$r_fin", opts)
+                            .then { r: dynamic -> r.blob() }
+                            .then { b: dynamic ->
+                                val url = window.asDynamic().URL.createObjectURL(b) as String
+                                val a = js("document.createElement('a')")
+                                a.href = url
+                                a.download = "lockers_retirados_" + r_inicio + "_a_" + r_fin + ".csv"
+                                js("document.body.appendChild(a)")
+                                a.click()
+                                js("document.body.removeChild(a)")
+                                window.setTimeout({ window.asDynamic().URL.revokeObjectURL(url) }, 3000)
+                            }
+                            .`catch` { e: dynamic -> scope.launch { error = "No se pudo descargar el listado: " + (e.message ?: "error") } }
+                        }
+                    }
+                }) { Text("Descargar CSV") }
             }
         }
 

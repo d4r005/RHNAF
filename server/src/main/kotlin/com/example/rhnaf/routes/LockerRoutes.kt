@@ -360,6 +360,52 @@ fun Route.lockerRouting() {
             }
         }
 
+        // ---------- RETIRADOS POR PERIODO ----------
+        // Historial cerrado (fechaFin) dentro del rango [inicio, fin] (yyyy-mm-dd).
+        fun parseD(d: String): java.time.LocalDate? = runCatching {
+            val t = d.trim().split("/")
+            if (t.size != 3) return@runCatching null
+            java.time.LocalDate.of(t[2].toInt(), t[1].toInt(), t[0].toInt())
+        }.getOrNull()
+
+        suspend fun retiradosEntre(inicio: String, fin: String): List<com.example.rhnaf.shared.model.LockerHistoryRecord> {
+            val desde = java.time.LocalDate.parse(inicio)
+            val hasta = java.time.LocalDate.parse(fin)
+            return DatabaseFactory.dbQuery {
+                LockerHistoryTable.selectAll().map(::historyFrom)
+            }.filter { h ->
+                h.fechaFin.isNotBlank() && parseD(h.fechaFin)?.let { it in desde..hasta } == true
+            }
+        }
+
+        get("/retirados") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                val inicio = call.request.queryParameters["inicio"] ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Falta inicio (yyyy-mm-dd)"))
+                val fin = call.request.queryParameters["fin"] ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Falta fin (yyyy-mm-dd)"))
+                call.respond(retiradosEntre(inicio, fin))
+            }
+        }
+
+        // CSV para Excel (con BOM para acentos): reporte descargable de retirados.
+        get("/retirados/csv") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                val inicio = call.request.queryParameters["inicio"] ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Falta inicio (yyyy-mm-dd)"))
+                val fin = call.request.queryParameters["fin"] ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Falta fin (yyyy-mm-dd)"))
+                val items = retiradosEntre(inicio, fin)
+                fun csv(v: String) = "\"" + v.replace("\"", "\"\"") + "\""
+                val lineas = mutableListOf<String>()
+                lineas.add("N° de casillero;Nombre del titular;N° de empleado;Fecha de liberación;Motivo de liberación;Fecha de asignación;Llave copia;Registrado por")
+                items.forEach { h ->
+                    lineas.add(listOf(h.numero.toString(), h.nombre, h.employeeId, h.fechaFin, h.motivoFin, h.fechaInicio, h.llaveCopia, h.registradoPor).joinToString(";") { csv(it) })
+                }
+                val cuerpo = "\ufeff" + lineas.joinToString("\r\n")
+                call.response.headers.append(HttpHeaders.ContentDisposition, "attachment; filename=\"lockers_retirados_${inicio}_a_${fin}.csv\"")
+                call.respondBytes(cuerpo.toByteArray(Charsets.UTF_8), ContentType("text","csv"))
+            }
+        }
+
         // Importacion masiva desde el listado maestro. Idempotente: crea los
         // casilleros que falten y solo abre asignacion nueva si la persona o
         // fecha de candado cambió respecto a lo vigente (no duplica la bitacora).
