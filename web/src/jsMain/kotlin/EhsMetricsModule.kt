@@ -1,10 +1,17 @@
 import androidx.compose.runtime.*
+import org.jetbrains.compose.web.attributes.*
 import org.jetbrains.compose.web.dom.*
 import org.jetbrains.compose.web.css.*
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.http.contentType
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import kotlinx.browser.window
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -54,12 +61,21 @@ private data class EhsMetricsView(
 )
 
 @Composable
-fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope) {
+fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope, usuario: String = "Portal RH", canEdit: Boolean = false) {
     var data by remember { mutableStateOf<EhsMetricsView?>(null) }
     var error by remember { mutableStateOf("") }
     // Periodos de tasas cargados en el modulo de Tasas EHS (para el QOS de IFR).
     var tasas by remember { mutableStateOf(emptyList<TasaPeriodoView>()) }
     var hayTasas by remember { mutableStateOf(false) }
+    // Actualizacion de un mes desde el QOS (crea version nueva del periodo).
+    var f_mes by remember { mutableStateOf("10") }
+    var f_horas by remember { mutableStateOf("") }
+    var f_acc by remember { mutableStateOf("0") }
+    var f_dias by remember { mutableStateOf("0") }
+    var f_motivo by remember { mutableStateOf("") }
+    var qosMsg by remember { mutableStateOf("") }
+    var qosGuardando by remember { mutableStateOf(false) }
+    suspend fun recargarTasas() { tasas = client.get("$BACKEND_URL/api/v1/ehs/tasas").body() }
     LaunchedEffect(Unit) {
         try {
             data = client.get("$BACKEND_URL/api/v1/ehs/indicadores").body()
@@ -221,8 +237,97 @@ fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope) {
                             Div({ style { padding(10.px, 12.px); color(Color("#b91c1c")) } }) { Text(fmt(ifrAnual)) }
                         }
                     }
+                    // Descarga + actualizacion
+                    Div({ style { display(DisplayStyle.Flex); gap(10.px); marginTop(16.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.FlexEnd) } }) {
+                        Button({
+                            style { padding(8.px, 16.px); backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
+                            onClick {
+                                val opts = js("({})"); opts.headers = js("({})"); opts.headers.Authorization = "Bearer $apiAuthToken"
+                                window.asDynamic().fetch("$BACKEND_URL/api/v1/ehs/tasas/qos/xlsx?anio=2026", opts)
+                                    .then { r: dynamic -> r.blob() }
+                                    .then { b: dynamic ->
+                                        val url = window.asDynamic().URL.createObjectURL(b) as String
+                                        val a = js("document.createElement('a')")
+                                        a.href = url; a.download = "qos_accidents_2026.xlsx"
+                                        js("document.body.appendChild(a)"); a.click(); js("document.body.removeChild(a)")
+                                        window.setTimeout({ window.asDynamic().URL.revokeObjectURL(url) }, 3000)
+                                    }
+                                    .`catch` { e: dynamic -> qosMsg = "No se pudo descargar: " + (e.message ?: "error") }
+                            }
+                        }) { Text("Descargar Excel (QOS)") }
+                        if (canEdit) {
+                            org.jetbrains.compose.web.dom.Select({
+                                style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); backgroundColor(Color.white) }
+                                onChange { f_mes = it.value ?: "01" }
+                            }) {
+                                val opcionesMeses = listOf(
+                                    "01" to "Enero", "02" to "Febrero", "03" to "Marzo", "04" to "Abril",
+                                    "05" to "Mayo", "06" to "Junio", "07" to "Julio", "08" to "Agosto",
+                                    "09" to "Septiembre", "10" to "Octubre", "11" to "Noviembre", "12" to "Diciembre")
+                                opcionesMeses.forEach { par ->
+                                    org.jetbrains.compose.web.dom.Option(value = par.first) { Text(par.second) }
+                                }
+                            }
+                            Input(InputType.Text) {
+                                placeholder("Horas trabajadas")
+                                style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(130.px) }
+                                onInput { ev -> f_horas = ev.value }
+                            }
+                            Input(InputType.Text) {
+                                placeholder("Accidentes")
+                                style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(90.px) }
+                                onInput { ev -> f_acc = ev.value }
+                            }
+                            Input(InputType.Text) {
+                                placeholder("Días perdidos")
+                                style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(100.px) }
+                                onInput { ev -> f_dias = ev.value }
+                            }
+                            org.jetbrains.compose.web.dom.Input(type = org.jetbrains.compose.web.attributes.InputType.Text) {
+                                placeholder("Motivo de la revisión")
+                                style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) }
+                                onInput { f_motivo = it.value }
+                            }
+                            Button({
+                                style { padding(8.px, 16.px); backgroundColor(if (qosGuardando) Color("#94a3b8") else Color("#0f766e")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("bold") }
+                                onClick {
+                                    val horas = f_horas.replace(",", "").toDoubleOrNull()
+                                    val acc = f_acc.trim().toIntOrNull()
+                                    val dias = f_dias.trim().toIntOrNull()
+                                    val valido = !qosGuardando && f_horas.isNotBlank() && horas != null && horas > 0 && acc != null && acc >= 0 && dias != null && dias >= 0
+                                    if (!valido && f_horas.isNotBlank()) {
+                                        qosMsg = "Revisa los valores: horas mayor a 0 (tal cual las da Intelectión) y accidentes/días enteros."
+                                    }
+                                    if (valido) {
+                                        qosGuardando = true; qosMsg = ""
+                                        scope.launch {
+                                            try {
+                                                val resp: String = client.post("$BACKEND_URL/api/v1/ehs/tasas") {
+                                                    contentType(ContentType.Application.Json)
+                                                    setBody(TasaPeriodoView(
+                                                        periodo = "2026-$f_mes",
+                                                        horasTrabajadas = horas,
+                                                        accidentesRegistrables = acc,
+                                                        diasPerdidos = dias,
+                                                        fuenteHoras = "Sistema Intelectión — actualizado desde el QOS del portal",
+                                                        validadoPor = usuario,
+                                                        motivoRevision = if (f_motivo.isBlank()) "Actualización desde el QOS del portal" else f_motivo
+                                                    ))
+                                                }.body()
+                                                recargarTasas()
+                                                qosMsg = "Mes 2026-$f_mes actualizado."
+                                                f_horas = ""; f_acc = "0"; f_dias = "0"; f_motivo = ""
+                                            } catch (e: Exception) { qosMsg = "No se pudo guardar: ${e.message}" }
+                                            qosGuardando = false
+                                        }
+                                    }
+                                }
+                            }) { Text(if (qosGuardando) "Guardando..." else "Actualizar mes") }
+                        }
+                    }
+                    if (qosMsg.isNotBlank()) P({ style { fontSize(13.px); color(Color("#047857")); marginTop(10.px) } }) { Text(qosMsg) }
                     P({ style { color(Color("#64748b")); fontSize(12.px); marginTop(10.px); marginBottom(0.px) } }) {
-                        Text("IFR = Accidentes × 200,000 / horas trabajadas (convención QOS). Se actualiza al cargar horas y accidentes en el módulo de Tasas EHS.")
+                        Text("IFR = Accidentes × 200,000 / horas trabajadas (convención QOS). Las horas se capturan tal cual las entrega el sistema Intelectión.")
                     }
                 }
             }

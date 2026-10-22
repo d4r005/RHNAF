@@ -972,7 +972,7 @@ fun main() {
                             Module.EHS_SEGURIDAD -> EhsAuditsModule(client, scope, t, userRole, EhsPillar.SEGURIDAD)
                             Module.EHS_SALUD -> EhsAuditsModule(client, scope, t, userRole, EhsPillar.SALUD)
                             Module.EHS_AMBIENTE -> EhsAuditsModule(client, scope, t, userRole, EhsPillar.AMBIENTE)
-                            Module.EHS_METRICS -> EhsMetricsModule(client, scope)
+                            Module.EHS_METRICS -> EhsMetricsModule(client, scope, userName, userRole == UserRole.ADMIN || userRole == UserRole.SEGURIDAD)
                             Module.EHS_CALENDAR -> EhsCalendarModule(client, scope)
                             Module.EHS_ACTIONS -> EhsActionModule(client, scope)
                             Module.EHS_CONTRACTORS -> EhsContractorModule(client, scope)

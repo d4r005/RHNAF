@@ -97,5 +97,68 @@ fun Route.ehsRateRouting() {
                 else call.respond(HttpStatusCode.Created, result)
             }
         }
+
+        // ---------- QOS DE ACCIDENTES EN EXCEL (.xlsx) ----------
+        // Reporte descargable con el formato del QOS de la empresa: encabezado
+        // (site/owner/frecuencia), IFR anual y tabla mensual de horas,
+        // accidentes, dias perdidos e IFR. Usa la version vigente de cada mes.
+        get("/qos/xlsx") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.EHS_WRITE) ?: return@safeApiCall
+                val anio = call.request.queryParameters["anio"]?.trim()?.takeIf { it.isNotBlank() } ?: "2026"
+                val meses = listOf("Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre")
+                val vigentes = DatabaseFactory.dbQuery { EhsRatePeriodTable.selectAll().map(::rateFrom) }
+                    .groupBy { it.periodo }.values.map { it.maxBy { e -> e.version } }
+                val t = vigentes.filter { it.periodo.startsWith("$anio-") }.sortedBy { it.periodo }
+                val hTot = t.sumOf { it.horasTrabajadas }
+                val aTot = t.sumOf { it.accidentesRegistrables }
+                val dTot = t.sumOf { it.diasPerdidos }
+                val ifrAnual = if (hTot > 0) aTot * 200_000.0 / hTot else 0.0
+                fun r2(x: Double) = kotlin.math.round(x * 100.0) / 100.0
+                org.apache.poi.xssf.usermodel.XSSFWorkbook().use { wb ->
+                    val hoja = wb.createSheet("QOS Accidents")
+                    fun texto(r: Int, c: Int, v: String, negrita: Boolean = false) {
+                        val cell = hoja.createRow(r).createCell(c)
+                        cell.setCellValue(v)
+                        if (negrita) cell.cellStyle = wb.createCellStyle().apply { setFont(wb.createFont().apply { bold = true }) }
+                    }
+                    texto(0, 0, "SAFETY / SEGURIDAD INDUSTRIAL", true)
+                    texto(1, 0, "QOS Title: Accidents — Indice de Frecuencia (IFR) $anio", true)
+                    texto(2, 0, "SITE: Escobedo"); texto(2, 2, "OWNER: Dario Robles"); texto(2, 5, "FREQUENCY: Mensual")
+                    texto(3, 0, "IFR ANUAL $anio: ${r2(ifrAnual)}", true)
+                    texto(3, 2, "Horas trabajadas: ${r2(hTot)}")
+                    texto(3, 4, "Accidentes: $aTot")
+                    val hdr = hoja.createRow(5)
+                    listOf("MES","HORAS TRABAJADAS","ACCIDENTES","DIAS PERDIDOS","IFR MENSUAL").forEachIndexed { i, h ->
+                        val c = hdr.createCell(i); c.setCellValue(h)
+                        c.cellStyle = wb.createCellStyle().apply { setFont(wb.createFont().apply { bold = true }) }
+                    }
+                    meses.forEachIndexed { i, nombre ->
+                        val per = t.firstOrNull { it.periodo == "$anio-" + "%02d".format(i + 1) }
+                        val row = hoja.createRow(6 + i)
+                        row.createCell(0).setCellValue(nombre)
+                        if (per != null) {
+                            row.createCell(1).setCellValue(per.horasTrabajadas)
+                            row.createCell(2).setCellValue(per.accidentesRegistrables.toDouble())
+                            row.createCell(3).setCellValue(per.diasPerdidos.toDouble())
+                            row.createCell(4).setCellValue(r2(if (per.horasTrabajadas > 0) per.accidentesRegistrables * 200_000.0 / per.horasTrabajadas else 0.0))
+                        } else {
+                            (1..4).forEach { row.createCell(it).setCellValue("—") }
+                        }
+                    }
+                    val tot = hoja.createRow(18)
+                    tot.createCell(0).setCellValue("TOTAL $anio")
+                    tot.createCell(1).setCellValue(hTot)
+                    tot.createCell(2).setCellValue(aTot.toDouble())
+                    tot.createCell(3).setCellValue(dTot.toDouble())
+                    tot.createCell(4).setCellValue(r2(ifrAnual))
+                    (0..4).forEach { hoja.autoSizeColumn(it) }
+                    val out = java.io.ByteArrayOutputStream()
+                    wb.write(out)
+                    call.response.headers.append(HttpHeaders.ContentDisposition, "attachment; filename=\"qos_accidents_${anio}.xlsx\"")
+                    call.respondBytes(out.toByteArray(), ContentType.parse("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                }
+            }
+        }
     }
 }
