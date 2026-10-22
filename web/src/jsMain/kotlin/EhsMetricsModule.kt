@@ -14,12 +14,21 @@ private data class IncidenteMesView(
     val diasPerdidos: Int = 0
 )
 
+// Debe incluir TODOS los campos de EhsRatePeriod del servidor: el Json del
+// cliente es estricto y falla si la respuesta trae claves desconocidas.
 @Serializable
 private data class TasaPeriodoView(
+    val id: Int = 0,
     val periodo: String = "",
     val horasTrabajadas: Double = 0.0,
     val accidentesRegistrables: Int = 0,
-    val diasPerdidos: Int = 0
+    val diasPerdidos: Int = 0,
+    val fuenteHoras: String = "",
+    val validadoPor: String = "",
+    val motivoRevision: String = "",
+    val version: Int = 0,
+    val frecuenciaPorMillon: Double = 0.0,
+    val gravedadPorMillon: Double = 0.0
 )
 
 @Serializable
