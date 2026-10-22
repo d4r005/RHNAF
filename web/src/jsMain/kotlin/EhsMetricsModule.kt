@@ -95,7 +95,7 @@ fun EhsMetricsModule(client: HttpClient, scope: CoroutineScope, usuario: String 
         data?.let { m ->
             Div({ style { display(DisplayStyle.Grid); property("grid-template-columns", "repeat(auto-fit, minmax(210px, 1fr))"); gap(14.px); marginTop(20.px) } }) {
                 listOf(
-                    "Accidentes registrados" to m.incidentes,
+                    "Accidentes registrados (año en curso)" to m.incidentes,
                     "Días perdidos declarados" to m.diasPerdidosRegistrados,
                     "Auditorías sin cierre" to m.inspeccionesAbiertas,
                     "Hallazgos de auditoría abiertos" to m.hallazgosAuditoriaAbiertos,

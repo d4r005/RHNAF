@@ -64,7 +64,13 @@ fun Route.ehsMetricsRouting() {
             requireRoleOr403(call, Roles.EHS_WRITE) ?: return@safeApiCall
             val today = LocalDate.now()
             val result = DatabaseFactory.dbQuery {
-                val lostDays = SafetyIncidentTable.selectAll().map { it[SafetyIncidentTable.diasPerdidos].trim().toIntOrNull()?.takeIf { days -> days >= 0 } }
+                // Accidentes del AÑO EN CURSO (para que cuadre con el QOS anual):
+                // los de otros años se cuentan en la grafica de 12 meses, no aqui.
+                val lostDays = SafetyIncidentTable.selectAll().mapNotNull { row ->
+                    val f = fechaEhs(row[SafetyIncidentTable.fecha])
+                    if (f != null && f.year != today.year) null
+                    else row[SafetyIncidentTable.diasPerdidos].trim().toIntOrNull()?.takeIf { days -> days >= 0 }
+                }
                 val trainings = SafetyTrainingTable.selectAll().map { fechaEhs(it[SafetyTrainingTable.proximaFecha]) }
                 val openInspections = SafetyInspectionTable.selectAll().count { row ->
                     val status = row[SafetyInspectionTable.estado].trim().lowercase()
