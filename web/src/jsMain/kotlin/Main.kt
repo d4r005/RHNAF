@@ -44,6 +44,7 @@ class Translations(val lang: Language) {
         "welcome" to "Bienvenido",
             "login_wait" to "INICIANDO SESIÓN...",
         "login" to "INICIAR SESIÓN",
+        "logout" to "Cerrar sesión",
         "email" to "CORREO ELECTRÓNICO",
         "password" to "CONTRASEÑA",
         "remember_me" to "Recordar usuario",
@@ -303,6 +304,7 @@ class Translations(val lang: Language) {
         "welcome" to "Welcome",
             "login_wait" to "SIGNING IN...",
         "login" to "LOG IN",
+        "logout" to "Log out",
         "email" to "EMAIL ADDRESS",
         "password" to "PASSWORD",
         "remember_me" to "Remember me",
@@ -562,6 +564,7 @@ class Translations(val lang: Language) {
         "welcome" to "欢迎",
             "login_wait" to "登入中…",
         "login" to "登入",
+        "logout" to "登出",
         "email" to "电子邮件",
         "password" to "密码",
         "remember_me" to "记住我",
@@ -942,6 +945,24 @@ fun main() {
                 Div({ style { flex(1); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); overflowY("auto") } }) {
                     TopBar(userName, userRole.name, userAvatar, t) {
                 EhsAlertBell(client, userRole == UserRole.ADMIN || userRole == UserRole.SEGURIDAD) { activeModule = Module.EHS_ALERTS }
+                // Cerrar sesion: limpia el token y los datos de sesion del navegador.
+                Button({
+                    style {
+                        padding(6.px, 14.px); backgroundColor(Color.white); color(Color("#b91c1c"))
+                        property("border", "1px solid #fecaca"); borderRadius(6.px); cursor("pointer")
+                        fontSize(12.px); fontWeight("600")
+                    }
+                    onClick {
+                        authToken = ""
+                        apiAuthToken = ""
+                        window.localStorage.removeItem("naf_user_name")
+                        window.localStorage.removeItem("naf_user_avatar")
+                        isLoggedIn = false
+                        activeModule = Module.DASHBOARD
+                        userRole = UserRole.EMPLEADO
+                        employees = emptyList()
+                    }
+                }) { Text(t.get("logout")) }
             }
 
                     Div({ style { padding(32.px) } }) {
