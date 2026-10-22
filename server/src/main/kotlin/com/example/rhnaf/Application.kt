@@ -85,8 +85,20 @@ private val PUBLIC_PATHS = setOf(
     "/api/v1/google-drive/callback"
 )
 
+// Sin esto el navegador puede quedar semanas con la version vieja de
+// rhnaf-web.js y "no aparecer" lo nuevo tras un despliegue.
+private fun Application.noCacheWebApp() {
+    intercept(ApplicationCallPipeline.Plugins) {
+        val ruta = call.request.local.uri
+        if (ruta == "/" || ruta.endsWith(".js") || ruta.endsWith(".html") || ruta.endsWith(".css")) {
+            call.response.headers.append(HttpHeaders.CacheControl, "no-cache")
+        }
+    }
+}
+
 fun Application.module() {
     DatabaseFactory.init()
+    noCacheWebApp()
     // Job diario: recordatorios de vencimiento por correo (06:30 del servidor).
     recordatoriosJob()
     
@@ -225,11 +237,7 @@ fun Application.module() {
         documentReaderRouting()
 
         // Sirve la Web App (Compose HTML) desde una carpeta física
-        // no-cache: sin esto el navegador puede quedar con una version vieja de
-        // rhnaf-web.js y "no aparecer" lo nuevo tras un despliegue.
-        staticFiles("/", File("static"), index = "index.html") {
-            cacheControl { listOf(io.ktor.http.content.CacheControl.NoCache(null)) }
-        }
+        staticFiles("/", File("static"), index = "index.html")
 
         route("/api") {
             post("/login") {
