@@ -225,7 +225,11 @@ fun Application.module() {
         documentReaderRouting()
 
         // Sirve la Web App (Compose HTML) desde una carpeta física
-        staticFiles("/", File("static"), index = "index.html")
+        // no-cache: sin esto el navegador puede quedar con una version vieja de
+        // rhnaf-web.js y "no aparecer" lo nuevo tras un despliegue.
+        staticFiles("/", File("static"), index = "index.html") {
+            cacheControl { listOf(io.ktor.http.content.CacheControl.NoCache(null)) }
+        }
 
         route("/api") {
             post("/login") {
