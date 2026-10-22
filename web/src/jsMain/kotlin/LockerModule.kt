@@ -151,13 +151,13 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                     onClick {
                         if (r_inicio.isNotBlank() && r_fin.isNotBlank()) {
                         val opts = js("({})"); opts.headers = js("({})"); opts.headers.Authorization = "Bearer $apiAuthToken"
-                        window.asDynamic().fetch("$BACKEND_URL/api/v1/lockers/retirados/csv?inicio=$r_inicio&fin=$r_fin", opts)
+                        window.asDynamic().fetch("$BACKEND_URL/api/v1/lockers/retirados/xlsx?inicio=$r_inicio&fin=$r_fin", opts)
                             .then { r: dynamic -> r.blob() }
                             .then { b: dynamic ->
                                 val url = window.asDynamic().URL.createObjectURL(b) as String
                                 val a = js("document.createElement('a')")
                                 a.href = url
-                                a.download = "lockers_retirados_" + r_inicio + "_a_" + r_fin + ".csv"
+                                a.download = "lockers_retirados_" + r_inicio + "_a_" + r_fin + ".xlsx"
                                 js("document.body.appendChild(a)")
                                 a.click()
                                 js("document.body.removeChild(a)")
@@ -166,7 +166,7 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                             .`catch` { e: dynamic -> scope.launch { error = "No se pudo descargar el listado: " + (e.message ?: "error") } }
                         }
                     }
-                }) { Text("Descargar CSV") }
+                }) { Text("Descargar Excel") }
             }
         }
 

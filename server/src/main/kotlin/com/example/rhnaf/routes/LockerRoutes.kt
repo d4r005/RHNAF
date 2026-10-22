@@ -545,6 +545,56 @@ fun Route.lockerRouting() {
             }
         }
 
+
+        // ---------- RETIRADOS EN EXCEL (.xlsx) ----------
+        // Mismo filtro que /retirados pero entrega un Excel real (.xlsx) con
+        // una columna por dato: se abre directo en Excel sin importar la
+        // configuracion regional del que lo descarga.
+        get("/retirados/xlsx") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                val inicio = call.request.queryParameters["inicio"]?.trim().orEmpty()
+                val fin = call.request.queryParameters["fin"]?.trim().orEmpty()
+                if (inicio.isBlank() || fin.isBlank()) {
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest,
+                        mapOf("status" to "error", "message" to "inicio y fin son obligatorios (AAAA-MM-DD)"))
+                }
+                val items = retiradosEntre(inicio, fin)
+                org.apache.poi.xssf.usermodel.XSSFWorkbook().use { wb ->
+                    val hoja = wb.createSheet("Lockers retirados")
+                    val headers = listOf("N° de casillero", "Nombre del titular", "N° de empleado",
+                        "Fecha de liberación", "Motivo de liberación", "Fecha de asignación",
+                        "Llave copia", "Registrado por")
+                    val hr = hoja.createRow(0)
+                    headers.forEachIndexed { i, h ->
+                        val c = hr.createCell(i)
+                        c.setCellValue(h)
+                        c.cellStyle = wb.createCellStyle().apply {
+                            setFont(wb.createFont().apply { bold = true })
+                        }
+                    }
+                    items.forEachIndexed { fila, h ->
+                        val row = hoja.createRow(fila + 1)
+                        row.createCell(0).setCellValue(h.numero.toDouble())
+                        row.createCell(1).setCellValue(h.nombre)
+                        row.createCell(2).setCellValue(h.employeeId)
+                        row.createCell(3).setCellValue(h.fechaFin)
+                        row.createCell(4).setCellValue(h.motivoFin)
+                        row.createCell(5).setCellValue(h.fechaInicio)
+                        row.createCell(6).setCellValue(h.llaveCopia)
+                        row.createCell(7).setCellValue(h.registradoPor)
+                    }
+                    headers.indices.forEach { hoja.autoSizeColumn(it) }
+                    val out = java.io.ByteArrayOutputStream()
+                    wb.write(out)
+                    call.response.headers.append(HttpHeaders.ContentDisposition,
+                        "attachment; filename=\"lockers_retirados_${inicio}_a_${fin}.xlsx\"")
+                    call.respondBytes(out.toByteArray(),
+                        ContentType.parse("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                }
+            }
+        }
+
         // Importacion masiva desde el listado maestro. Idempotente: crea los
         // casilleros que falten y solo abre asignacion nueva si la persona o
         // fecha de candado cambió respecto a lo vigente (no duplica la bitacora).
