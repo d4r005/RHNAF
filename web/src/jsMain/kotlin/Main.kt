@@ -1010,7 +1010,18 @@ fun main() {
                                 SettingsView(userName, userAvatar, currentLang, empActual?.photoUrl, { userName = it }, { userAvatar = it }, {
                                     currentLang = it
                                     window.localStorage.setItem("naf_lang", it.name)
-                                }, t)
+                                }, t, onFichaPhoto = { dataUri ->
+                                    val emp = empActual
+                                    if (emp != null) scope.launch {
+                                        try {
+                                            client.post("$BACKEND_URL/api/employee/update") {
+                                                contentType(ContentType.Application.Json)
+                                                setBody(emp.copy(photoUrl = dataUri))
+                                            }
+                                            employees = client.get("$BACKEND_URL/api/employees").body()
+                                        } catch (e: Exception) { }
+                                    }
+                                })
                             }
                         }
                     }
@@ -1460,10 +1471,12 @@ fun LoginScreen(t: Translations, cargando: Boolean = false, onLogin: (String, St
 }
 
 @Composable
-fun SettingsView(name: String, avatar: String, lang: Language, photoUrl: String?, onNameChange: (String) -> Unit, onAvatarChange: (String) -> Unit, onLangChange: (Language) -> Unit, t: Translations) {
+fun SettingsView(name: String, avatar: String, lang: Language, photoUrl: String?, onNameChange: (String) -> Unit, onAvatarChange: (String) -> Unit, onLangChange: (Language) -> Unit, t: Translations, onFichaPhoto: (String) -> Unit = {}) {
     var tempName by remember { mutableStateOf(name) }
+    // Foto subida por el propio usuario (personal de oficina sin foto de lectora)
+    var fotoSubida by remember { mutableStateOf<String?>(null) }
     // Foto real del personal; el avatar solo es respaldo si no hay foto registrada
-    val fotoPerfil = photoUrl?.takeIf { it.isNotBlank() } ?: avatar
+    val fotoPerfil = fotoSubida ?: photoUrl?.takeIf { it.isNotBlank() } ?: avatar
     var tempLang by remember { mutableStateOf(lang) }
 
     Div({ style { backgroundColor(Color.white); padding(32.px); borderRadius(16.px); property("box-shadow", CardShadow) } }) {
@@ -1483,9 +1496,40 @@ fun SettingsView(name: String, avatar: String, lang: Language, photoUrl: String?
             Div({ style { flex(1) } }) {
                 H4 { Text(t.get("employee_photo")) }
                 Div({ style { display(DisplayStyle.Flex); gap(16.px); alignItems(AlignItems.Center); padding(12.px); backgroundColor(Color("#f8fafc")); borderRadius(8.px); property("border", "1px solid #e2e8f0") } }) {
-                    if (photoUrl.isNullOrBlank()) {
+                    if (fotoSubida != null) {
+                        Img(src = fotoSubida!!) {
+                            style { width(72.px); height(72.px); borderRadius(8.px); property("object-fit", "cover"); property("border", "2px solid $SidebarActiveColor") }
+                        }
                         P({ style { color(Color.gray); fontSize(13.px); margin(0.px) } }) {
-                            Text("Sin foto registrada para este usuario. La foto se obtiene automaticamente de la lectora Hikvision al enrolar al personal.")
+                            Text("Nueva foto lista. Presiona Guardar para aplicarla a tu perfil y tu ficha de empleado.")
+                        }
+                    } else if (photoUrl.isNullOrBlank()) {
+                        P({ style { color(Color.gray); fontSize(13.px); margin(0.px, 0.px, 8.px, 0.px) } }) {
+                            Text("Sin foto registrada para este usuario (la foto de lectora solo existe para personal de planta). Puedes subir tu propia foto:")
+                        }
+                        Input(InputType.File) {
+                            attr("accept", "image/*")
+                            style { fontSize(13.px) }
+                            onChange { ev ->
+                                val file = ev.target.files?.item(0) ?: return@onChange
+                                val reader = js("new FileReader()")
+                                reader.onload = { _: dynamic ->
+                                    val img = js("new Image()")
+                                    img.onload = { _: dynamic ->
+                                        val doc = window.document.asDynamic()
+                                        val canvas = doc.createElement("canvas")
+                                        val maxD = window.asDynamic().Math.max(img.width, img.height) as Double
+                                        val escala = window.asDynamic().Math.min(1.0, 320.0 / maxD)
+                                        canvas.width = window.asDynamic().Math.max(1, img.width * escala)
+                                        canvas.height = window.asDynamic().Math.max(1, img.height * escala)
+                                        val ctx = canvas.getContext("2d")
+                                        ctx.drawImage(img, 0.0, 0.0, canvas.width, canvas.height)
+                                        fotoSubida = canvas.toDataURL("image/jpeg", 0.85) as String?
+                                    }
+                                    img.src = reader.result
+                                }
+                                reader.readAsDataURL(file)
+                            }
                         }
                     } else {
                         Img(src = fotoPerfil) {
@@ -1529,6 +1573,7 @@ fun SettingsView(name: String, avatar: String, lang: Language, photoUrl: String?
                         onNameChange(tempName)
                         onAvatarChange(fotoPerfil)
                         onLangChange(tempLang)
+                        fotoSubida?.let { onFichaPhoto(it) }
                         window.localStorage.setItem("naf_user_name", tempName)
                         window.localStorage.setItem("naf_user_avatar", fotoPerfil)
                         window.localStorage.setItem("naf_lang", tempLang.name)
