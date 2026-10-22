@@ -42,6 +42,7 @@ class Translations(val lang: Language) {
         "reports" to "Reportes",
         "settings" to "Configuración",
         "welcome" to "Bienvenido",
+            "login_wait" to "INICIANDO SESIÓN...",
         "login" to "INICIAR SESIÓN",
         "email" to "CORREO ELECTRÓNICO",
         "password" to "CONTRASEÑA",
@@ -300,6 +301,7 @@ class Translations(val lang: Language) {
         "reports" to "Reports",
         "settings" to "Settings",
         "welcome" to "Welcome",
+            "login_wait" to "SIGNING IN...",
         "login" to "LOG IN",
         "email" to "EMAIL ADDRESS",
         "password" to "PASSWORD",
@@ -558,6 +560,7 @@ class Translations(val lang: Language) {
         "reports" to "报告统计",
         "settings" to "系统设置",
         "welcome" to "欢迎",
+            "login_wait" to "登入中…",
         "login" to "登入",
         "email" to "电子邮件",
         "password" to "密码",
@@ -876,7 +879,9 @@ fun main() {
         val scope = rememberCoroutineScope()
 
         if (!isLoggedIn) {
-            LoginScreen(t) { u, p, rememberMe ->
+            var loginEnProceso by remember { mutableStateOf(false) }
+            LoginScreen(t, loginEnProceso) { u, p, rememberMe ->
+                loginEnProceso = true
                 scope.launch {
                     try {
                         val resp = client.post("$BACKEND_URL/api/login") {
@@ -910,9 +915,11 @@ fun main() {
                             employees = client.get("$BACKEND_URL/api/employees").body()
                             isLoggedIn = true
                         } else {
+                            loginEnProceso = false
                             window.alert("El servidor respondió con error ${resp.status}. Es probable que el Space de Hugging Face no tenga este usuario registrado o esté corriendo la App de Inspección de Vehículos en lugar de RHNAF.")
                         }
                     } catch (e: Exception) { 
+                        loginEnProceso = false
                         window.alert("Error de conexión: No se pudo alcanzar el servidor en $BACKEND_URL")
                     }
                 }
@@ -1370,7 +1377,7 @@ fun StatusBadge(s: EmployeeStatus) {
 }
 
 @Composable
-fun LoginScreen(t: Translations, onLogin: (String, String, Boolean) -> Unit) {
+fun LoginScreen(t: Translations, cargando: Boolean = false, onLogin: (String, String, Boolean) -> Unit) {
     var u by remember { mutableStateOf(window.localStorage.getItem("naf_saved_email") ?: "") }
     var p by remember { mutableStateOf("") }
     var rememberMe by remember { mutableStateOf(u.isNotEmpty()) }
@@ -1416,13 +1423,15 @@ fun LoginScreen(t: Translations, onLogin: (String, String, Boolean) -> Unit) {
             }
             
             Button({ 
+                if (cargando) attr("disabled", "true")
                 style { 
-                    width(100.percent); padding(16.px); backgroundColor(Color("#0f172a")); color(Color.white); 
-                    property("border", "none"); borderRadius(8.px); cursor("pointer"); 
-                    fontWeight("bold"); fontSize(14.px); property("transition", "all 0.2s") 
+                    width(100.percent); padding(16.px); backgroundColor(if (cargando) Color("#475569") else Color("#0f172a")); color(Color.white)
+                    property("border", "none"); borderRadius(8.px); cursor(if (cargando) "wait" else "pointer")
+                    fontWeight("bold"); fontSize(14.px); property("transition", "all 0.2s")
+                    opacity(if (cargando) 0.75 else 1.0)
                 }
-                onClick { onLogin(u, p, rememberMe) } 
-            }) { Text(t.get("login")) }
+                onClick { if (!cargando) onLogin(u, p, rememberMe) } 
+            }) { Text(if (cargando) t.get("login_wait") else t.get("login")) }
             
             P({ style { textAlign("center"); marginTop(32.px); fontSize(11.px); color(Color("#94a3b8")) } }) { Text("© 2024 NAF CONNECT • SISTEMA INDUSTRIAL") }
         }
