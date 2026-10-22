@@ -840,10 +840,13 @@ enum class UserRole { ADMIN, RH, COMPRAS, MANTENIMIENTO, SEGURIDAD, EMPLEADO, AL
 
 fun isModuleVisible(module: Module, role: UserRole): Boolean {
     if (role == UserRole.ADMIN) return true
-    if (role == UserRole.RH) return module in listOf(Module.DASHBOARD, Module.RECRUITMENT_SAP, Module.EMPLOYEES, Module.ATTENDANCE, Module.PRE_NOMINA, Module.LOCKERS, Module.QIS_DOCS, Module.SETTINGS)
-    if (role == UserRole.ALMACEN) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
-    if (role == UserRole.IMPORT_EXPORT) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
-    if (role == UserRole.FINANZAS) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
+    // RH: solo su modulo de Recursos Humanos.
+    if (role == UserRole.RH) return module in listOf(Module.DASHBOARD, Module.RECRUITMENT_SAP, Module.EMPLOYEES, Module.ATTENDANCE, Module.PRE_NOMINA, Module.LOCKERS, Module.SETTINGS)
+    // Almacen / Import-Export / Finanzas: cadena de suministro y logistica,
+    // nada de EHS (EHS es solo para ADMIN y SEGURIDAD).
+    if (role == UserRole.ALMACEN) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.FERRETERIA, Module.RECEPCION_MP, Module.QIS_DOCS, Module.SETTINGS)
+    if (role == UserRole.IMPORT_EXPORT) return module in listOf(Module.DASHBOARD, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.QIS_DOCS, Module.SETTINGS)
+    if (role == UserRole.FINANZAS) return module in listOf(Module.DASHBOARD, Module.FINANCIAL_ACCOUNTING, Module.WAREHOUSE, Module.SHIPPING, Module.FERRETERIA, Module.RECEPCION_MP, Module.QIS_DOCS, Module.SETTINGS)
     if (role == UserRole.SEGURIDAD) return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_METRICS, Module.EHS_CALENDAR, Module.EHS_ACTIONS, Module.EHS_CONTRACTORS, Module.EHS_ALERTS, Module.EHS_RATES, Module.LEGAL_MATRIX, Module.STPS, Module.EHS_DOCUMENTS, Module.LOCKERS, Module.QIS_DOCS, Module.SETTINGS)
     return module in listOf(Module.DASHBOARD, Module.EHS_HOME, Module.EHS_SEGURIDAD, Module.EHS_SALUD, Module.EHS_AMBIENTE, Module.EHS_DOCUMENTS, Module.QIS_DOCS, Module.SETTINGS)
 }
