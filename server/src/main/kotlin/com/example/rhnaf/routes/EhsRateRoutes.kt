@@ -118,7 +118,9 @@ fun Route.ehsRateRouting() {
                 org.apache.poi.xssf.usermodel.XSSFWorkbook().use { wb ->
                     val hoja = wb.createSheet("QOS Accidents")
                     fun texto(r: Int, c: Int, v: String, negrita: Boolean = false) {
-                        val cell = hoja.createRow(r).createCell(c)
+                        // getRow ?: createRow: createRow borra la fila existente y
+                        // con varias escrituras en la misma fila se pisaban.
+                        val cell = (hoja.getRow(r) ?: hoja.createRow(r)).createCell(c)
                         cell.setCellValue(v)
                         if (negrita) cell.cellStyle = wb.createCellStyle().apply { setFont(wb.createFont().apply { bold = true }) }
                     }
