@@ -42,7 +42,10 @@ import java.time.format.DateTimeFormatter
  */
 private val LOCKER_WRITE = setOf(Roles.ADMIN, Roles.RH, Roles.SEGURIDAD)
 private const val LOCKER_DRIVE_PREFIX = "gdrive:"
-private val DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+// STRICT: rechaza fechas inexistentes como 31/02/2026 (el modo por omision
+// las "corrige" silenciosamente, y eso contamina el listado).
+private val DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/uuuu")
+    .withResolverStyle(java.time.format.ResolverStyle.STRICT)
 
 private fun hoy(): String = LocalDate.now(ZoneId.of("America/Mexico_City")).format(DATE_FMT)
 
