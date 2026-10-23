@@ -429,6 +429,46 @@ fun Route.lockerRouting() {
             }
         }
 
+        // ---------- EDITAR TITULAR SIN ABRIR BITACORA NUEVA ----------
+        // Corrige nombre, numero de empleado y/o fecha de entrega de locker
+        // de la asignacion VIGENTE. La bitacora abierta se actualiza en
+        // paralelo para que listado e historial queden consistentes.
+        put("/{numero}/editar") {
+            safeApiCall(call) {
+                requireRoleOr403(call, LOCKER_WRITE) ?: return@safeApiCall
+                val numero = call.parameters["numero"]?.toIntOrNull()
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Numero invalido"))
+                val body = call.receive<Map<String, String>>()
+                val empId = body["employeeId"]?.trim().orEmpty()
+                val nombre = body["nombre"]?.trim().orEmpty()
+                val fechaLocker = body["fechaCandado"]?.trim().orEmpty()
+                if (empId.isBlank() && nombre.isBlank() && fechaLocker.isBlank())
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Indica al menos un dato a editar"))
+                if (fechaLocker.isNotBlank() && !fechaValida(fechaLocker))
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Fecha de entrega de locker invalida (dd/MM/aaaa)"))
+                val locker = DatabaseFactory.dbQuery {
+                    LockerTable.selectAll().where { LockerTable.numero eq numero }.singleOrNull()?.let(::lockerFrom)
+                } ?: return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("status" to "error", "message" to "El casillero $numero no existe"))
+                if (locker.estado != "Asignado")
+                    return@safeApiCall call.respond(HttpStatusCode.Conflict, mapOf("status" to "error", "message" to "El casillero $numero esta libre; no hay titular que editar"))
+                DatabaseFactory.dbQuery {
+                    LockerTable.update({ LockerTable.numero eq numero }) {
+                        if (empId.isNotBlank()) it[LockerTable.employeeId] = empId.limpia(50)
+                        if (nombre.isNotBlank()) it[LockerTable.nombre] = nombre.limpia(200)
+                        if (fechaLocker.isNotBlank()) it[LockerTable.fechaCandado] = fechaLocker
+                    }
+                    LockerHistoryTable.update({
+                        (LockerHistoryTable.numero eq numero).and(LockerHistoryTable.fechaFin eq "")
+                    }) {
+                        if (empId.isNotBlank()) it[LockerHistoryTable.employeeId] = empId.limpia(50)
+                        if (nombre.isNotBlank()) it[LockerHistoryTable.nombre] = nombre.limpia(200)
+                        if (fechaLocker.isNotBlank()) it[LockerHistoryTable.fechaCandado] = fechaLocker
+                    }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+        }
+
         // ---------- SINCRONIZAR NOMBRES CON EL PADRON DE EMPLEADOS ----------
         // Los nombres del listado maestro vienen escritos a mano y con
         // mayusculas inconsistentes. Este proceso sustituye el nombre de cada
