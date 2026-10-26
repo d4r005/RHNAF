@@ -84,7 +84,9 @@ object GoogleDriveService {
             }))
         }
         if (response.status != HttpStatusCode.OK) {
-            println("[GoogleDriveService] Error refrescando token: ${response.status} ${response.bodyAsText()}")
+            val detalle = "${response.status}: ${response.bodyAsText().take(300)}"
+            println("[GoogleDriveService] Error refrescando token: $detalle")
+            ultimoErrorOAuth = detalle
             return null
         }
         val json = Json.parseToJsonElement(response.bodyAsText()).jsonObject
