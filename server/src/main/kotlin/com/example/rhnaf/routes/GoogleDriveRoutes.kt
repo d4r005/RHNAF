@@ -93,10 +93,10 @@ fun Route.googleDriveRouting() {
         get("/status") {
             call.respond(
                 mapOf(
-                    "configured" to GoogleDriveService.isConfigured(),
+                    "configured" to GoogleDriveService.isConfigured().toString(),
                     "ultimoError" to (GoogleDriveService.ultimoErrorOAuth ?: ""),
-                    "oauthCredentials" to GoogleDriveService.hasOAuthCredentials(),
-                    "folderConfigured" to !GoogleDriveService.folderId.isNullOrBlank()
+                    "oauthCredentials" to GoogleDriveService.hasOAuthCredentials().toString(),
+                    "folderConfigured" to (!GoogleDriveService.folderId.isNullOrBlank()).toString()
                 )
             )
         }
