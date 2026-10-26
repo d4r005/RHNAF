@@ -50,9 +50,31 @@ private suspend fun subirArchivoQis(file: org.w3c.files.File, urlDestino: String
         )
     }
 
-/** Abre en otra pestana el archivo de un documento QIS (puntero de Drive).
- *  PDF e imagenes se muestran en el navegador; Word/Excel se descargan con su
- *  nombre real (antes el blob sin nombre bajaba con un GUID inutil). */
+/** Abre en otra pestana el PDF del documento; el servidor convierte
+ *  Word/Excel/PowerPoint con LibreOffice y entrega application/pdf inline. */
+private fun verPdfQis(url: String) {
+    val options = js("({})")
+    options.headers = js("({})")
+    options.headers.Authorization = "Bearer $apiAuthToken"
+    window.asDynamic().fetch(url, options).then(
+        { response: dynamic ->
+            if (response.status == 200) {
+                response.blob().then({ blob: dynamic ->
+                    val blobUrl = window.asDynamic().URL.createObjectURL(blob)
+                    window.open(blobUrl as String, "_blank")
+                    window.setTimeout({ window.asDynamic().URL.revokeObjectURL(blobUrl) }, 60000)
+                })
+            } else {
+                response.text().then({ t: dynamic -> window.alert("No se pudo generar el PDF: " + t) })
+            }
+        },
+        { err: dynamic -> window.alert("No se pudo abrir el PDF: " + (err.message ?: "error")) }
+    )
+}
+
+/** Descarga el archivo ORIGINAL de un documento QIS con su nombre real
+ *  (puntero de Drive). PDF e imagenes se muestran en el navegador; Word/Excel
+ *  se descargan con su nombre real (antes el blob bajaba con un GUID). */
 private fun abrirArchivoQis(url: String) {
     val options = js("({})")
     options.headers = js("({})")
@@ -306,8 +328,13 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
                                 if (doc.urlArchivo.startsWith("gdrive:")) {
                                     A(href = "#", {
                                         style { color(Color("#2563eb")); fontSize(12.px) }
-                                        onClick { ev -> ev.preventDefault(); abrirArchivoQis("$BACKEND_URL/api/v1/qis/documentos/${doc.id}/archivo") }
+                                        onClick { ev -> ev.preventDefault(); verPdfQis("$BACKEND_URL/api/v1/qis/documentos/${doc.id}/pdf") }
                                     }) { Text(I18n.get("qis_ver")) }
+                                    Span({ style { color(Color("#cbd5e1")) } }) { Text(" · ") }
+                                    A(href = "#", {
+                                        style { color(Color("#047857")); fontSize(12.px) }
+                                        onClick { ev -> ev.preventDefault(); abrirArchivoQis("$BACKEND_URL/api/v1/qis/documentos/${doc.id}/archivo") }
+                                    }) { Text(I18n.get("qis_descargar")) }
                                 } else A(href = doc.urlArchivo, { style { color(Color("#2563eb")); fontSize(12.px) } }) { Text(I18n.get("qis_ver")) }
                             } else Text("-")
                         }

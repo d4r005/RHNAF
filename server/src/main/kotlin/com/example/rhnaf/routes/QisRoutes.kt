@@ -20,6 +20,7 @@ import com.example.rhnaf.service.GoogleDriveService
 import io.ktor.server.request.receiveMultipart
 import io.ktor.http.content.*
 import java.io.File
+import java.util.concurrent.TimeUnit
 import java.io.FileOutputStream
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.DateUtil
@@ -194,6 +195,38 @@ private fun leerListadoMaestroQis(file: File): List<FilaQis> {
             ))
         }
         return out
+    }
+}
+
+// ---------- VER COMO PDF ----------
+// LibreOffice convierte Word/Excel/PowerPoint a PDF para verlo en el
+// navegador; los PDF se entregan tal cual. Cada conversion corre con su
+// propio perfil temporal para no chocar entre peticiones concurrentes.
+private val EXT_CONVERTIBLES = setOf("docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "csv", "odt", "ods", "odp")
+
+private fun convertirAPdf(bytes: ByteArray, ext: String): ByteArray? {
+    if (ext !in EXT_CONVERTIBLES) return null
+    val dir = File.createTempFile("qisconv-", "").let { f -> f.delete(); File(f.absolutePath + "d") }
+    return try {
+        dir.mkdirs()
+        val home = File(dir, "home").apply { mkdirs() }
+        val entrada = File(dir, "doc.$ext")
+        entrada.writeBytes(bytes)
+        val proc = ProcessBuilder(
+            "soffice", "--headless", "--norestore", "--nologo", "--nolockcheck",
+            "--convert-to", "pdf", "--outdir", dir.absolutePath, entrada.absolutePath
+        ).apply {
+            environment()["HOME"] = home.absolutePath
+            redirectErrorStream(true)
+        }.start()
+        proc.waitFor(120, TimeUnit.SECONDS)
+        val pdf = File(dir, "doc.pdf")
+        if (pdf.exists() && pdf.length() > 0) pdf.readBytes() else null
+    } catch (e: Exception) {
+        println("[QisRoutes] Error convirtiendo a PDF ($ext): ${e.message}")
+        null
+    } finally {
+        dir.deleteRecursively()
     }
 }
 
@@ -393,6 +426,31 @@ fun Route.qisRouting() {
 
         // Descarga / vista del archivo controlado. Si es un puntero de Drive
         // lo transmite desde ahi; si es una URL externa redirige.
+        get("/{id}/pdf") {
+            safeApiCall(call) {
+                requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall
+                val id = call.parameters["id"]?.toIntOrNull()
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "ID invalido"))
+                val doc = DatabaseFactory.dbQuery {
+                    QisDocumentTable.selectAll().where { QisDocumentTable.id eq id }.singleOrNull()?.let(::docFrom)
+                } ?: return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("status" to "error", "message" to "Documento no encontrado"))
+                if (!doc.urlArchivo.startsWith("gdrive:")) {
+                    return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("status" to "error", "message" to "El documento no tiene archivo adjunto"))
+                }
+                val fileId = doc.urlArchivo.removePrefix("gdrive:").substringBefore("::")
+                val nombreArchivo = doc.urlArchivo.substringAfter("::", "documento")
+                val bytes = GoogleDriveService.downloadFile(fileId)
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway, mapOf("status" to "error", "message" to "No fue posible descargar el archivo desde Drive"))
+                val ext = nombreArchivo.substringAfterLast('.', "").lowercase()
+                val pdf = if (ext == "pdf") bytes else convertirAPdf(bytes, ext)
+                if (pdf == null) {
+                    return@safeApiCall call.respond(HttpStatusCode.UnprocessableEntity, mapOf("status" to "error", "message" to "No fue posible convertir el .$ext a PDF"))
+                }
+                call.response.headers.append(HttpHeaders.ContentDisposition, "inline; filename=\"${doc.codigo}.pdf\"")
+                call.respondBytes(pdf, ContentType.Application.Pdf)
+            }
+        }
+
         get("/{id}/archivo") {
             safeApiCall(call) {
                 requireRoleOr403(call, Roles.ALL) ?: return@safeApiCall

@@ -62,6 +62,15 @@ WORKDIR /app
 # Copiar el servidor instalado desde la etapa de build
 COPY --from=build /app/server/build/install/server /app/server
 
+# LibreOffice para convertir Word/Excel/PowerPoint a PDF en el boton "Ver"
+# de QIS; fonts-noto-cjk para que los titulos en chino de los documentos no
+# se vean como cuadros en el PDF generado.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libreoffice-writer libreoffice-calc libreoffice-impress \
+    fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/* \
+    && soffice --version
+
 # Crear carpeta static y copiar los archivos de la Web App (versión de desarrollo para rapidez)
 RUN mkdir -p /app/static
 COPY --from=build /app/web/build/dist/js/developmentExecutable /app/static/
