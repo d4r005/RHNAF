@@ -116,6 +116,9 @@ fun Application.module() {
         anyHost()
         allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.Authorization)
+        // El frontend lee el nombre del archivo (Content-Disposition) para
+        // descargarlo con su nombre real y no con un GUID del blob.
+        exposeHeader(HttpHeaders.ContentDisposition)
         allowMethod(HttpMethod.Options)
         allowMethod(HttpMethod.Put)
         allowMethod(HttpMethod.Patch)

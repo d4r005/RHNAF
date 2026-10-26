@@ -310,6 +310,23 @@ object GoogleDriveService {
     }
 
     /** Descarga el contenido binario de un archivo por su fileId. Null si fallo. */
+    /** Descarga un archivo de Drive junto con su MIME real (para que el
+     *  navegador sepa si es PDF, imagen, Word, etc. al abrirlo con Ver). */
+    suspend fun downloadFileWithType(fileId: String): Pair<ByteArray, String>? {
+        val accessToken = getAccessToken() ?: return null
+        val response: HttpResponse = client.get("$DRIVE_FILES_URL/$fileId") {
+            header(HttpHeaders.Authorization, "Bearer $accessToken")
+            parameter("alt", "media")
+        }
+        if (response.status != HttpStatusCode.OK) {
+            println("[GoogleDriveService] Error descargando fileId=$fileId: ${response.status}")
+            return null
+        }
+        val mime = response.headers[HttpHeaders.ContentType]?.substringBefore(';')?.trim()
+            ?.takeIf { it.isNotBlank() } ?: "application/octet-stream"
+        return response.readBytes() to mime
+    }
+
     suspend fun downloadFile(fileId: String): ByteArray? {
         val accessToken = getAccessToken() ?: return null
         val response: HttpResponse = client.get("$DRIVE_FILES_URL/$fileId") {

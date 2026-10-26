@@ -408,12 +408,18 @@ fun Route.qisRouting() {
                         val fileId = sinPrefijo.substringBefore("::")
                         val nombreArchivo = sinPrefijo.substringAfter("::", "documento_${doc.codigo}")
                             .ifBlank { "documento_${doc.codigo}" }
-                        val bytes = GoogleDriveService.downloadFile(fileId)
+                        val descargado = GoogleDriveService.downloadFileWithType(fileId)
                             ?: return@safeApiCall call.respond(HttpStatusCode.BadGateway,
                                 mapOf("status" to "error", "message" to "No fue posible descargar el archivo desde Drive"))
+                        val (bytes, mime) = descargado
+                        // filename ASCII de respaldo + filename* UTF-8: asi los
+                        // nombres con caracteres chinos no se pierden como '????'.
+                        val nombreAscii = nombreArchivo.replace("\"", "_").filter { it.code in 32..126 }.ifBlank { "documento_${doc.codigo}" }
+                        val nombreUtf8 = java.net.URLEncoder.encode(nombreArchivo.replace("\"", "_"), "UTF-8").replace("+", "%20")
                         call.response.headers.append(HttpHeaders.ContentDisposition,
-                            "attachment; filename=\"${nombreArchivo.replace("\"", "_")}\"")
-                        call.respondBytes(bytes, contentType = ContentType.Application.OctetStream)
+                            "attachment; filename=\"$nombreAscii\"; filename*=UTF-8''$nombreUtf8")
+                        val ct = runCatching { ContentType.parse(mime) }.getOrDefault(ContentType.Application.OctetStream)
+                        call.respondBytes(bytes, contentType = ct)
                     }
                     url.startsWith("http") -> call.respondRedirect(url)
                     else -> return@safeApiCall call.respond(HttpStatusCode.NotFound,

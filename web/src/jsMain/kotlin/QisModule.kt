@@ -50,7 +50,9 @@ private suspend fun subirArchivoQis(file: org.w3c.files.File, urlDestino: String
         )
     }
 
-/** Abre en otra pestana el archivo de un documento QIS (puntero de Drive). */
+/** Abre en otra pestana el archivo de un documento QIS (puntero de Drive).
+ *  PDF e imagenes se muestran en el navegador; Word/Excel se descargan con su
+ *  nombre real (antes el blob sin nombre bajaba con un GUID inutil). */
 private fun abrirArchivoQis(url: String) {
     val options = js("({})")
     options.headers = js("({})")
@@ -58,13 +60,31 @@ private fun abrirArchivoQis(url: String) {
     window.asDynamic().fetch(url, options).then(
         { response: dynamic ->
             response.blob().then({ blob: dynamic ->
-                val blobUrl = window.asDynamic().URL.createObjectURL(blob)
-                window.open(blobUrl as String, "_blank")
+                // nombre real desde Content-Disposition (filename* UTF-8 o filename)
+                val cd: String = (response.headers.get("content-disposition") as? String) ?: ""
+                val nombreUtf8 = cd.substringAfter("filename*=UTF-8''", "").substringBefore(';').trim()
+                val nombrePlano = cd.substringAfter("filename=\"", "").substringBefore("\"").trim()
+                val nombreCod = if (nombreUtf8.isNotBlank()) nombreUtf8 else if (nombrePlano.isNotBlank()) nombrePlano else "documento"
+                val nombre = runCatching { window.asDynamic().decodeURIComponent(nombreCod) as String }.getOrDefault(nombreCod)
+                val tipo: String = (blob.type as? String) ?: ""
+                val blobUrl = window.asDynamic().URL.createObjectURL(blob) as String
+                if (tipo.contains("pdf") || tipo.contains("image/") || tipo.startsWith("text/")) {
+                    // visualizable en el navegador
+                    window.open(blobUrl, "_blank")
+                } else {
+                    // Word/Excel/etc: descarga con su nombre real
+                    val a = js("document.createElement('a')")
+                    a.href = blobUrl
+                    a.download = nombre
+                    js("document.body.appendChild(a)")
+                    a.click()
+                    js("document.body.removeChild(a)")
+                }
                 window.setTimeout({ window.asDynamic().URL.revokeObjectURL(blobUrl) }, 60000)
             })
         },
         { err: dynamic -> window.alert("No se pudo abrir el archivo: " + (err.message ?: "error")) }
-    )
+            )
 }
 
 /** Etiqueta visible del estado segun el idioma activo. */
