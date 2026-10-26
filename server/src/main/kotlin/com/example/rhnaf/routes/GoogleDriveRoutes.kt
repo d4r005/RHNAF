@@ -57,8 +57,9 @@ fun Route.googleDriveRouting() {
             val tokens = GoogleDriveService.exchangeCode(code, call.publicBaseUrl())
             val accessToken = tokens?.get("access_token")
             if (accessToken.isNullOrBlank()) {
+                val detalle = GoogleDriveService.ultimoErrorOAuth ?: "sin detalle"
                 call.respondText(
-                    setupPage("No se pudo conectar", "No fue posible intercambiar el codigo de Google. Revisa los logs del servidor."),
+                    setupPage("No se pudo conectar", "Google rechazo el intercambio del codigo.<br><br><b style='font-family:monospace'>$detalle</b><br><br>Si dice <i>invalid_client</i>, el secreto de cliente guardado en el servidor ya no coincide con el de Google Cloud Console: hay que actualizar GOOGLE_CLIENT_SECRET y reintentar este enlace."),
                     ContentType.Text.Html,
                     HttpStatusCode.BadGateway
                 )

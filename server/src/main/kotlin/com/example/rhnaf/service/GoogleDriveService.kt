@@ -95,9 +95,14 @@ object GoogleDriveService {
     }
 
     /** Intercambia el codigo de autorizacion por tokens. Solo se usa una vez, en el callback. */
+    /** Detalle del ultimo fallo de OAuth (se muestra en la pagina de callback). */
+    var ultimoErrorOAuth: String? = null
+        private set
+
     suspend fun exchangeCode(code: String, baseUrl: String): Map<String, String>? {
-        val cid = clientId ?: return null
-        val secret = clientSecret ?: return null
+        ultimoErrorOAuth = null
+        val cid = clientId ?: run { ultimoErrorOAuth = "GOOGLE_CLIENT_ID no configurado en el servidor"; return null }
+        val secret = clientSecret ?: run { ultimoErrorOAuth = "GOOGLE_CLIENT_SECRET no configurado en el servidor"; return null }
         val response: HttpResponse = client.post(TOKEN_URL) {
             setBody(FormDataContent(Parameters.build {
                 append("client_id", cid)
@@ -108,7 +113,9 @@ object GoogleDriveService {
             }))
         }
         if (response.status != HttpStatusCode.OK) {
-            println("[GoogleDriveService] Error intercambiando code: ${response.status} ${response.bodyAsText()}")
+            val detalle = "${response.status}: ${response.bodyAsText().take(500)}"
+            println("[GoogleDriveService] Error intercambiando code: $detalle")
+            ultimoErrorOAuth = detalle
             return null
         }
         val json = Json.parseToJsonElement(response.bodyAsText()).jsonObject
