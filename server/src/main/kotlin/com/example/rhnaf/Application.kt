@@ -73,6 +73,12 @@ fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
  */
 private val PUBLIC_PATHS = setOf(
     "/api/login",
+    // OAuth de Google Drive: el navegador abre estas rutas directo (sin token)
+    // porque Google redirige de regreso al callback; si exigieran sesion el
+    // flujo de reconexion nunca funciona desde un enlace.
+    "/api/v1/google-drive/auth-url",
+    "/api/v1/google-drive/callback",
+    "/api/v1/google-drive/status",
     "/api/v1/asistencia/hikvision",
     "/api/v1/asistencia/sync",
     // Puente planta-nube (script sync_all.py en la PC local): no tiene usuario de login
