@@ -531,6 +531,57 @@ fun Route.qisRouting() {
 
         // Cambio de estado sin cambio de versión (p. ej. marcar Obsoleto
         // cuando el documento se sustituye por otro).
+        // ---------- EDITAR DATOS DEL DOCUMENTO ----------
+        // Corrige codigo, titulo, tipo, proceso o notas de un documento ya
+        // registrado. El cambio queda en el historial. versionActual y
+        // urlArchivo solo cambian por sus flujos propios.
+        put("/{id}") {
+            safeApiCall(call) {
+                requireRoleOr403(call, QIS_WRITE) ?: return@safeApiCall
+                val id = call.parameters["id"]?.toIntOrNull()
+                    ?: return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "ID invalido"))
+                val req = call.receive<QisDocumentRequest>()
+                if (req.codigo.isBlank() || req.codigo.length > 40) {
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Codigo requerido (maximo 40 caracteres)"))
+                }
+                if (req.titulo.isBlank() || req.titulo.length > 300) {
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Titulo requerido (maximo 300 caracteres)"))
+                }
+                if (req.tipo !in QIS_TIPOS) {
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Tipo invalido: ${QIS_TIPOS.joinToString(", ")}"))
+                }
+                val doc = DatabaseFactory.dbQuery {
+                    QisDocumentTable.selectAll().where { QisDocumentTable.id eq id }.singleOrNull()?.let(::docFrom)
+                } ?: return@safeApiCall call.respond(HttpStatusCode.NotFound, mapOf("status" to "error", "message" to "Documento no encontrado"))
+                val dup = DatabaseFactory.dbQuery {
+                    QisDocumentTable.selectAll().where { (QisDocumentTable.codigo eq req.codigo) and (QisDocumentTable.id neq id) }.limit(1).any()
+                }
+                if (dup) {
+                    return@safeApiCall call.respond(HttpStatusCode.Conflict, mapOf("status" to "error", "message" to "Ya existe otro documento con el codigo ${req.codigo}"))
+                }
+                val hoy = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu"))
+                DatabaseFactory.dbQuery {
+                    QisDocumentTable.update({ QisDocumentTable.id eq id }) {
+                        it[codigo] = req.codigo
+                        it[titulo] = req.titulo
+                        it[tipo] = req.tipo
+                        it[proceso] = req.proceso
+                        it[notas] = req.notas
+                    }
+                    QisChangeLogTable.insert {
+                        it[documentoId] = id
+                        it[versionAnterior] = doc.versionActual
+                        it[versionNueva] = doc.versionActual
+                        it[fechaCambio] = hoy
+                        it[descripcion] = "Correccion de datos del documento"
+                        it[cambiadoPor] = req.elaboradoPor.ifBlank { "Portal" }
+                        it[aprobadoPor] = req.aprobadoPor
+                    }
+                }
+                call.respond(mapOf("status" to "ok"))
+            }
+        }
+
         patch("/{id}/estado") {
             safeApiCall(call) {
                 requireRoleOr403(call, QIS_WRITE) ?: return@safeApiCall
