@@ -210,7 +210,7 @@ private val EXT_CONVERTIBLES = setOf("docx", "doc", "xlsx", "xls", "pptx", "ppt"
 // otra cosa (DejaVu, ancha) y rompe el acomodo. En la COPIA TEMPORAL de
 // conversion se fijan fuentes explicitas de metrica Times, que es como
 // Word los ve. El archivo original en Drive no se toca.
-private fun rematarFuentesAmbiguas(bytes: ByteArray): ByteArray {
+private fun reescribirZip(bytes: ByteArray, transformar: (String, String) -> String): ByteArray {
     return try {
         val zin = java.util.zip.ZipInputStream(bytes.inputStream())
         val salida = java.io.ByteArrayOutputStream()
@@ -221,14 +221,7 @@ private fun rematarFuentesAmbiguas(bytes: ByteArray): ByteArray {
                 while (e != null) {
                     val contenido = entrada.readBytes()
                     val nuevo = if (e.name.endsWith(".xml")) {
-                        String(contenido, Charsets.UTF_8)
-                            .replace(
-                                """<w:rFonts w:asciiTheme="minorEastAsia" w:hAnsiTheme="minorEastAsia" w:hint="eastAsia"/>""",
-                                """<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="SimSun" w:hint="eastAsia"/>"""
-                            )
-                            .replace(Regex("""w:asciiTheme="minorEastAsia""""), """w:ascii="Times New Roman"""")
-                            .replace(Regex("""w:hAnsiTheme="minorEastAsia""""), """w:hAnsi="Times New Roman"""")
-                            .toByteArray(Charsets.UTF_8)
+                        transformar(e.name, String(contenido, Charsets.UTF_8)).toByteArray(Charsets.UTF_8)
                     } else contenido
                     salidaZip.putNextEntry(java.util.zip.ZipEntry(e.name))
                     salidaZip.write(nuevo)
@@ -239,10 +232,32 @@ private fun rematarFuentesAmbiguas(bytes: ByteArray): ByteArray {
         }
         salida.toByteArray()
     } catch (ex: Exception) {
-        println("[QisRoutes] No se pudo rematar fuentes ambiguas (se convierte tal cual): ${ex.message}")
+        println("[QisRoutes] No se pudo reescribir el archivo (se convierte tal cual): ${ex.message}")
         bytes
     }
 }
+
+private fun rematarFuentesAmbiguas(bytes: ByteArray): ByteArray =
+    reescribirZip(bytes) { _, t ->
+        t.replace(
+            """<w:rFonts w:asciiTheme="minorEastAsia" w:hAnsiTheme="minorEastAsia" w:hint="eastAsia"/>""",
+            """<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="SimSun" w:hint="eastAsia"/>"""
+        )
+            .replace(Regex("""w:asciiTheme="minorEastAsia""""), """w:ascii="Times New Roman"""")
+            .replace(Regex("""w:hAnsiTheme="minorEastAsia""""), """w:hAnsi="Times New Roman"""")
+    }
+
+// Los gafetes (pptx) declaran SimSun/宋体 para textos como el codigo de la
+// esquina; su latin compacto cabe en cajas al limite, pero el sustituto
+// serif se pasa por unas decimas y lo parte en dos renglones. Carlito
+// (metrica Calibri, angosta) cabe y el chino cae a Noto por glifo.
+private fun rematarFuentesPptx(bytes: ByteArray): ByteArray =
+    reescribirZip(bytes) { nombre, t ->
+        if (nombre.startsWith("ppt/")) {
+            t.replace("typeface=\"宋体\"", "typeface=\"Carlito\"")
+                .replace("typeface=\"SimSun\"", "typeface=\"Carlito\"")
+        } else t
+    }
 
 // Detecta el formato REAL por contenido (no por nombre): hay gafetes
 // guardados como ".docx" que por dentro son PowerPoint, y LibreOffice se
@@ -266,7 +281,11 @@ private fun extReal(bytes: ByteArray, extDeclarada: String): String {
 private fun convertirAPdf(bytesIn: ByteArray, extDeclarada: String): ByteArray? {
     val ext = extReal(bytesIn, extDeclarada)
     if (ext !in EXT_CONVERTIBLES) return null
-    val bytes = if (ext == "docx") rematarFuentesAmbiguas(bytesIn) else bytesIn
+    val bytes = when (ext) {
+        "docx" -> rematarFuentesAmbiguas(bytesIn)
+        "pptx" -> rematarFuentesPptx(bytesIn)
+        else -> bytesIn
+    }
     val dir = File.createTempFile("qisconv-", "").let { f -> f.delete(); File(f.absolutePath + "d") }
     return try {
         dir.mkdirs()
