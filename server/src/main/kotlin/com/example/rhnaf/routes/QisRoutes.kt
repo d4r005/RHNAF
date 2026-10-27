@@ -244,7 +244,27 @@ private fun rematarFuentesAmbiguas(bytes: ByteArray): ByteArray {
     }
 }
 
-private fun convertirAPdf(bytesIn: ByteArray, ext: String): ByteArray? {
+// Detecta el formato REAL por contenido (no por nombre): hay gafetes
+// guardados como ".docx" que por dentro son PowerPoint, y LibreOffice se
+// guia por la extension del archivo temporal.
+private fun extReal(bytes: ByteArray, extDeclarada: String): String {
+    if (bytes.size < 4 || bytes[0] != 'P'.code.toByte() || bytes[1] != 'K'.code.toByte()) return extDeclarada
+    return try {
+        val zin = java.util.zip.ZipInputStream(bytes.inputStream())
+        zin.use { z ->
+            val primera = z.nextEntry?.name ?: return extDeclarada
+            when {
+                primera.startsWith("ppt/") -> "pptx"
+                primera.startsWith("word/") -> "docx"
+                primera.startsWith("xl/") -> "xlsx"
+                else -> extDeclarada
+            }
+        }
+    } catch (e: Exception) { extDeclarada }
+}
+
+private fun convertirAPdf(bytesIn: ByteArray, extDeclarada: String): ByteArray? {
+    val ext = extReal(bytesIn, extDeclarada)
     if (ext !in EXT_CONVERTIBLES) return null
     val bytes = if (ext == "docx") rematarFuentesAmbiguas(bytesIn) else bytesIn
     val dir = File.createTempFile("qisconv-", "").let { f -> f.delete(); File(f.absolutePath + "d") }
