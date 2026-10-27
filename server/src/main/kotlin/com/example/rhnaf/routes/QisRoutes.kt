@@ -204,8 +204,49 @@ private fun leerListadoMaestroQis(file: File): List<FilaQis> {
 // propio perfil temporal para no chocar entre peticiones concurrentes.
 private val EXT_CONVERTIBLES = setOf("docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "csv", "odt", "ods", "odp")
 
-private fun convertirAPdf(bytes: ByteArray, ext: String): ByteArray? {
+// Word deja ambigua la fuente de los encabezados con chino
+// (w:asciiTheme="minorEastAsia" con el tema de Asia vacio): Word los
+// renderiza con el latino compacto de SimSun, pero LibreOffice resuelve
+// otra cosa (DejaVu, ancha) y rompe el acomodo. En la COPIA TEMPORAL de
+// conversion se fijan fuentes explicitas de metrica Times, que es como
+// Word los ve. El archivo original en Drive no se toca.
+private fun rematarFuentesAmbiguas(bytes: ByteArray): ByteArray {
+    return try {
+        val zin = java.util.zip.ZipInputStream(bytes.inputStream())
+        val salida = java.io.ByteArrayOutputStream()
+        val zout = java.util.zip.ZipOutputStream(salida)
+        zin.use { entrada ->
+            zout.use { salidaZip ->
+                var e = entrada.nextEntry
+                while (e != null) {
+                    val contenido = entrada.readBytes()
+                    val nuevo = if (e.name.endsWith(".xml")) {
+                        String(contenido, Charsets.UTF_8)
+                            .replace(
+                                """<w:rFonts w:asciiTheme="minorEastAsia" w:hAnsiTheme="minorEastAsia" w:hint="eastAsia"/>""",
+                                """<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="SimSun" w:hint="eastAsia"/>"""
+                            )
+                            .replace(Regex("""w:asciiTheme="minorEastAsia""""), """w:ascii="Times New Roman"""")
+                            .replace(Regex("""w:hAnsiTheme="minorEastAsia""""), """w:hAnsi="Times New Roman"""")
+                            .toByteArray(Charsets.UTF_8)
+                    } else contenido
+                    salidaZip.putNextEntry(java.util.zip.ZipEntry(e.name))
+                    salidaZip.write(nuevo)
+                    salidaZip.closeEntry()
+                    e = entrada.nextEntry
+                }
+            }
+        }
+        salida.toByteArray()
+    } catch (ex: Exception) {
+        println("[QisRoutes] No se pudo rematar fuentes ambiguas (se convierte tal cual): ${ex.message}")
+        bytes
+    }
+}
+
+private fun convertirAPdf(bytesIn: ByteArray, ext: String): ByteArray? {
     if (ext !in EXT_CONVERTIBLES) return null
+    val bytes = if (ext == "docx") rematarFuentesAmbiguas(bytesIn) else bytesIn
     val dir = File.createTempFile("qisconv-", "").let { f -> f.delete(); File(f.absolutePath + "d") }
     return try {
         dir.mkdirs()
