@@ -497,11 +497,14 @@ private fun QisDocDetail(client: HttpClient, scope: CoroutineScope, doc: QisDocu
                     style { padding(5.px, 12.px); backgroundColor(Color("#0f766e")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(11.px) }
                     onClick {
                         val file = (document.getElementById("qis-doc-file-${doc.id}") as? HTMLInputElement)?.files?.item(0)
-                        if (file != null) scope.launch {
+                        if (file == null) {
+                            window.alert("Elige un archivo antes de oprimir OK.")
+                        } else scope.launch {
                             try {
                                 val res = subirArchivoQis(file, "$BACKEND_URL/api/v1/qis/documentos/${doc.id}/archivo")
                                 if (res.status == "ok") onDone()
-                            } catch (e: Exception) { println("QIS archivo: ${e.message}") }
+                                else window.alert("No fue posible subir el archivo: " + (res.message ?: "error del servidor"))
+                            } catch (e: Exception) { window.alert("No fue posible subir el archivo: " + (e.message ?: "error")) }
                         }
                     }
                 }) { Text("OK") }
