@@ -68,8 +68,10 @@ COPY --from=build /app/server/build/install/server /app/server
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice-writer libreoffice-calc libreoffice-impress \
     fonts-noto-cjk \
+    fonts-liberation fonts-crosextra-carlito fonts-crosextra-caladea \
     && rm -rf /var/lib/apt/lists/* \
     && soffice --version
+COPY docker/fonts-local.conf /etc/fonts/local.conf
 
 # Crear carpeta static y copiar los archivos de la Web App (versión de desarrollo para rapidez)
 RUN mkdir -p /app/static
