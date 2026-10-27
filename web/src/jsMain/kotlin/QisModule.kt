@@ -123,6 +123,14 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
     var notice by remember { mutableStateOf("") }
     var filterEstado by remember { mutableStateOf("") }
     var expandedDocId by remember { mutableStateOf(0) }
+    // Edicion de datos del documento (codigo, titulo, tipo, proceso, notas)
+    var editDocId by remember { mutableStateOf(0) }
+    var e_codigo by remember { mutableStateOf("") }
+    var e_titulo by remember { mutableStateOf("") }
+    var e_tipo by remember { mutableStateOf("Procedimiento") }
+    var e_proceso by remember { mutableStateOf("") }
+    var e_notas by remember { mutableStateOf("") }
+    var e_guardando by remember { mutableStateOf(false) }
     var refreshKey by remember { mutableStateOf(0) }
 
     // Estados de formulario del alta
@@ -338,7 +346,17 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
                                 } else A(href = doc.urlArchivo, { style { color(Color("#2563eb")); fontSize(12.px) } }) { Text(I18n.get("qis_ver")) }
                             } else Text("-")
                         }
-                        Td({ style { padding(8.px, 10.px) } }) {
+                        Td({ style { padding(8.px, 10.px); property("white-space", "nowrap") } }) {
+                            if (isAdmin) Button({
+                                style { padding(3.px, 8.px); backgroundColor(if (editDocId == doc.id) Color("#0e7490") else Color("#0891b2")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(11.px); marginRight(4.px) }
+                                onClick {
+                                    editDocId = if (editDocId == doc.id) 0 else doc.id
+                                    if (editDocId != 0) {
+                                        e_codigo = doc.codigo; e_titulo = doc.titulo; e_tipo = doc.tipo
+                                        e_proceso = doc.proceso; e_notas = doc.notas
+                                    }
+                                }
+                            }) { Text(I18n.get("qis_editar")) }
                             Button({
                                 style { padding(3.px, 8.px); backgroundColor(if (expandedDocId == doc.id) Color("#334155") else Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(4.px); cursor("pointer"); fontSize(11.px) }
                                 onClick { expandedDocId = if (expandedDocId == doc.id) 0 else doc.id }
@@ -358,6 +376,75 @@ fun QisModule(client: HttpClient, scope: CoroutineScope, isAdmin: Boolean) {
                                     }
                                 }
                             }) { Text("X") } else Text("")
+                        }
+                    }
+                    // Fila de edicion de datos (ADMIN/SEGURIDAD via QIS_WRITE)
+                    if (editDocId == doc.id) {
+                        Tr {
+                            Td({ attr("colspan", "11"); style { padding(14.px, 16.px); backgroundColor(Color("#ecfeff")) } }) {
+                                P({ style { margin(0.px, 0.px, 8.px, 0.px); fontSize(13.px); color(Color("#0e7490")) } }) {
+                                    Text("Corrige los datos del documento ${doc.codigo}. El cambio queda registrado en su historial.")
+                                }
+                                Div({ style { display(DisplayStyle.Flex); gap(8.px); flexWrap(FlexWrap.Wrap); alignItems(AlignItems.FlexEnd) } }) {
+                                    Input(InputType.Text) {
+                                        placeholder("Código")
+                                        value(e_codigo)
+                                        onInput { e_codigo = it.value }
+                                        style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) }
+                                    }
+                                    Input(InputType.Text) {
+                                        placeholder("Título")
+                                        value(e_titulo)
+                                        onInput { e_titulo = it.value }
+                                        style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(280.px) }
+                                    }
+                                    Select({
+                                        style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") }
+                                        onChange { e_tipo = it.value ?: "Procedimiento" }
+                                    }) {
+                                        listOf("Procedimiento","Instructivo","Formato","Politica","Manual","Plan","Registro","Otro").forEach { tp -> Option(value = tp) { Text(tp) } }
+                                    }
+                                    Input(InputType.Text) {
+                                        placeholder("Proceso")
+                                        value(e_proceso)
+                                        onInput { e_proceso = it.value }
+                                        style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) }
+                                    }
+                                    Input(InputType.Text) {
+                                        placeholder("Notas")
+                                        value(e_notas)
+                                        onInput { e_notas = it.value }
+                                        style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(180.px) }
+                                    }
+                                    Button({
+                                        style { padding(8.px, 16.px); backgroundColor(if (e_guardando) Color("#94a3b8") else Color("#0891b2")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("600") }
+                                        onClick {
+                                            if (!e_guardando && e_codigo.isNotBlank() && e_titulo.isNotBlank()) {
+                                                e_guardando = true; error = ""; notice = ""
+                                                scope.launch {
+                                                    try {
+                                                        val r = client.put("$BACKEND_URL/api/v1/qis/documentos/${doc.id}") {
+                                                            contentType(ContentType.Application.Json)
+                                                            setBody(QisDocumentRequest(
+                                                                codigo = e_codigo.trim(), titulo = e_titulo.trim(), tipo = e_tipo,
+                                                                proceso = e_proceso.trim(), notas = e_notas.trim(),
+                                                                elaboradoPor = "Portal QIS"
+                                                            ))
+                                                        }
+                                                        if (r.status.value in 200..299) { notice = "Documento ${e_codigo.trim()} actualizado."; editDocId = 0; refresh() }
+                                                        else error = "No se pudo actualizar (HTTP ${r.status.value})"
+                                                    } catch (e: Exception) { error = "Error: ${e.message}" }
+                                                    e_guardando = false
+                                                }
+                                            } else if (e_codigo.isBlank() || e_titulo.isBlank()) error = "El código y el título no pueden quedar vacíos."
+                                        }
+                                    }) { Text(if (e_guardando) "Guardando..." else "Guardar") }
+                                    Button({
+                                        style { padding(8.px, 16.px); backgroundColor(Color("#e2e8f0")); color(Color("#0f172a")); property("border", "1px solid #cbd5e1"); borderRadius(6.px); cursor("pointer") }
+                                        onClick { editDocId = 0 }
+                                    }) { Text("Cancelar") }
+                                }
+                            }
                         }
                     }
                     // Fila expandible: estado, historial y (ADMIN) nuevo cambio
