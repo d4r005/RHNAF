@@ -53,7 +53,9 @@ data class LockerReleaseRequest(val motivo: String = "")
 @Serializable
 data class LockerKeyRequest(
     val fechaPrestamoLlave: String = "",
-    val fechaDevolucionLlave: String = ""
+    val fechaDevolucionLlave: String = "",
+    // Si/No. Vacio = no cambiar el valor actual (solo se tocan las fechas).
+    val llaveCopia: String = ""
 )
 
 // Fila de importacion masiva (desde el listado maestro Excel).

@@ -82,6 +82,7 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
     var llaveDe by remember { mutableStateOf(0) }
     var f_prestamo by remember { mutableStateOf("") }
     var f_devolucion by remember { mutableStateOf("") }
+    var k_llave by remember { mutableStateOf("Si") }   // llave copia: Si / No
     var liberando by remember { mutableStateOf(0) }
     var f_motivo by remember { mutableStateOf("") }
     var nuevoNumero by remember { mutableStateOf("") }
@@ -342,7 +343,7 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                                     Button({
                                         style { padding(4.px, 10.px); backgroundColor(Color("#7c3aed")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); marginRight(4.px) }
                                         onClick { llaveDe = if (llaveDe == l.numero) 0 else l.numero; asignandoA = 0; liberando = 0; editandoA = 0
-                                            f_prestamo = l.fechaPrestamoLlave; f_devolucion = l.fechaDevolucionLlave }
+                                            f_prestamo = l.fechaPrestamoLlave; f_devolucion = l.fechaDevolucionLlave; k_llave = l.llaveCopia.ifBlank { "Si" } }
                                     }) { Text("Llave") }
                                     Button({
                                         style { padding(4.px, 10.px); backgroundColor(Color("#dc2626")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer") }
@@ -425,6 +426,10 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                     if (llaveDe == l.numero) {
                         Tr { Td({ attr("colspan", "9"); style { padding(12.px); backgroundColor(Color("#f5f3ff")) } }) {
                             Div({ style { display(DisplayStyle.Flex); gap(8.px); flexWrap(FlexWrap.Wrap) } }) {
+                                Select({ style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") }; onChange { k_llave = it.value ?: "Si" } }) {
+                                    Option("Si", { if (k_llave == "Si") attr("selected", "selected") }) { Text("Llave copia: Sí") }
+                                    Option("No", { if (k_llave == "No") attr("selected", "selected") }) { Text("Llave copia: No") }
+                                }
                                 Input(InputType.Text) { placeholder("Préstamo de llave (dd/MM/aaaa)"); value(f_prestamo); onInput { f_prestamo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(210.px) } }
                                 Input(InputType.Text) { placeholder("Devolución de llave (dd/MM/aaaa)"); value(f_devolucion); onInput { f_devolucion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
                                 Button({
@@ -436,7 +441,7 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                                             try {
                                                 val r = client.put("$BACKEND_URL/api/v1/lockers/${l.numero}/llave") {
                                                     contentType(ContentType.Application.Json)
-                                                    setBody(LockerKeyRequest(fechaPrestamoLlave = f_prestamo.trim(), fechaDevolucionLlave = f_devolucion.trim()))
+                                                    setBody(LockerKeyRequest(fechaPrestamoLlave = f_prestamo.trim(), fechaDevolucionLlave = f_devolucion.trim(), llaveCopia = k_llave))
                                                 }
                                                 if (r.status.value in 200..299) { notice = "Llave del casillero ${l.numero} actualizada."; llaveDe = 0; refresh() }
                                                 else mostrarError(r, "No se pudo actualizar la llave")

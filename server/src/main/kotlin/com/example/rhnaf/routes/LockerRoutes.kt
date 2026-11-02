@@ -325,16 +325,24 @@ fun Route.lockerRouting() {
                 if (!fechaValida(req.fechaPrestamoLlave) || !fechaValida(req.fechaDevolucionLlave)) {
                     return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Fecha inválida (dd/MM/aaaa)"))
                 }
+                // Llave copia: Si / No. Vacio significa "no cambiar".
+                val llaveNueva = req.llaveCopia.trim().lowercase()
+                if (llaveNueva.isNotBlank() && llaveNueva != "si" && llaveNueva != "no") {
+                    return@safeApiCall call.respond(HttpStatusCode.BadRequest, mapOf("status" to "error", "message" to "Llave copia debe ser Si o No"))
+                }
+                val llaveValor = when (llaveNueva) { "si" -> "Si"; "no" -> "No"; else -> null }
                 val ok = DatabaseFactory.dbQuery {
                     val row = LockerTable.selectAll().where { LockerTable.numero eq numero }.singleOrNull() ?: return@dbQuery false
                     if (row[LockerTable.estado] != "Asignado") return@dbQuery false
                     LockerTable.update({ LockerTable.numero eq numero }) {
                         it[fechaPrestamoLlave] = req.fechaPrestamoLlave
                         it[fechaDevolucionLlave] = req.fechaDevolucionLlave
+                        if (llaveValor != null) it[llaveCopia] = llaveValor
                     }
                     LockerHistoryTable.update({ (LockerHistoryTable.numero eq numero) and (LockerHistoryTable.fechaFin eq "") }) {
                         it[fechaPrestamoLlave] = req.fechaPrestamoLlave
                         it[fechaDevolucionLlave] = req.fechaDevolucionLlave
+                        if (llaveValor != null) it[LockerHistoryTable.llaveCopia] = llaveValor
                     }
                     true
                 }
