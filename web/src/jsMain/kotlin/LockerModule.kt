@@ -50,6 +50,100 @@ private suspend fun subirArchivoLockers(path: String, file: org.w3c.files.File, 
 
 private fun fechaOk(s: String) = s.isBlank() || Regex("""^\d{2}/\d{2}/\d{4}$""").matches(s)
 
+// Conversion entre el valor del selector nativo de fecha (aaaa-mm-dd) y el
+// formato que guarda la base (dd/MM/aaaa).
+private fun isoDeDdmm(s: String): String {
+    val m = Regex("""^(\d{2})/(\d{2})/(\d{4})$""").find(s.trim()) ?: return ""
+    return "${m.groupValues[3]}-${m.groupValues[2]}-${m.groupValues[1]}"
+}
+
+private fun ddmmDeIso(iso: String): String {
+    val m = Regex("""^(\d{4})-(\d{2})-(\d{2})$""").find(iso.trim()) ?: return ""
+    return "${m.groupValues[3]}/${m.groupValues[2]}/${m.groupValues[1]}"
+}
+
+// Ventana emergente usada para capturar datos de un casillero. En telefono y
+// tablet el formulario dentro de la tabla quedaba fuera de la pantalla; asi
+// el panel siempre se ve completo y se puede desplazar.
+@Composable
+private fun LockerModal(titulo: String, subtitulo: String, onClose: () -> Unit, contenido: @Composable () -> Unit) {
+    Div({
+        style {
+            position(Position.Fixed); top(0.px); left(0.px)
+            width(100.vw); height(100.vh)
+            backgroundColor(Color("rgba(15,23,42,0.6)"))
+            display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.Center)
+            padding(12.px); property("box-sizing", "border-box"); property("z-index", "1200")
+        }
+    }) {
+        Div({
+            style {
+                backgroundColor(Color.white); borderRadius(12.px)
+                width(560.px); maxWidth("96vw"); maxHeight("90vh"); overflowY("auto")
+                padding(18.px); property("box-sizing", "border-box")
+                property("box-shadow", "0 24px 48px rgba(0,0,0,0.35)")
+            }
+        }) {
+            Div({ style { display(DisplayStyle.Flex); alignItems(AlignItems.Center); justifyContent(JustifyContent.SpaceBetween); marginBottom(12.px); gap(8.px) } }) {
+                Div {
+                    Div({ style { fontWeight("700"); fontSize(16.px); color(Color("#0f172a")) } }) { Text(titulo) }
+                    if (subtitulo.isNotBlank()) {
+                        Div({ style { fontSize(12.px); color(Color("#64748b")); marginTop(2.px) } }) { Text(subtitulo) }
+                    }
+                }
+                Button({
+                    style {
+                        padding(2.px, 9.px); backgroundColor(Color("#e2e8f0")); color(Color("#0f172a"))
+                        property("border", "none"); borderRadius(6.px); cursor("pointer"); fontSize(16.px)
+                    }
+                    onClick { onClose() }
+                }) { Text("\u2715") }
+            }
+            contenido()
+        }
+    }
+}
+
+@Composable
+private fun ModalEtiqueta(texto: String) {
+    Div({ style { fontSize(12.px); fontWeight("600"); color(Color("#475569")); marginBottom(4.px) } }) { Text(texto) }
+}
+
+// Campo de texto del modal. fontSize 16 evita que iOS haga zoom al enfocar.
+@Composable
+private fun ModalCampo(etiqueta: String, valor: String, onValor: (String) -> Unit, marcador: String = "") {
+    Div({ style { marginBottom(10.px) } }) {
+        ModalEtiqueta(etiqueta)
+        Input(InputType.Text) {
+            if (marcador.isNotBlank()) placeholder(marcador)
+            value(valor)
+            onInput { onValor(it.value) }
+            style {
+                width(100.percent); padding(10.px); borderRadius(8.px)
+                property("border", "1px solid #cbd5e1"); fontSize(16.px)
+                property("box-sizing", "border-box"); backgroundColor(Color.white)
+            }
+        }
+    }
+}
+
+// Campo de fecha con calendario nativo del telefono/tablet.
+@Composable
+private fun ModalFecha(etiqueta: String, valorDdmm: String, onValor: (String) -> Unit) {
+    Div({ style { marginBottom(10.px) } }) {
+        ModalEtiqueta("$etiqueta (dd/MM/aaaa)")
+        Input(InputType.Date) {
+            value(isoDeDdmm(valorDdmm))
+            onInput { onValor(ddmmDeIso(it.value)) }
+            style {
+                width(100.percent); padding(10.px); borderRadius(8.px)
+                property("border", "1px solid #cbd5e1"); fontSize(16.px)
+                property("box-sizing", "border-box"); backgroundColor(Color.white)
+            }
+        }
+    }
+}
+
 @Composable
 fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
     var lockers by remember { mutableStateOf(emptyList<Locker>()) }
@@ -82,7 +176,18 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
     var llaveDe by remember { mutableStateOf(0) }
     var f_prestamo by remember { mutableStateOf("") }
     var f_devolucion by remember { mutableStateOf("") }
-    var k_llave by remember { mutableStateOf("Si") }   // llave copia: Si / No
+    var k_llave by remember { mutableStateOf("Si") }
+    var panelMsg by remember { mutableStateOf("") }
+    // En telefono la tabla de 9 columnas obliga a desplazarse de lado para
+    // llegar a los botones. En pantalla angosta se muestran solo las columnas
+    // esenciales y las acciones quedan a la vista.
+    var esAngosto by remember { mutableStateOf(window.innerWidth < 1000) }
+    DisposableEffect(Unit) {
+        val onResize: (org.w3c.dom.events.Event) -> Unit = { esAngosto = window.innerWidth < 1000 }
+        window.addEventListener("resize", onResize)
+        onDispose { window.removeEventListener("resize", onResize) }
+    }
+    val colSpan = if (esAngosto) 5 else 9   // llave copia: Si / No
     var liberando by remember { mutableStateOf(0) }
     var f_motivo by remember { mutableStateOf("") }
     var nuevoNumero by remember { mutableStateOf("") }
@@ -288,10 +393,16 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
         }
 
         // ===================== TABLA =====================
-        Table({ style { width(100.percent); property("border-collapse", "collapse"); backgroundColor(Color.white); borderRadius(8.px); property("border", "1px solid #e2e8f0") } }) {
+        Div({ style { width(100.percent); overflowX("auto"); property("-webkit-overflow-scrolling", "touch") } }) {
+        Table({ style { width(100.percent); minWidth(if (esAngosto) 480.px else 980.px); property("border-collapse", "collapse"); backgroundColor(Color.white); borderRadius(8.px); property("border", "1px solid #e2e8f0") } }) {
             Thead {
                 Tr({ style { property("border-bottom", "2px solid #e2e8f0"); textAlign("left") } }) {
-                    listOf("N°", "N° Empleado", "Nombre completo", "Entrega de locker", "Llave copia", "Préstamo llave", "Devolución llave", "Estado", "").forEach {
+                    val columnas = if (esAngosto) {
+                        listOf("N°", "Empleado", "Llave", "Estado", "Acciones")
+                    } else {
+                        listOf("N°", "N° Empleado", "Nombre completo", "Entrega de locker", "Llave copia", "Préstamo llave", "Devolución llave", "Estado", "")
+                    }
+                    columnas.forEach {
                         Th({ style { padding(8.px, 10.px); fontSize(12.px); color(Color("#64748b")) } }) { Text(it) }
                     }
                 }
@@ -303,12 +414,18 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                     val resaltar = ocupado && l.llaveCopia == "No"
                     Tr({ style { property("border-bottom", "1px solid #f1f5f9"); if (resaltar) backgroundColor(Color("#fee2e2")) } }) {
                         Td({ style { padding(8.px, 10.px); fontWeight("700") } }) { Text(l.numero.toString()) }
-                        Td({ style { padding(8.px, 10.px) } }) { Text(l.employeeId.ifBlank { "-" }) }
+                        if (!esAngosto) {
+                            Td({ style { padding(8.px, 10.px) } }) { Text(l.employeeId.ifBlank { "-" }) }
+                        }
                         Td({ style { padding(8.px, 10.px) } }) { Text(if (ocupado) l.nombre else "—") }
-                        Td({ style { padding(8.px, 10.px); fontSize(13.px) } }) { Text(l.fechaCandado.ifBlank { "-" }) }
+                        if (!esAngosto) {
+                            Td({ style { padding(8.px, 10.px); fontSize(13.px) } }) { Text(l.fechaCandado.ifBlank { "-" }) }
+                        }
                         Td({ style { padding(8.px, 10.px) } }) { Text(if (ocupado) l.llaveCopia else "-") }
-                        Td({ style { padding(8.px, 10.px); fontSize(13.px) } }) { Text(l.fechaPrestamoLlave.ifBlank { "-" }) }
-                        Td({ style { padding(8.px, 10.px); fontSize(13.px) } }) { Text(l.fechaDevolucionLlave.ifBlank { "-" }) }
+                        if (!esAngosto) {
+                            Td({ style { padding(8.px, 10.px); fontSize(13.px) } }) { Text(l.fechaPrestamoLlave.ifBlank { "-" }) }
+                            Td({ style { padding(8.px, 10.px); fontSize(13.px) } }) { Text(l.fechaDevolucionLlave.ifBlank { "-" }) }
+                        }
                         Td({ style { padding(8.px, 10.px) } }) {
                             Span({ style { backgroundColor(Color(if (ocupado) "#b45309" else "#047857")); color(Color.white); padding(2.px, 8.px); borderRadius(10.px); fontSize(11.px) } }) {
                                 Text(if (ocupado) "Asignado" else "Libre")
@@ -332,7 +449,7 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                                 Button({
                                     style { padding(4.px, 10.px); backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); marginRight(4.px) }
                                     onClick { asignandoA = if (asignandoA == l.numero) 0 else l.numero; liberando = 0; llaveDe = 0; editandoA = 0
-                                        f_empId = ""; f_nombre = ""; f_candado = ""; f_llave = "Si" }
+                                        f_empId = ""; f_nombre = ""; f_candado = ""; f_llave = "Si"; panelMsg = "" }
                                 }) { Text(if (ocupado) "Reasignar" else "Asignar") }
                                 if (ocupado) {
                                     Button({
@@ -342,7 +459,7 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                                     }) { Text("Editar") }
                                     Button({
                                         style { padding(4.px, 10.px); backgroundColor(Color("#7c3aed")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); marginRight(4.px) }
-                                        onClick { llaveDe = if (llaveDe == l.numero) 0 else l.numero; asignandoA = 0; liberando = 0; editandoA = 0
+                                        onClick { llaveDe = if (llaveDe == l.numero) 0 else l.numero; asignandoA = 0; liberando = 0; editandoA = 0; panelMsg = ""
                                             f_prestamo = l.fechaPrestamoLlave; f_devolucion = l.fechaDevolucionLlave; k_llave = l.llaveCopia.ifBlank { "Si" } }
                                     }) { Text("Llave") }
                                     Button({
@@ -356,7 +473,7 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
 
                     // ---------- formularios en linea ----------
                     if (editandoA == l.numero) {
-                        Tr { Td({ attr("colspan", "9"); style { padding(12.px); backgroundColor(Color("#ecfeff")) } }) {
+                        Tr { Td({ attr("colspan", colSpan.toString()); style { padding(12.px); backgroundColor(Color("#ecfeff")) } }) {
                             P({ style { margin(0.px, 0.px, 8.px, 0.px); fontSize(13.px); color(Color("#0e7490")) } }) {
                                 Text("Edita los datos del titular vigente del casillero ${l.numero} (sin abrir bitácora nueva).")
                             }
@@ -390,62 +507,107 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                         } }
                     }
                     if (asignandoA == l.numero) {
-                        Tr { Td({ attr("colspan", "9"); style { padding(12.px); backgroundColor(Color("#eff6ff")) } }) {
-                            if (ocupado) P({ style { margin(0.px, 0.px, 8.px, 0.px); fontSize(13.px); color(Color("#b45309")) } }) {
-                                Text("Al reasignar, ${l.nombre} queda registrado en la bitácora como anterior titular del casillero ${l.numero}.")
-                            }
-                            Div({ style { display(DisplayStyle.Flex); gap(8.px); flexWrap(FlexWrap.Wrap) } }) {
-                                Input(InputType.Text) { placeholder("N° empleado"); value(f_empId); onInput { f_empId = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(120.px) } }
-                                Input(InputType.Text) { placeholder("Nombre completo *"); value(f_nombre); onInput { f_nombre = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(240.px) } }
-                                Input(InputType.Text) { placeholder("Entrega de locker (dd/MM/aaaa)"); value(f_candado); onInput { f_candado = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(190.px) } }
-                                Select({ style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") }; onChange { f_llave = it.value ?: "Si" } }) {
-                                    Option("Si") { Text("Llave copia: Sí") }
-                                    Option("No") { Text("Llave copia: No") }
+                        Tr { Td({ attr("colspan", colSpan.toString()); style { padding(0.px) } }) {
+                            LockerModal(
+                                "Asignar casillero ${l.numero}",
+                                if (ocupado) "Al guardar, ${l.nombre} queda en la bitácora como anterior titular." else "Captura el nuevo titular del casillero.",
+                                { asignandoA = 0 }
+                            ) {
+                                ModalCampo("N° empleado (opcional)", f_empId, { f_empId = it }, "Ej. 1123")
+                                ModalCampo("Nombre completo *", f_nombre, { f_nombre = it }, "Nombre y apellidos")
+                                ModalFecha("Entrega de locker", f_candado, { f_candado = it })
+                                Div({ style { marginBottom(10.px) } }) {
+                                    ModalEtiqueta("Llave copia (¿tiene llave del locker?)")
+                                    Select({
+                                        style {
+                                            width(100.percent); padding(10.px); borderRadius(8.px)
+                                            property("border", "1px solid #cbd5e1"); fontSize(16.px)
+                                            property("box-sizing", "border-box")
+                                        }
+                                        onChange { f_llave = it.value ?: "Si" }
+                                    }) {
+                                        Option("Si", { if (f_llave == "Si") attr("selected", "selected") }) { Text("Sí, tiene llave") }
+                                        Option("No", { if (f_llave == "No") attr("selected", "selected") }) { Text("No tiene llave") }
+                                    }
+                                }
+                                if (panelMsg.isNotBlank()) {
+                                    P({ style { margin(0.px, 0.px, 10.px, 0.px); fontSize(13.px); color(Color("#b91c1c")); fontWeight("600") } }) { Text(panelMsg) }
                                 }
                                 Button({
-                                    style { padding(8.px, 16.px); backgroundColor(Color("#2563eb")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("600") }
+                                    style {
+                                        width(100.percent); padding(12.px); backgroundColor(Color("#2563eb")); color(Color.white)
+                                        property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("700"); fontSize(15.px)
+                                    }
                                     onClick {
-                                        error = ""; notice = ""
-                                        if (f_nombre.isBlank()) { error = "El nombre es obligatorio."; return@onClick }
-                                        if (!fechaOk(f_candado.trim())) { error = "La fecha de entrega de locker debe ser dd/MM/aaaa."; return@onClick }
+                                        panelMsg = ""
+                                        if (f_nombre.isBlank()) { panelMsg = "El nombre es obligatorio."; return@onClick }
+                                        if (!fechaOk(f_candado.trim())) { panelMsg = "La fecha debe ser dd/mm/aaaa."; return@onClick }
                                         scope.launch {
                                             try {
                                                 val r = client.put("$BACKEND_URL/api/v1/lockers/${l.numero}/asignar") {
                                                     contentType(ContentType.Application.Json)
                                                     setBody(LockerAssignRequest(employeeId = f_empId.trim(), nombre = f_nombre.trim(), fechaCandado = f_candado.trim(), llaveCopia = f_llave))
                                                 }
-                                                if (r.status.value in 200..299) { notice = "Casillero ${l.numero} asignado a ${f_nombre.trim()}."; asignandoA = 0; refresh() }
-                                                else mostrarError(r, "No se pudo asignar")
-                                            } catch (e: Exception) { error = "Error: ${e.message}" }
+                                                if (r.status.value in 200..299) {
+                                                    notice = "Casillero ${l.numero} asignado a ${f_nombre.trim()}."
+                                                    panelMsg = ""; asignandoA = 0; refresh()
+                                                } else {
+                                                    panelMsg = "No se pudo asignar (error ${r.status.value})."
+                                                }
+                                            } catch (e: Exception) { panelMsg = "Error de conexión: ${e.message}" }
                                         }
                                     }
-                                }) { Text("Guardar") }
+                                }) { Text("Guardar asignación") }
                             }
                         } }
                     }
                     if (llaveDe == l.numero) {
-                        Tr { Td({ attr("colspan", "9"); style { padding(12.px); backgroundColor(Color("#f5f3ff")) } }) {
-                            Div({ style { display(DisplayStyle.Flex); gap(8.px); flexWrap(FlexWrap.Wrap) } }) {
-                                Select({ style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1") }; onChange { k_llave = it.value ?: "Si" } }) {
-                                    Option("Si", { if (k_llave == "Si") attr("selected", "selected") }) { Text("Llave copia: Sí") }
-                                    Option("No", { if (k_llave == "No") attr("selected", "selected") }) { Text("Llave copia: No") }
+                        Tr { Td({ attr("colspan", colSpan.toString()); style { padding(0.px) } }) {
+                            LockerModal(
+                                "Llave del casillero ${l.numero}",
+                                if (l.nombre.isNotBlank()) "Titular: ${l.nombre}" else "",
+                                { llaveDe = 0 }
+                            ) {
+                                Div({ style { marginBottom(10.px) } }) {
+                                    ModalEtiqueta("¿Tiene llave del locker?")
+                                    Select({
+                                        style {
+                                            width(100.percent); padding(10.px); borderRadius(8.px)
+                                            property("border", "1px solid #cbd5e1"); fontSize(16.px)
+                                            property("box-sizing", "border-box")
+                                        }
+                                        onChange { k_llave = it.value ?: "Si" }
+                                    }) {
+                                        Option("Si", { if (k_llave == "Si") attr("selected", "selected") }) { Text("Sí, tiene llave") }
+                                        Option("No", { if (k_llave == "No") attr("selected", "selected") }) { Text("No tiene llave") }
+                                    }
                                 }
-                                Input(InputType.Text) { placeholder("Préstamo de llave (dd/MM/aaaa)"); value(f_prestamo); onInput { f_prestamo = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(210.px) } }
-                                Input(InputType.Text) { placeholder("Devolución de llave (dd/MM/aaaa)"); value(f_devolucion); onInput { f_devolucion = it.value }; style { padding(8.px); borderRadius(6.px); property("border", "1px solid #cbd5e1"); width(220.px) } }
+                                ModalFecha("Préstamo de llave", f_prestamo, { f_prestamo = it })
+                                ModalFecha("Devolución de llave", f_devolucion, { f_devolucion = it })
+                                if (panelMsg.isNotBlank()) {
+                                    P({ style { margin(0.px, 0.px, 10.px, 0.px); fontSize(13.px); color(Color("#b91c1c")); fontWeight("600") } }) { Text(panelMsg) }
+                                }
                                 Button({
-                                    style { padding(8.px, 16.px); backgroundColor(Color("#7c3aed")); color(Color.white); property("border", "none"); borderRadius(6.px); cursor("pointer"); fontWeight("600") }
+                                    style {
+                                        width(100.percent); padding(12.px); backgroundColor(Color("#7c3aed")); color(Color.white)
+                                        property("border", "none"); borderRadius(8.px); cursor("pointer"); fontWeight("700"); fontSize(15.px)
+                                    }
                                     onClick {
-                                        error = ""; notice = ""
-                                        if (!fechaOk(f_prestamo.trim()) || !fechaOk(f_devolucion.trim())) { error = "Las fechas deben ser dd/MM/aaaa."; return@onClick }
+                                        panelMsg = ""
+                                        if (!fechaOk(f_prestamo.trim()) || !fechaOk(f_devolucion.trim())) { panelMsg = "Revisa las fechas."; return@onClick }
                                         scope.launch {
                                             try {
                                                 val r = client.put("$BACKEND_URL/api/v1/lockers/${l.numero}/llave") {
                                                     contentType(ContentType.Application.Json)
                                                     setBody(LockerKeyRequest(fechaPrestamoLlave = f_prestamo.trim(), fechaDevolucionLlave = f_devolucion.trim(), llaveCopia = k_llave))
                                                 }
-                                                if (r.status.value in 200..299) { notice = "Llave del casillero ${l.numero} actualizada."; llaveDe = 0; refresh() }
-                                                else mostrarError(r, "No se pudo actualizar la llave")
-                                            } catch (e: Exception) { error = "Error: ${e.message}" }
+                                                if (r.status.value in 200..299) {
+                                                    notice = "Llave del casillero ${l.numero} actualizada."
+                                                    panelMsg = ""; llaveDe = 0; refresh()
+                                                } else {
+                                                    panelMsg = "No se pudo actualizar (error ${r.status.value})."
+                                                }
+                                            } catch (e: Exception) { panelMsg = "Error de conexión: ${e.message}" }
                                         }
                                     }
                                 }) { Text("Guardar llave") }
@@ -453,7 +615,7 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                         } }
                     }
                     if (liberando == l.numero) {
-                        Tr { Td({ attr("colspan", "9"); style { padding(12.px); backgroundColor(Color("#fef2f2")) } }) {
+                        Tr { Td({ attr("colspan", colSpan.toString()); style { padding(12.px); backgroundColor(Color("#fef2f2")) } }) {
                             P({ style { margin(0.px, 0.px, 8.px, 0.px); fontSize(13.px); color(Color("#991b1b")) } }) {
                                 Text("${l.nombre} quedará en la bitácora como anterior titular del casillero ${l.numero}. El registro NO se borra.")
                             }
@@ -480,6 +642,7 @@ fun LockerModule(client: HttpClient, scope: CoroutineScope, canEdit: Boolean) {
                     }
                 }
             }
+        }
         }
 
         // ===================== BITACORA =====================

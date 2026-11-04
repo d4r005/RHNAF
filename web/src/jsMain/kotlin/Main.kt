@@ -931,21 +931,107 @@ fun main() {
                 }
             }
         } else {
+            // --- RESPONSIVO ---
+            // En telefono/tablet el sidebar de 270px dejaba ~110px de contenido:
+            // las tablas y los paneles de captura (ej. lockers) quedaban fuera de
+            // la pantalla y no se podia pulsar "Guardar". En pantallas angostas el
+            // sidebar se vuelve un cajon superpuesto y el contenido ocupa todo.
+            var esMovil by remember { mutableStateOf(window.innerWidth < 1000) }
+            var sidebarAbierto by remember { mutableStateOf(false) }
+            DisposableEffect(Unit) {
+                val onResize: (org.w3c.dom.events.Event) -> Unit = {
+                    esMovil = window.innerWidth < 1000
+                    if (!esMovil) sidebarAbierto = false
+                }
+                window.addEventListener("resize", onResize)
+                onDispose { window.removeEventListener("resize", onResize) }
+            }
+
             Div({
                 style {
                     display(DisplayStyle.Flex)
                     height(100.vh)
                     fontFamily("Inter", "Segoe UI", "sans-serif")
                     backgroundColor(BackgroundColor)
+                    property("overflow", "hidden")
                 }
             }) {
-                // SIDEBAR
-                Sidebar(activeModule, t, userRole) { 
-                    activeModule = it 
+                // SIDEBAR: fijo en escritorio, cajon deslizable en movil
+                if (!esMovil) {
+                    Sidebar(activeModule, t, userRole) {
+                        activeModule = it
+                    }
+                } else if (sidebarAbierto) {
+                    // Fondo oscuro: tocar fuera cierra el menu
+                    Div({
+                        style {
+                            position(Position.Fixed); top(0.px); left(0.px)
+                            width(100.vw); height(100.vh)
+                            backgroundColor(Color("rgba(0,0,0,0.55)"))
+                            property("z-index", "998")
+                        }
+                        onClick { sidebarAbierto = false }
+                    })
+                    Div({
+                        style {
+                            position(Position.Fixed); top(0.px); left(0.px)
+                            height(100.vh); property("z-index", "999")
+                            property("box-shadow", "8px 0 24px rgba(0,0,0,0.35)")
+                        }
+                    }) {
+                        Sidebar(activeModule, t, userRole) {
+                            activeModule = it
+                            sidebarAbierto = false
+                        }
+                    }
                 }
 
                 // CONTENIDO PRINCIPAL
-                Div({ style { flex(1); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column); overflowY("auto") } }) {
+                Div({ style {
+                    flex(1); display(DisplayStyle.Flex); flexDirection(FlexDirection.Column)
+                    overflowY("auto"); overflowX("hidden")
+                    property("min-width", "0")
+                } }) {
+                    if (esMovil) {
+                        Div({
+                            style {
+                                display(DisplayStyle.Flex); alignItems(AlignItems.Center); gap(10.px)
+                                padding(10.px, 14.px); backgroundColor(SidebarColor)
+                                property("position", "sticky"); property("top", "0"); property("z-index", "900")
+                            }
+                        }) {
+                            Button({
+                                style {
+                                    padding(8.px, 12.px); backgroundColor(Color("#1e293b")); color(Color.white)
+                                    property("border", "1px solid #334155"); borderRadius(8.px)
+                                    fontSize(18.px); lineHeight("1"); cursor("pointer")
+                                }
+                                onClick { sidebarAbierto = true }
+                            }) { Text("☰") }
+                            Span({ style { color(Color.white); fontWeight("700"); fontSize(15.px) } }) { Text("RHNAF") }
+                            Div({ style { flex(1) } }) {}
+                            // En movil el TopBar (con el boton de salir) esta oculto:
+                            // se deja aqui el acceso para cerrar sesion.
+                            Button({
+                                style {
+                                    padding(8.px, 12.px); backgroundColor(Color("#1e293b")); color(Color("#fecaca"))
+                                    property("border", "1px solid #334155"); borderRadius(8.px)
+                                    fontSize(13.px); fontWeight("600"); cursor("pointer")
+                                }
+                                onClick {
+                                    authToken = ""
+                                    apiAuthToken = ""
+                                    window.localStorage.removeItem("naf_user_name")
+                                    window.localStorage.removeItem("naf_user_avatar")
+                                    isLoggedIn = false
+                                    activeModule = Module.DASHBOARD
+                                    userRole = UserRole.EMPLEADO
+                                    employees = emptyList()
+                                }
+                            }) { Text("Salir") }
+                        }
+                    }
+                    if (!esMovil) {
                     TopBar(userName, userRole.name, userAvatar, t) {
                 EhsAlertBell(client, userRole == UserRole.ADMIN || userRole == UserRole.SEGURIDAD) { activeModule = Module.EHS_ALERTS }
                 // Cerrar sesion: limpia el token y los datos de sesion del navegador.
@@ -967,8 +1053,9 @@ fun main() {
                     }
                 }) { Text(t.get("logout")) }
             }
+                    }
 
-                    Div({ style { padding(32.px) } }) {
+                    Div({ style { padding(if (esMovil) 12.px else 32.px); property("min-width", "0") } }) {
                         when (activeModule) {
                             Module.DASHBOARD -> DashboardView(employees, t)
                             Module.EHS_HOME -> EhsHomeModule(userRole) { activeModule = it }
